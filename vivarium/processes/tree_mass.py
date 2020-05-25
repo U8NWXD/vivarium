@@ -27,10 +27,13 @@ class TreeMass(Deriver):
     """
 
     defaults = {
-        'from_path': ('..', '..')}
+        'from_path': ('..', '..'),
+        'initial_mass': 0.0 * units.fg,  # wet mass in fg
+    }
 
     def __init__(self, initial_parameters={}):
         self.from_path = self.or_default(initial_parameters, 'from_path')
+        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
 
         ports = {
             'global': [
@@ -42,7 +45,7 @@ class TreeMass(Deriver):
         return {
             'global': {
                 'mass': {
-                    '_default': 0,
+                    '_default': self.initial_mass.magnitude,
                     '_updater': 'set'}}}
 
     def next_update(self, timestep, states):

@@ -19,7 +19,6 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
@@ -40,7 +39,7 @@ from vivarium.utils.make_network import (
 from vivarium.data.synonyms import get_synonym
 from vivarium.utils.units import units
 from vivarium.utils.cobra_fba import CobraFBA
-from vivarium.utils.dict_utils import tuplify_port_dicts, deep_merge
+from vivarium.utils.dict_utils import tuplify_port_dicts
 from vivarium.utils.regulation_logic import build_rule
 from vivarium.processes.derive_globals import AVOGADRO
 
@@ -161,8 +160,8 @@ class Metabolism(Process):
         scaling_factor = (initial_metabolite_mass / composition_mass).magnitude
         internal_state = {mol_id: int(coeff * scaling_factor)
             for mol_id, coeff in composition.items()}
-        initial_mass = get_fg_from_counts(internal_state, mw)
-        print('metabolism initial mass: {}'.format(initial_mass))
+        self.initial_mass = get_fg_from_counts(internal_state, mw)
+        print('metabolism initial mass: {}'.format(self.initial_mass))
 
         ## Get external state from minimal_external fba solution
         external_state = {state_id: 0.0 for state_id in self.fba.external_molecules}
@@ -200,38 +199,36 @@ class Metabolism(Process):
         super(Metabolism, self).__init__(ports, parameters)
 
     def ports_schema(self):
-        set_emit = {
+        emit = {
             'internal': self.internal_state_ids,
             'external': self.fba.external_molecules,
             'reactions': self.reaction_ids,
             'flux_bounds': self.constrained_reaction_ids,
             'global': ['mass']}
+        set_mass = {
+            'internal': {
+                mol_id: self.fba.molecular_weights[mol_id]
+                for mol_id in self.internal_state_ids}}
+        set_updater = {
+            'reactions': self.reaction_ids}
 
-        # make the schema
-        schema = {
-            'internal': {mol_id: {
-                    '_properties': {
-                        'mass': self.fba.molecular_weights[mol_id]}}
-                for mol_id in self.internal_state_ids},
-            'reactions': {rxn_id: {
-                    '_updater': 'set',
-                    '_divider': 'set'}
-                for rxn_id in self.reaction_ids}}
-        state_schema = {
-            port: {
-                state_id: {
-                    '_default': value}
-                for state_id, value in states.items()}
-            for port, states in self.initial_state.items()}
-        emit_schema = {
-            port: {
-                state_id: {
-                    '_emit': True}
-                for state_id in states}
-            for port, states in set_emit.items()}
-
-        schema = deep_merge(schema, state_schema)
-        schema = deep_merge(schema, emit_schema)
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state_id in states:
+                schema[port][state_id] = {}
+                if port in set_updater:
+                    if state_id in set_updater[port]:
+                        schema[port][state_id]['_updater'] = 'set'
+                if port in emit:
+                    if state_id in emit[port]:
+                        schema[port][state_id]['_emit'] = True
+                if port in self.initial_state:
+                    if state_id in self.initial_state[port]:
+                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+                if port in set_mass:
+                    if state_id in set_mass[port]:
+                        schema[port][state_id]['_properties'] = {'mass': set_mass[port][state_id]}
         return schema
 
     def derivers(self):
@@ -240,13 +237,16 @@ class Metabolism(Process):
                 'deriver': 'globals',
                 'port_mapping': {
                     'global': 'global'},
-                'config': {}},
+                'config': {
+                    'initial_mass': self.initial_mass
+                }},
             self.mass_deriver_key: {
                 'deriver': 'mass',
                 'port_mapping': {
                     'global': 'global'},
                 'config': {
-                    'from_path': ('..', '..')
+                    'from_path': ('..', '..'),
+                    'initial_mass': self.initial_mass
                 }}}
 
     def next_update(self, timestep, states):
@@ -473,8 +473,6 @@ def run_metabolism(metabolism, settings):
         'states': ['glc__D_e', 'lcts_e'],
         'environment_port': 'external',
         'exchange_port': 'exchange'}
-    # import ipdb; ipdb.set_trace()
-
 
     return simulate_process_in_experiment(metabolism, sim_settings)
 
@@ -684,18 +682,10 @@ if __name__ == '__main__':
         # run simulation
         timeseries = run_metabolism(metabolism, sim_settings)
         save_timeseries(timeseries, out_dir)
-
-
-
-        import ipdb; ipdb.set_trace()
-
-
         volume_ts = timeseries['global']['volume']
         mass_ts = timeseries['global']['mass']
         print('volume growth: {}'.format(volume_ts[-1] / volume_ts[0]))
         print('mass growth: {}'.format(mass_ts[-1] / mass_ts[0]))
-
-
 
         # plot settings
         plot_settings = {

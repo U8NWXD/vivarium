@@ -434,13 +434,8 @@ def simulate_experiment(experiment, settings={}):
     total_time = settings.get('total_time', 10)
     return_raw_data = settings.get('return_raw_data', False)
 
-    # # run simulation
-    # experiment.update(total_time)
-
-    time = 0
-    while time < total_time:
-        time += timestep
-        experiment.update(timestep)
+    # run simulation
+    experiment.update_interval(total_time, timestep)
 
     if return_raw_data:
         return experiment.emitter.get_data()

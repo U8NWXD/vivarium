@@ -56,11 +56,13 @@ class DeriveGlobals(Deriver):
 
     defaults = {
         'width': 1,  # um
+        'initial_mass': 1339 * units.fg,  # wet mass in fg
     }
 
     def __init__(self, initial_parameters={}):
 
         self.width = initial_parameters.get('width', self.defaults['width'])
+        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
 
         ports = {
             'global': [
@@ -80,10 +82,10 @@ class DeriveGlobals(Deriver):
     def ports_schema(self):
         set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']
         split_divide = ['volume', 'length', 'surface_area']
-        set_emit = {'global': ['volume', 'width', 'length', 'surface_area']}
+        emit = {'global': ['volume', 'width', 'length', 'surface_area']}
 
         # default state
-        mass = 1339 * units.fg  # wet mass in fg
+        mass = self.initial_mass
         density = 1100 * units.g / units.L
         volume = mass/density
         mmol_to_counts = (AVOGADRO * volume).to('L/mmol')
@@ -92,6 +94,7 @@ class DeriveGlobals(Deriver):
 
         default_state = {
             'global': {
+                'mass': mass.magnitude,
                 'volume': volume.to('fL').magnitude,
                 'mmol_to_counts': mmol_to_counts.magnitude,
                 'density': density.magnitude,
@@ -106,7 +109,7 @@ class DeriveGlobals(Deriver):
                 schema[port][state_id] = {}
                 if state_id in set_states:
                     schema[port][state_id]['_updater'] = 'set'
-                if state_id in set_emit[port]:
+                if state_id in emit[port]:
                     schema[port][state_id]['_emit'] = True
                 if state_id in split_divide:
                     schema[port][state_id]['_divider'] = 'split'
