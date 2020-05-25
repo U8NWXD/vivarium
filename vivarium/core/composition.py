@@ -305,19 +305,8 @@ def simulate_process_with_environment(process, settings={}):
     return simulate_with_environment(compartment, settings)
 
 def simulate_process(process, settings={}):
-    timestep = settings.get('timestep', 1)
-    total_time = settings.get('total_time', 10)
-
-    # make the experiment
     experiment = process_in_experiment(process)
-
-    # run experiment
-    timestep = 1
-    time = 0
-    while time < total_time:
-        experiment.update(timestep)
-        time += timestep
-    return experiment.emitter.get_timeseries()
+    return simulate_experiment(experiment, settings)
 
 def simulate_with_environment(compartment, settings={}):
     '''

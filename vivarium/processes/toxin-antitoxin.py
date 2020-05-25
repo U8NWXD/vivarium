@@ -48,31 +48,25 @@ class ToxinAntitoxin(Process):
 
         super(ToxinAntitoxin, self).__init__(ports, parameters)
 
-    def default_settings(self):
-        # default state
-        default_state = {
-            'internal': self.defaults['initial_state']}
+    def ports_schema(self):
+        default_state = {'internal': self.defaults['initial_state']}
+        emit_port = ['internal']
+        set_update_port = ['internal']
 
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': list(self.defaults['initial_state'].keys())}
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_port:
+                for state_id in states:
+                    schema[port][state_id]['_emit'] = True
+            if port in set_update_port:
+                for state_id in states:
+                    schema[port][state_id]['_updater'] = 'set'
 
-        # schema -- define how each state is updater, divided, and its units
-        schema = {
-            'internal': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in self.ports['internal']}}
-
-        default_settings = {
-            'process_id': 'template',
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'time_step': 1.0}
-
-        return default_settings
-
+        return schema
 
     def next_update(self, timestep, states):
         internal = states['internal']
@@ -183,13 +177,8 @@ class ToxinAntitoxin(Process):
 
 
 def test_toxin_antitoxin(time=10):
-
-    # load process
     toxin_antitoxin = ToxinAntitoxin({})
-
-    settings = {
-        'total_time': time}
-
+    settings = {'total_time': time}
     return simulate_process(toxin_antitoxin, settings)
 
 
