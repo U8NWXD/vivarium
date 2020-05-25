@@ -259,16 +259,18 @@ class ConvenienceKinetics(Process):
         schema = {}
         for port, states in self.ports.items():
             schema[port] = {}
-            if port in set_ports:
-                for state_id in states:
-                    schema[port][state_id] = {'_updater': 'set'}
-            if port in emit_ports:
-                for state_id in states:
-                    schema[port][state_id] = {'_emit': True}
             for state_id in states:
+                schema[port][state_id] = {}
                 if port in self.initial_state:
                     if state_id in self.initial_state[port]:
                         schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+            if port in set_ports:
+                for state_id in states:
+                    schema[port][state_id]['_updater'] = 'set'
+            if port in emit_ports:
+                for state_id in states:
+                    schema[port][state_id]['_emit'] = True
+
         return schema
 
     def derivers(self):
