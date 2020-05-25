@@ -42,7 +42,7 @@ class Lattice(Compartment):
         self.multibody_config = config.get('multibody', self.defaults['multibody'])
         self.diffusion_config = config.get('diffusion', self.defaults['diffusion'])
 
-    def generate_processes(self, config):
+    def generate_processes(self, config={}):
         multibody = Multibody(config.get(
             'multibody',
             self.multibody_config))
@@ -54,7 +54,7 @@ class Lattice(Compartment):
             'multibody': multibody,
             'diffusion': diffusion}
 
-    def generate_topology(self, config):
+    def generate_topology(self, config={}):
         return {
             'multibody': {
                 'agents': ('agents',)},

@@ -29,9 +29,10 @@ def lattice_experiment(config):
 
     # get the environment
     environment = Lattice(config.get('environment', {}))
-    processes = environment['processes']
-    topology = environment['topology']
+    processes = environment.generate_processes()
+    topology = environment.generate_topology()
 
+    # get the agents
     growth_division = GrowthDivision({
         'cells_key': ('..', 'agents')})
     agents = make_agents(range(count), growth_division, {})
