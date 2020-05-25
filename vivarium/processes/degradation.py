@@ -92,7 +92,8 @@ class RnaDegradation(Process):
 
         super(RnaDegradation, self).__init__(self.ports, self.parameters)
 
-    def default_settings(self):
+
+    def ports_schema(self):
         default_state = {
             'transcripts': {
                 transcript: 1e3
@@ -103,25 +104,23 @@ class RnaDegradation(Process):
             'molecules': {
                 nucleotide: 1e4
                 for nucleotide in self.molecule_order}}
-
-        default_emitter_keys = {
+        emit_keys = {
             'transcripts': self.transcript_order,
             'proteins': self.protein_order,
             'molecules': self.molecule_order,
             'global': []}
 
-        # derivers
-        deriver_setting = [{
-            'type': 'globals',
-            'source_port': 'global',
-            'derived_port': 'global',
-            'keys': []}]
-
-        return {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'deriver_setting': deriver_setting,
-            'parameters': self.parameters}
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_keys:
+                for state_id in emit_keys[port]:
+                    schema[port][state_id]['_emit'] = True
+                    
+        return schema
 
     def derivers(self):
         return {
@@ -182,8 +181,7 @@ def test_rna_degradation(end_time=100):
     rna_degradation = RnaDegradation({})
     settings = {
         'timestep': 1,
-        'total_time': end_time,
-    }
+        'total_time': end_time}
     return simulate_process(rna_degradation, settings)
 
 
