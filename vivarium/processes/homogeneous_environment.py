@@ -4,12 +4,12 @@ import copy
 
 from vivarium.utils.units import units
 from vivarium.utils.dict_utils import deep_merge
-from vivarium.core.process import Process
+from vivarium.core.process import Deriver
 
 from vivarium.processes.derive_globals import AVOGADRO
 
 
-class HomogeneousEnvironment(Process):
+class HomogeneousEnvironment(Deriver):
     ''' A minimal, non-spatial environment with volume'''
 
     defaults = {
@@ -58,7 +58,7 @@ class HomogeneousEnvironment(Process):
                 update[self.environment_port][mol_id] = delta_concs
 
                 # reset exchange
-                update[self.exchange_port][mol_id] = {  # 0.0
+                update[self.exchange_port][mol_id] = {
                     '_value': 0.0,
                     '_updater': 'set'}
 
