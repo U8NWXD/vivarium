@@ -43,10 +43,7 @@ from vivarium.core.composition import (
     assert_timeseries_close,
 )
 from vivarium.utils.kinetic_rate_laws import KineticFluxModel
-from vivarium.utils.dict_utils import (
-    deep_merge,
-    tuplify_port_dicts,
-)
+from vivarium.utils.dict_utils import tuplify_port_dicts
 from vivarium.utils.units import units
 
 
@@ -259,22 +256,19 @@ class ConvenienceKinetics(Process):
         set_ports = ['fluxes']
         emit_ports = ['internal', 'external']
 
-        schema = {
-            port: {
-                state: {
-                    '_updater': 'set'}
-                for state in state_list}
-            for port, state_list in self.ports.items() if port in set_ports}
-
-        emit_schema = {
-            port: {
-                state: {
-                    '_emit': True}
-                for state in state_list}
-            for port, state_list in self.ports.items()
-            if port in emit_ports}
-
-        schema = deep_merge(schema, emit_schema)
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            if port in set_ports:
+                for state_id in states:
+                    schema[port][state_id] = {'_updater': 'set'}
+            if port in emit_ports:
+                for state_id in states:
+                    schema[port][state_id] = {'_emit': True}
+            for state_id in states:
+                if port in self.initial_state:
+                    if state_id in self.initial_state[port]:
+                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
         return schema
 
     def derivers(self):
@@ -285,18 +279,6 @@ class ConvenienceKinetics(Process):
                     'global': 'global'},
                 'config': {
                     'width': 1.0}}}
-
-    def default_settings(self):
-
-        # default state
-        default_state = self.initial_state
-
-        default_settings = {
-            'process_id': 'convenience_kinetics',
-            'state': default_state,
-            'time_step': 1.0}
-
-        return default_settings
 
     def next_update(self, timestep, states):
 

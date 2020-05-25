@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
 from vivarium.core.composition import (
+    simulate_process_in_experiment,
     simulate_process_with_environment,
     save_timeseries,
     flatten_timeseries,
@@ -38,7 +39,7 @@ from vivarium.utils.make_network import (
 from vivarium.data.synonyms import get_synonym
 from vivarium.utils.units import units
 from vivarium.utils.cobra_fba import CobraFBA
-from vivarium.utils.dict_utils import tuplify_port_dicts, deep_merge
+from vivarium.utils.dict_utils import tuplify_port_dicts
 from vivarium.utils.regulation_logic import build_rule
 from vivarium.processes.derive_globals import AVOGADRO
 
@@ -112,10 +113,15 @@ class Metabolism(Process):
         'initial_state': {},
         'exchange_threshold': 1e-6, # external concs lower than exchange_threshold are considered depleted
         'initial_mass': 1339,  # fg
+        'global_deriver_key': 'global_deriver',
+        'mass_deriver_key': 'mass_deriver',
+        'time_step': 2,
     }
 
     def __init__(self, initial_parameters={}):
         self.nAvogadro = AVOGADRO
+
+        time_step = initial_parameters.get('time_step', self.defaults['time_step'])
 
         # initialize FBA
         self.fba = CobraFBA(initial_parameters)
@@ -154,7 +160,7 @@ class Metabolism(Process):
         scaling_factor = (initial_metabolite_mass / composition_mass).magnitude
         internal_state = {mol_id: int(coeff * scaling_factor)
             for mol_id, coeff in composition.items()}
-        self.initial_mass = get_fg_from_counts(internal_state, mw).magnitude
+        self.initial_mass = get_fg_from_counts(internal_state, mw)
         print('metabolism initial mass: {}'.format(self.initial_mass))
 
         ## Get external state from minimal_external fba solution
@@ -182,50 +188,66 @@ class Metabolism(Process):
             'global': GLOBALS}
 
         ## parameters
-        parameters = {}
+        parameters = {'time_step': time_step}
         parameters.update(initial_parameters)
+
+        self.global_deriver_key = self.or_default(
+            initial_parameters, 'global_deriver_key')
+        self.mass_deriver_key = self.or_default(
+            initial_parameters, 'mass_deriver_key')
 
         super(Metabolism, self).__init__(ports, parameters)
 
-    def default_settings(self):
-
-        # default emitter keys
-        default_emitter_keys = {
+    def ports_schema(self):
+        emit = {
             'internal': self.internal_state_ids,
             'external': self.fba.external_molecules,
             'reactions': self.reaction_ids,
             'flux_bounds': self.constrained_reaction_ids,
             'global': ['mass']}
+        set_mass = {
+            'internal': {
+                mol_id: self.fba.molecular_weights[mol_id]
+                for mol_id in self.internal_state_ids}}
+        set_updater = {
+            'reactions': self.reaction_ids}
 
-        # schema
-        schema = {
-            'internal': {mol_id: {
-                    'mass': self.fba.molecular_weights[mol_id]}
-                for mol_id in self.internal_state_ids},
-            'reactions': {rxn_id: {
-                    'updater': 'set',
-                    'divide': 'set'}
-                for rxn_id in self.reaction_ids}}
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state_id in states:
+                schema[port][state_id] = {}
+                if port in set_updater:
+                    if state_id in set_updater[port]:
+                        schema[port][state_id]['_updater'] = 'set'
+                if port in emit:
+                    if state_id in emit[port]:
+                        schema[port][state_id]['_emit'] = True
+                if port in self.initial_state:
+                    if state_id in self.initial_state[port]:
+                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+                if port in set_mass:
+                    if state_id in set_mass[port]:
+                        schema[port][state_id]['_properties'] = {'mass': set_mass[port][state_id]}
+        return schema
 
-        # derivers
-        deriver_setting = [{
-            'type': 'mass',
-            'source_port': 'internal',
-            'derived_port': 'global',
-            'keys': self.internal_state_ids},
-            {
-            'type': 'globals',
-            'source_port': 'global',
-            'derived_port': 'global',
-            'keys': []}
-        ]
-
+    def derivers(self):
         return {
-            'state': self.initial_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
-            'time_step': 2}
+            self.global_deriver_key: {
+                'deriver': 'globals',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {
+                    'initial_mass': self.initial_mass
+                }},
+            self.mass_deriver_key: {
+                'deriver': 'mass',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {
+                    'from_path': ('..', '..'),
+                    'initial_mass': self.initial_mass
+                }}}
 
     def next_update(self, timestep, states):
 
@@ -417,13 +439,11 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     objective = metabolism.fba.objective
 
     settings = {
-        'environment_port': 'external',
-        'exchange_port': 'exchange',
-        'environment_volume': 1e-6,  # L
+        # 'environment_volume': 1e-6,  # L   # TODO -- bring back environment?
         'timestep': 1,
         'total_time': 10}
 
-    timeseries = simulate_process_with_environment(metabolism, settings)
+    timeseries = simulate_process_in_experiment(metabolism, settings)
     reactions = timeseries['reactions']
 
     # save fluxes as node size
@@ -444,9 +464,17 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     save_network(nodes, edges, out_dir)
 
 def run_metabolism(metabolism, settings):
+    environment_volume = settings.get('environment_volume', 1e-12)
     sim_settings = default_sim_settings
     sim_settings.update(settings)
-    return simulate_process_with_environment(metabolism, sim_settings)
+
+    environment = {
+        'volume': environment_volume,
+        'states': ['glc__D_e', 'lcts_e'],
+        'environment_port': 'external',
+        'exchange_port': 'exchange'}
+
+    return simulate_process_in_experiment(metabolism, sim_settings)
 
 # plots
 def plot_exchanges(timeseries, sim_config, out_dir='out', filename='exchanges'):
@@ -589,49 +617,27 @@ def test_toy_metabolism():
         'R4': 'if (external, O2) > 0.1 and not (external, F) < 0.1'}
 
     toy_config = get_toy_configuration()
-    transport = toy_transport()  # TODO -- this is no longer running in the test.
+    transport = toy_transport()
 
     toy_config['constrained_reaction_ids'] = list(transport.keys())
     toy_config['regulation'] = regulation_logic
     toy_metabolism = Metabolism(toy_config)
 
+    # TODO -- add molecular weights!
+
     # simulate toy model
     timeline = [
-        (10, {'external': {
-            'A': 1}}),
-        (20, {'external': {
-            'F': 0}}),
+        (10, {('external', 'A'): 1}),
+        (20, {('external', 'F'): 0}),
         (30, {})]
 
     settings = default_sim_settings
     settings.update({'timeline': timeline})
-    return simulate_process_with_environment(toy_metabolism, settings)
+    return simulate_process_in_experiment(toy_metabolism, settings)
 
 def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
     metabolism = Metabolism(config)
     run_metabolism(metabolism, settings)
-
-def test_config(config=get_toy_configuration()):
-    # configure metabolism process
-    metabolism = Metabolism(config)
-
-    print('MODEL: {}'.format(metabolism.fba.model))
-    print('REACTIONS: {}'.format(metabolism.fba.model.reactions))
-    print('METABOLITES: {}'.format(metabolism.fba.model.metabolites))
-    print('GENES: {}'.format(metabolism.fba.model.genes))
-    print('COMPARTMENTS: {}'.format(metabolism.fba.model.compartments))
-    print('SOLVER: {}'.format(metabolism.fba.model.solver))
-    print('EXPRESSION: {}'.format(metabolism.fba.model.objective.expression))
-
-    print(metabolism.fba.optimize())
-    print(metabolism.fba.model.summary())
-    print('internal: {}'.format(metabolism.fba.internal_reactions()))
-    print('external: {}'.format(metabolism.fba.external_reactions()))
-    print(metabolism.fba.reaction_ids())
-    print(metabolism.fba.get_reactions())
-    print(metabolism.fba.get_reaction_bounds())
-    print(metabolism.fba.read_exchange_fluxes())
-
 
 reference_sim_settings = {
     'environment_port': 'external',
@@ -676,17 +682,16 @@ if __name__ == '__main__':
         # run simulation
         timeseries = run_metabolism(metabolism, sim_settings)
         save_timeseries(timeseries, out_dir)
-
         volume_ts = timeseries['global']['volume']
         mass_ts = timeseries['global']['mass']
-        print('volume growth: {}'.format(volume_ts[-1]/volume_ts[0]))
+        print('volume growth: {}'.format(volume_ts[-1] / volume_ts[0]))
         print('mass growth: {}'.format(mass_ts[-1] / mass_ts[0]))
 
         # plot settings
         plot_settings = {
             'max_rows': 30,
             'remove_zeros': True,
-            'skip_ports': ['exchange']}
+            'skip_ports': ['exchange', 'reactions']}
 
         # make plots from simulation output
         plot_simulation_output(timeseries, plot_settings, out_dir, 'BiGG_simulation')
@@ -703,4 +708,6 @@ if __name__ == '__main__':
         run_sim_save_network(get_iAF1260b_config(), out_dir)
 
     else:
-        test_toy_metabolism()
+        timeseries = test_toy_metabolism()
+        plot_settings = {}
+        plot_simulation_output(timeseries, plot_settings, out_dir, 'toy_metabolism')

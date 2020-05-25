@@ -56,11 +56,13 @@ class DeriveGlobals(Deriver):
 
     defaults = {
         'width': 1,  # um
+        'initial_mass': 1339 * units.fg,  # wet mass in fg
     }
 
     def __init__(self, initial_parameters={}):
 
         self.width = initial_parameters.get('width', self.defaults['width'])
+        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
 
         ports = {
             'global': [
@@ -77,53 +79,44 @@ class DeriveGlobals(Deriver):
 
         super(DeriveGlobals, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']
+        split_divide = ['volume', 'length', 'surface_area']
+        emit = {'global': ['volume', 'width', 'length', 'surface_area']}
+
         # default state
-        mass = 1339 * units.fg  # wet mass in fg
+        mass = self.initial_mass
         density = 1100 * units.g / units.L
         volume = mass/density
         mmol_to_counts = (AVOGADRO * volume).to('L/mmol')
         length = length_from_volume(volume.magnitude, self.width)
         surface_area = surface_area_from_length(length, self.width)
 
-        global_state = {
-            'mass': mass.magnitude,
-            'volume': volume.to('fL').magnitude,
-            'mmol_to_counts': mmol_to_counts.magnitude,
-            'density': density.magnitude,
-            'width': self.width,
-            'length': length,
-            'surface_area': surface_area,
-        }
-
         default_state = {
-            'global': global_state}
-
-        # default emitter keys
-        default_emitter_keys = {
-            'global': ['volume', 'width', 'length', 'surface_area']}
-
-        # schema
-        set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']
-        set_divide = ['density']
-        schema = {
             'global': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in set_states}}
-        divide_schema = {
-            'global': {
-                state_id : {
-                    'divide': 'set'}
-                for state_id in set_divide}}
-        schema = deep_merge(schema, divide_schema)
+                'mass': mass.magnitude,
+                'volume': volume.to('fL').magnitude,
+                'mmol_to_counts': mmol_to_counts.magnitude,
+                'density': density.magnitude,
+                'width': self.width,
+                'length': length,
+                'surface_area': surface_area}}
 
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
+        schema = {}
+        for port, states in default_state.items():
+            schema[port] = {}
+            for state_id, value in states.items():
+                schema[port][state_id] = {}
+                if state_id in set_states:
+                    schema[port][state_id]['_updater'] = 'set'
+                if state_id in emit[port]:
+                    schema[port][state_id]['_emit'] = True
+                if state_id in split_divide:
+                    schema[port][state_id]['_divider'] = 'split'
+                if state_id in default_state[port]:
+                    schema[port][state_id]['_default'] = default_state[port][state_id]
 
-        return default_settings
+        return schema
 
     def next_update(self, timestep, states):
         # states
