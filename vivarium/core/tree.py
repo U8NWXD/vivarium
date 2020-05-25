@@ -8,6 +8,9 @@ import datetime
 import numpy as np
 import logging as log
 
+import pprint
+pretty=pprint.PrettyPrinter(indent=1)
+
 from vivarium.core.process import (
     Process,
     divider_library)
@@ -652,6 +655,11 @@ class Experiment(object):
         self.processes = config['processes']
         self.topology = config['topology']
         self.initial_state = config['initial_state']
+
+        print('PROCESSES')
+        pretty.pprint(self.processes)
+        print('TOPOLOGY')
+        pretty.pprint(self.topology)
 
         self.state = generate_state(
             self.processes,

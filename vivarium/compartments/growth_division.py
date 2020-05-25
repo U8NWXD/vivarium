@@ -33,11 +33,23 @@ from vivarium.utils.dict_utils import deep_merge
 
 
 class GrowthDivision(Compartment):
+
+
+    defaults = {
+        'global_key': ('..', 'global',),
+        'external_key': ('..', 'external',),
+        'cells_key': ('..', '..', 'cells',)
+    }
+
+
     def __init__(self, config):
         self.config = config
-        self.global_key = ('..', 'global')
-        self.external_key = ('..',) + self.config.get('external_key', ('external',))
-        self.cells_key = ('..', '..') + self.config.get('cells_key', ('cells',))
+        self.global_key = config.get('global_key', self.defaults['global_key'])
+        self.external_key = config.get('external_key', self.defaults['external_key'])
+        self.cells_key = config.get('cells_key', self.defaults['cells_key'])
+
+        # self.external_key = ('..',) + self.config.get('external_key', ('external',))
+        # self.cells_key = ('..', '..') + self.config.get('cells_key', ('cells',))
 
         self.transport_config = self.config.get('transport', get_glc_lct_config())
         self.transport_config['global_deriver_config'] = {
@@ -109,28 +121,30 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment_config = {}
+    compartment_config = {
+        'external_key': ('external',),
+        'global_key': ('global',),
+        'cells_key': ('cells',)}
     compartment = GrowthDivision(compartment_config)
 
-    experiment_settings = {
-        'compartment': {}
-    }
-
-
     # TODO -- pass in an environment compartment, add to experiment
-    import ipdb; ipdb.set_trace()
-
-
-    experiment = compartment_in_experiment(compartment, experiment_settings)
-
-
-
     # settings for simulation and plot
     settings = {
-        'environment_volume': 1e-6,  # L
+        'environment': {
+            'volume': 1e-6,  # L
+            'states': [],
+            'environment_port': ('environment'),
+            'exchange_port': ('exchange'),
+        },
         'timestep': 1,
         'total_time': 100,
     }
+
+    experiment = compartment_in_experiment(compartment, settings)
+
+    import ipdb; ipdb.set_trace()
+
+
     timeseries = simulate_with_environment(compartment, settings)
 
     plot_settings = {
