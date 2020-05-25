@@ -220,31 +220,21 @@ class ODE_expression(Process):
         super(ODE_expression, self).__init__(ports, parameters)
 
     def ports_schema(self):
-        schema = {
-            'internal': {
-                state : {
-                    '_divider': 'set',
-                    '_units': units.mmol,
-                    '_updater': 'accumulate'}
-                for state in self.ports['internal']}}
+        set_mmol = {'internal': self.ports['internal']}
+        emit_port = ['internal', 'external', 'counts']
 
-        state_schema = {
-            port: {
-                mol_id: {
-                    '_default': value}
-                for mol_id, value in state.items()}
-            for port, state in self.initial_state.items()}
-
-        emit_schema = {
-            port: {
-                state: {
-                    '_emit': True}
-                for state in state_list}
-            for port, state_list in self.ports.items()
-            if port in ['internal', 'external', 'counts']}
-
-        schema = deep_merge(schema, emit_schema)
-        schema = deep_merge(schema, state_schema)
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in set_mmol:
+                for state_id in set_mmol[port]:
+                    schema[port][state_id]['_units'] = units.mmol
+            if port in self.initial_state:
+                for state_id, value in self.initial_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_port:
+                for state_id in self.ports[port]:
+                    schema[port][state_id]['_emit'] = True
         return schema
 
     def derivers(self):

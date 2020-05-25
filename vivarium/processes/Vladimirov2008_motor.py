@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
 from vivarium.core.composition import simulate_process_in_experiment
-from vivarium.utils.dict_utils import deep_merge
 
 
 
@@ -93,28 +92,18 @@ class MotorActivity(Process):
                 'CheA',
                 'CheY_P']}
 
-        schema = {
-            port: {
-                state: {
-                    '_default': value}
-                for state, value in states.items()}
-            for port, states in default_state.items()}
-        set_schema = {
-            port: {
-                state: {
-                    '_updater': 'set'}
-                for state in state_list}
-            for port, state_list in set_states.items()}
-
-        emit_schema = {
-            port: {
-                state: {
-                    '_emit': True}
-                for state in state_list}
-            for port, state_list in emitter_states.items()}
-
-        schema = deep_merge(schema, set_schema)
-        schema = deep_merge(schema, emit_schema)
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in set_states:
+                for state_id in set_states[port]:
+                    schema[port][state_id]['_updater'] = 'set'
+            if port in emitter_states:
+                for state_id in emitter_states[port]:
+                    schema[port][state_id]['_emit'] = True
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
         return schema
 
     def next_update(self, timestep, states):
