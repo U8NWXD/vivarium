@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 from vivarium.core.composition import simulate_process_in_experiment
 from vivarium.core.process import Process
-from vivarium.utils.dict_utils import deep_merge
 from vivarium.utils.units import units
 
 
@@ -86,33 +85,29 @@ class ReceptorCluster(Process):
         super(ReceptorCluster, self).__init__(ports, parameters)
 
     def ports_schema(self):
+        set_keys = {'internal': ['chemoreceptor_activity', 'n_methyl']}
+        default_states = {
+            'internal': self.initial_state,
+            'external': {self.ligand_id: self.initial_ligand}}
+        set_emit = {
+            'internal': list(self.initial_state.keys()),
+            'external': [self.ligand_id]}
 
-        set_keys = ['chemoreceptor_activity', 'n_methyl']
-
-        ports_schema = {
-            'internal': {
-                state_id : {
-                    '_default': value}
-                for state_id, value in self.initial_state.items()}}
-
-        set_schema = {
-            'internal': {
-                state_id : {
-                    '_default': self.initial_state[state_id],
-                    '_emit': True,
-                    '_updater': 'set',
-                    '_divide': 'set'}
-                for state_id in set_keys}}
-
-        ligand_schema = {
-            'external': {
-                self.ligand_id: {
-                    '_default': self.initial_ligand,
-                    '_emit': True}}}
-
-        ports_schema = deep_merge(ports_schema, set_schema)
-        ports_schema = deep_merge(ports_schema, ligand_schema)
-        return ports_schema
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state in states:
+                schema[port][state] = {}
+                if port in set_keys:
+                    if state in set_keys[port]:
+                        schema[port][state]['_updater'] = 'set'
+                if port in set_emit:
+                    if state in set_emit[port]:
+                        schema[port][state]['_emit'] = True
+                if port in default_states:
+                    if state in default_states[port]:
+                        schema[port][state]['_default'] = default_states[port][state]
+        return schema
 
     def next_update(self, timestep, states):
         '''

@@ -44,33 +44,7 @@ class MetaDivision(Deriver):
 
         super(MetaDivision, self).__init__(ports, initial_parameters)
 
-    def default_settings(self):
-        # default state
-        default_state = {
-            'global': {
-                'division': 0}}
-
-        # default emitter keys
-        default_emitter_keys = {}
-
-        # schema
-        schema = {
-            'global': {
-                'divide': {
-                    'updater': 'set',
-                    'divide': 'zero'}}}
-
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
-
-        return default_settings
-
     def ports_schema(self):
-        default = self.default_settings()
-        initial = default['state']
-
         return {
             'global': {
                 'divide': {
@@ -108,4 +82,3 @@ class MetaDivision(Deriver):
                         'daughters': daughter_updates}}}
         else:
              return {}   
-                        

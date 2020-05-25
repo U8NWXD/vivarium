@@ -115,15 +115,19 @@ class FlagellaActivity(Process):
 
     def ports_schema(self):
         # default updaters
-        internal_set_states = [
-            'CheY',
-            'CheY_P',
-            'cw_bias',
-            'motile_state',
-            'motile_force',
-            'motile_torque']
+        set_update = {
+            'internal': [
+                'CheY',
+                'CheY_P',
+                'cw_bias',
+                'motile_state',
+                'motile_force',
+                'motile_torque'],
+            'flagella_activity': ['flagella']}
 
-        emitter_keys = {
+        split_dict_divider = {'flagella_activity': ['flagella']}
+
+        set_emit = {
             'internal': ['motile_force', 'motile_torque', 'motile_state', 'CheY', 'CheY_P', 'cw_bias'],
             'flagella_counts': ['flagella'],
             'flagella_activity': ['flagella']}
@@ -144,36 +148,26 @@ class FlagellaActivity(Process):
             'internal': self.defaults['initial_state']}
 
         # schema
-        schema = {
-            'internal': {
-                state_id: {
-                    '_updater': 'set',
-                    '_divider': 'set'}
-                for state_id in internal_set_states},
-            'membrane': {
-                'protons': {
-                    '_updater': 'accumulate'}},
-            'flagella_activity': {
-                'flagella': {
-                    '_updater': 'set',
-                    '_divider': 'split_dict'}}}
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state in states:
+                schema[port][state] = {}
 
-        state_schema = {
-            port: {
-                mol_id: {
-                    '_default': value}
-                for mol_id, value in state.items()}
-            for port, state in default_state.items()}
+                if port in set_update:
+                    if state in set_update[port]:
+                        schema[port][state]['_updater'] = 'set'
 
-        emit_schema = {
-            port: {
-                state: {
-                    '_emit': True}
-                for state in state_list}
-            for port, state_list in emitter_keys.items()}
+                if port in split_dict_divider:
+                    if state in split_dict_divider[port]:
+                        schema[port][state]['_divider'] = 'split_dict'
 
-        schema = deep_merge(schema, state_schema)
-        schema = deep_merge(schema, emit_schema)
+                if port in set_emit:
+                    if state in set_emit[port]:
+                        schema[port][state]['_emit'] = True
+                if port in default_state:
+                    if state in default_state[port]:
+                        schema[port][state]['_default'] = default_state[port][state]
         return schema
 
     def next_update(self, timestep, states):
