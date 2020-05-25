@@ -22,7 +22,6 @@ import matplotlib.pyplot as plt
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    simulate_process_with_environment,
     save_timeseries,
     flatten_timeseries,
     load_timeseries,
@@ -463,18 +462,25 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     nodes, edges = make_network(stoichiometry, info)
     save_network(nodes, edges, out_dir)
 
-def run_metabolism(metabolism, settings):
-    environment_volume = settings.get('environment_volume', 1e-12)
-    sim_settings = default_sim_settings
-    sim_settings.update(settings)
+def run_metabolism(metabolism, sim_settings):
+    environment_volume = sim_settings.get('environment_volume', 1e-12)
+    end_time = sim_settings.get('end_time', 10)
+    timestep = sim_settings.get('timestep', 1)
+    timeline = sim_settings.get('timeline')
 
-    environment = {
-        'volume': environment_volume,
-        'states': ['glc__D_e', 'lcts_e'],
-        'environment_port': 'external',
-        'exchange_port': 'exchange'}
+    settings = {
+        'environment': {
+            'volume': environment_volume,
+            'states': metabolism.ports['external'],
+            'environment_port': 'external',
+            'exchange_port': 'exchange'},
+        'timestep': timestep}
+    if timeline:
+        settings.update({'timeline': timeline})
+    else:
+        settings.update({'total_time': end_time})
 
-    return simulate_process_in_experiment(metabolism, sim_settings)
+    return simulate_process_in_experiment(metabolism, settings)
 
 # plots
 def plot_exchanges(timeseries, sim_config, out_dir='out', filename='exchanges'):
@@ -605,13 +611,6 @@ def energy_synthesis_plot(timeseries, settings, out_dir, figname='energy_use'):
 
 
 # tests
-default_sim_settings = {
-    'environment_port': 'external',
-    'exchange_port': 'exchange',
-    'environment_volume': 1e-6,  # L
-    'timestep': 1,
-    'timeline': [(10, {})]}
-
 def test_toy_metabolism():
     regulation_logic = {
         'R4': 'if (external, O2) > 0.1 and not (external, F) < 0.1'}
@@ -627,12 +626,18 @@ def test_toy_metabolism():
 
     # simulate toy model
     timeline = [
-        (10, {('external', 'A'): 1}),
-        (20, {('external', 'F'): 0}),
-        (30, {})]
+        (20, {('external', 'A'): 1}),
+        (40, {('external', 'F'): 0}),
+        (60, {})]
 
-    settings = default_sim_settings
-    settings.update({'timeline': timeline})
+    settings = {
+        'environment': {
+            'volume': 1e-8,
+            'states': toy_metabolism.ports['external'],
+            'environment_port': 'external',
+            'exchange_port': 'exchange'},
+        'timestep': 0.1,
+        'timeline': timeline}
     return simulate_process_in_experiment(toy_metabolism, settings)
 
 def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
@@ -640,11 +645,9 @@ def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
     run_metabolism(metabolism, settings)
 
 reference_sim_settings = {
-    'environment_port': 'external',
-    'exchange_port': 'exchange',
     'environment_volume': 1e-5,  # L
     'timestep': 1,
-    'timeline': [(20, {})]}
+    'end_time': 20}
 
 def test_metabolism_similar_to_reference():
     config = get_iAF1260b_config()
@@ -673,8 +676,6 @@ if __name__ == '__main__':
         # simulation settings
         timeline = [(100, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
         sim_settings = {
-            'environment_port': 'external',
-            'exchange_port': 'exchange',
             'environment_volume': 1e-5,  # L
             'timestep': 1,
             'timeline': timeline}
