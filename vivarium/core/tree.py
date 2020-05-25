@@ -138,7 +138,7 @@ def identity(y):
 
 def check_update_schema(new, current, schema_type=None):
     if current is not None and new != current:
-        raise Exception('schema merge error: {} is {} and {}'.format(schema_type, current, new))
+        return 'schema merge conflict: {} assigned {} and {}'.format(schema_type, current, new)
     else:
         return new
 
@@ -178,11 +178,20 @@ class Store(object):
                 if key != '_subschema'}
 
         if self.schema_keys & config.keys():
-            # check_update_schema, exception if mismatched schemas
+
             if '_default' in config:
-                self.default = check_update_schema(config.get('_default'), self.default, '_default')
+                check_default = check_update_schema(config.get('_default'), self.default, '_default')
+                if isinstance(check_default, str):
+                    self.default = config.get('_default')
+                    print(check_default + ': selecting {}'.format(self.default))
+                else:
+                    self.default = check_default
             if '_value' in config:
-                self.value = check_update_schema(config.get('_value'), self.value, '_value')
+                check_value = check_update_schema(config.get('_value'), self.value, '_value')
+                if isinstance(check_value, str):
+                    raise Exception(check_value)
+                else:
+                    self.value = check_value
             else:
                 self.value = self.default
 
@@ -656,9 +665,9 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config['initial_state']
 
-        print('PROCESSES')
+        print('PROCESSES:')
         pretty.pprint(self.processes)
-        print('TOPOLOGY')
+        print('TOPOLOGY:')
         pretty.pprint(self.topology)
 
         self.state = generate_state(

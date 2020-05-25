@@ -239,10 +239,6 @@ def compartment_in_experiment(compartment, settings={}):
             'environment_process': {
                 port: (port,) for port in environment_process.ports}})
 
-        import ipdb;
-        ipdb.set_trace()
-
-
     return Experiment({
         'processes': processes,
         'topology': topology,
@@ -258,6 +254,10 @@ def simulate_process(process, settings={}):
 def simulate_process_in_experiment(process, settings={}):
     experiment = process_in_experiment(process, settings)
     return simulate_experiment(experiment, settings)
+
+def simulate_compartment_in_experiment(compartment, settings={}):
+    experiment = compartment_in_experiment(compartment, settings)
+    return simulate_experiment(experiment, settings={})
 
 def simulate_experiment(experiment, settings={}):
     '''

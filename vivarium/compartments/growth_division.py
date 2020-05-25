@@ -10,8 +10,7 @@ from vivarium.core.tree import (
 )
 
 from vivarium.core.composition import (
-    compartment_in_experiment,
-    simulate_with_environment,
+    simulate_compartment_in_experiment,
     plot_simulation_output
 )
 
@@ -34,13 +33,10 @@ from vivarium.utils.dict_utils import deep_merge
 
 class GrowthDivision(Compartment):
 
-
     defaults = {
         'global_key': ('..', 'global',),
         'external_key': ('..', 'external',),
-        'cells_key': ('..', '..', 'cells',)
-    }
-
+        'cells_key': ('..', '..', 'cells',)}
 
     def __init__(self, config):
         self.config = config
@@ -132,20 +128,17 @@ if __name__ == '__main__':
     settings = {
         'environment': {
             'volume': 1e-6,  # L
-            'states': [],
-            'environment_port': ('environment'),
-            'exchange_port': ('exchange'),
+            'environment_port': 'external',
+            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+            # 'exchange_port': ('exchange'),
         },
         'timestep': 1,
-        'total_time': 100,
-    }
-
-    experiment = compartment_in_experiment(compartment, settings)
+        'total_time': 100}
+    timeseries = simulate_compartment_in_experiment(compartment, settings)
 
     import ipdb; ipdb.set_trace()
 
-
-    timeseries = simulate_with_environment(compartment, settings)
+    # timeseries = simulate_with_environment(compartment, settings)
 
     plot_settings = {
         'max_rows': 25,
