@@ -145,10 +145,7 @@ def test_deriver(total_time=10):
 
     # configure process
     deriver = DeriveGlobals({})
-
-    # get initial state and parameters
-    settings = deriver.default_settings()
-    state = settings['state']
+    state = deriver.default_state()
 
     # initialize saved data
     saved_state = {}
