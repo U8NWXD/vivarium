@@ -10,8 +10,7 @@ from vivarium.core.tree import (
 )
 
 from vivarium.core.composition import (
-    compartment_in_experiment,
-    simulate_with_environment,
+    simulate_compartment_in_experiment,
     plot_simulation_output
 )
 
@@ -33,23 +32,36 @@ from vivarium.utils.dict_utils import deep_merge
 
 
 class GrowthDivision(Compartment):
+
+    defaults = {
+        'global_path': ('..', 'global',),
+        'external_path': ('..', 'external',),
+        'exchange_path': ('..', 'exchange',),
+        'cells_path': ('..', '..', 'cells',),
+        'daughter_path': tuple()}
+
     def __init__(self, config):
         self.config = config
-        self.global_key = ('..', 'global')
-        self.external_key = ('..',) + self.config.get('external_key', ('external',))
-        self.cells_key = ('..', '..') + self.config.get('cells_key', ('cells',))
 
+        # paths
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.external_path = config.get('external_path', self.defaults['external_path'])
+        self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
+        self.cells_path = config.get('cells_path', self.defaults['cells_path'])
+        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
+
+        # process configs
         self.transport_config = self.config.get('transport', get_glc_lct_config())
         self.transport_config['global_deriver_config'] = {
             'type': 'globals',
             'source_port': 'global',
             'derived_port': 'global',
-            'global_port': self.global_key,
+            'global_port': self.global_path,
             'keys': []}
 
     def generate_processes(self, config):
         # declare the processes
-        agent_id = config.get('agent_id')
+        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
 
         transport_config = deep_merge(
             config.get('transport', {}),
@@ -57,6 +69,7 @@ class GrowthDivision(Compartment):
 
         division_config = dict(
             config.get('division', {}),
+            daughter_path=self.daughter_path,
             cell_id=agent_id,
             compartment=self)
 
@@ -76,31 +89,31 @@ class GrowthDivision(Compartment):
     def generate_topology(self, config):
         # make the topology.
         # for each process, map process ports to store ids
-        external_key = config.get('external_key', self.external_key)
-        global_key = config.get('global_key', self.global_key)
-        cells_key = config.get('cells_key', self.cells_key)
+        external_path = config.get('external_path', self.external_path)
+        exchange_path = config.get('external_path', self.exchange_path)
+        global_path = config.get('global_path', self.global_path)
+        cells_path = config.get('cells_path', self.cells_path)
 
         return {
             'transport': {
-                'internal': ('cell',),
-                'external': external_key,
-                'exchange': external_key,
-                # 'fluxes': ['flux'], # just for testing
-                'fluxes': None,
-                'global': global_key},
+                'internal': ('internal',),
+                'external': external_path,
+                'exchange': exchange_path,
+                'fluxes': ('fluxes',),
+                'global': global_path},
             'growth': {
-                'internal': ('cell',),
-                'global': global_key},
+                'internal': ('internal',),
+                'global': global_path},
             'mass': {
-                'global': global_key},
+                'global': global_path},
             'division': {
-                'global': global_key,
-                'cells': cells_key},
+                'global': global_path,
+                'cells': cells_path},
             'expression': {
-                'internal': ('cell',),
-                'external': external_key,
-                'concentrations': ('cell_concentrations',),
-                'global': global_key}}
+                'internal': ('internal',),
+                'external': external_path,
+                'concentrations': ('internal_concentrations',),
+                'global': global_path}}
 
 
 
@@ -109,29 +122,30 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment_config = {}
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
     compartment = GrowthDivision(compartment_config)
-
-    experiment_settings = {
-        'compartment': {}
-    }
-
-
-    # TODO -- pass in an environment compartment, add to experiment
-    import ipdb; ipdb.set_trace()
-
-
-    experiment = compartment_in_experiment(compartment, experiment_settings)
-
-
 
     # settings for simulation and plot
     settings = {
-        'environment_volume': 1e-6,  # L
+        'environment': {
+            'volume': 1e-6,  # L
+            'environment_port': 'external',
+            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+        },
+        'outer_path': ('cells', '0'),
         'timestep': 1,
-        'total_time': 100,
-    }
-    timeseries = simulate_with_environment(compartment, settings)
+        'total_time': 100}
+
+    timeseries = simulate_compartment_in_experiment(compartment, settings)
+
+
+    import ipdb;
+    ipdb.set_trace()
+
 
     plot_settings = {
         'max_rows': 25,

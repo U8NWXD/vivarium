@@ -9,6 +9,7 @@ import networkx as nx
 
 from vivarium.core.tree import (
     Experiment,
+    update_in,
     generate_derivers,
     deriver_library
 )
@@ -177,6 +178,142 @@ def make_agents(keys, compartment, config=None):
         'processes': processes,
         'topology': topology}
 
+def process_in_experiment(process, settings={}):
+    process_settings = process.default_settings()
+    emitter = settings.get('emitter', {'type': 'timeseries'})
+    timeline = settings.get('timeline', [])
+    environment = settings.get('environment', {})
+
+    processes = {'process': process}
+    topology = {
+        'process': {
+            port: (port,) for port in process.ports}}
+
+    if timeline:
+        timeline_process = Timeline({'timeline': timeline})
+        processes.update({'timeline_process': timeline_process})
+        topology.update({
+            'timeline_process': {
+                port: (port,) for port in timeline_process.ports}})
+
+    if environment:
+        environment_process = HomogeneousEnvironment(environment)
+        processes.update({'environment_process': environment_process})
+        topology.update({
+            'environment_process': {
+                port: (port,) for port in environment_process.ports}})
+
+    # add derivers
+    derivers = generate_derivers(processes, topology)
+    processes = deep_merge(processes, derivers['processes'])
+    topology = deep_merge(topology, derivers['topology'])
+
+    return Experiment({
+        'processes': processes,
+        'topology': topology,
+        'emitter': emitter,
+        'initial_state': process_settings.get('state', {})})
+
+def compartment_in_experiment(compartment, settings={}):
+    compartment_config = settings.get('compartment', {})
+    emitter = settings.get('emitter', {'type': 'timeseries'})
+    timeline = settings.get('timeline', [])
+    environment = settings.get('environment', {})
+    outer_path = settings.get('outer_path', tuple())
+
+    network = compartment.generate(compartment_config, outer_path)
+    processes = network['processes']
+    topology = network['topology']
+
+    if timeline:
+        timeline_port_mapping = settings['timeline_port_mapping']
+        timeline_port_mapping.update({'global': ('global',)})  # timeline requires a global port
+        timeline_process = Timeline({'timeline': timeline})
+
+        update_in(
+            processes,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'timeline': timeline_process}))
+
+        update_in(
+            topology,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'timeline': {
+                    port: (port,) for port in timeline_process.ports}}))
+
+    if environment:
+        environment_process = HomogeneousEnvironment(environment)
+
+        update_in(
+            processes,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'environment_process': environment_process}))
+
+        update_in(
+            topology,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'environment_process': {
+                    port: (port,) for port in environment_process.ports}}))
+
+    return Experiment({
+        'processes': processes,
+        'topology': topology,
+        'emitter': emitter,
+        'initial_state': settings.get('initial_state', {})})
+
+
+# simulation functions
+def simulate_process(process, settings={}):
+    experiment = process_in_experiment(process)
+    return simulate_experiment(experiment, settings)
+
+def simulate_process_in_experiment(process, settings={}):
+    experiment = process_in_experiment(process, settings)
+    return simulate_experiment(experiment, settings)
+
+def simulate_compartment_in_experiment(compartment, settings={}):
+    experiment = compartment_in_experiment(compartment, settings)
+    return simulate_experiment(experiment, settings)
+
+def simulate_experiment(experiment, settings={}):
+    '''
+    run an experiment simulation
+        Requires:
+        - a configured experiment
+
+    Returns:
+        - a timeseries of variables from all ports.
+        - if 'return_raw_data' is True, it returns the raw data instead
+    '''
+    timestep = settings.get('timestep', 1)
+    total_time = settings.get('total_time', 10)
+    return_raw_data = settings.get('return_raw_data', False)
+
+    if 'timeline' in settings:
+        total_time = settings['timeline'][-1][0]
+
+    # run simulation
+    experiment.update_interval(total_time, timestep)
+
+    if return_raw_data:
+        return experiment.emitter.get_data()
+    else:
+        return experiment.emitter.get_timeseries()
+
+
+
+
+
+
+# TODO -- remove the following functions!
 def load_compartment(composite, boot_config={}):
     '''
     put a composite function into a compartment
@@ -237,76 +374,10 @@ def process_in_compartment(process, settings={}):
 
     return Compartment(processes, deriver_processes, states, options)
 
-def process_in_experiment(process, settings={}):
-    process_settings = process.default_settings()
-    emitter = settings.get('emitter', {'type': 'timeseries'})
-    timeline = settings.get('timeline', [])
-    environment = settings.get('environment', {})
-
-    processes = {'process': process}
-    topology = {
-        'process': {
-            port: (port,) for port in process.ports}}
-
-    if timeline:
-        timeline_process = Timeline({'timeline': timeline})
-        processes.update({'timeline_process': timeline_process})
-        topology.update({
-            'timeline_process': {
-                port: (port,) for port in timeline_process.ports}})
-
-    if environment:
-        environment_process = HomogeneousEnvironment(environment)
-        processes.update({'environment_process': environment_process})
-        topology.update({
-            'environment_process': {
-                port: (port,) for port in environment_process.ports}})
-
-    # add derivers
-    derivers = generate_derivers(processes, topology)
-    processes = deep_merge(processes, derivers['processes'])
-    topology = deep_merge(topology, derivers['topology'])
-
-    return Experiment({
-        'processes': processes,
-        'topology': topology,
-        'emitter': emitter,
-        'initial_state': process_settings.get('state', {})})
-
-def compartment_in_experiment(compartment, settings={}):
-    compartment_config = settings.get('compartment', {})
-    emitter = settings.get('emitter', {'type': 'timeseries'})
-    timeline = settings.get('timeline', [])
-
-    network = compartment.generate(compartment_config)
-    processes = network['processes']
-    topology = network['topology']
-
-    if timeline:
-        timeline_port_mapping = settings['timeline_port_mapping']
-        timeline_port_mapping.update({'global': ('global',)})  # timeline requires a global port
-        timeline_process = Timeline({'timeline': timeline})
-        processes.update({'timeline': timeline_process})
-        topology.update({
-            'timeline': {
-                port: timeline_port_mapping[port] for port in timeline_process.ports}})
-
-    return Experiment({
-        'processes': processes,
-        'topology': topology,
-        'emitter': emitter,
-        'initial_state': settings.get('initial_state', {})})
-
-
-# simulation functions
 def simulate_process_with_environment(process, settings={}):
     ''' simulate a process in a compartment with an environment '''
     compartment = process_in_compartment(process, settings)
     return simulate_with_environment(compartment, settings)
-
-def simulate_process(process, settings={}):
-    experiment = process_in_experiment(process)
-    return simulate_experiment(experiment, settings)
 
 def simulate_with_environment(compartment, settings={}):
     '''
@@ -373,7 +444,6 @@ def simulate_with_environment(compartment, settings={}):
     else:
         return compartment.emitter.get_timeseries()
 
-# TODO -- remove simulate_compartment, only use simulate_experiment
 def simulate_compartment(compartment, settings={}):
     '''
     run a compartment simulation
@@ -402,34 +472,8 @@ def simulate_compartment(compartment, settings={}):
     else:
         return compartment.emitter.get_timeseries()
 
-def simulate_process_in_experiment(process, settings={}):
-    experiment = process_in_experiment(process, settings)
-    if 'timeline' in settings:
-        total_time = settings['timeline'][-1][0]
-        settings['total_time'] = total_time
-    return simulate_experiment(experiment, settings)
 
-def simulate_experiment(experiment, settings={}):
-    '''
-    run an experiment simulation
-        Requires:
-        - a configured experiment
 
-    Returns:
-        - a timeseries of variables from all ports.
-        - if 'return_raw_data' is True, it returns the raw data instead
-    '''
-    timestep = settings.get('timestep', 1)
-    total_time = settings.get('total_time', 10)
-    return_raw_data = settings.get('return_raw_data', False)
-
-    # run simulation
-    experiment.update_interval(total_time, timestep)
-
-    if return_raw_data:
-        return experiment.emitter.get_data()
-    else:
-        return experiment.emitter.get_timeseries()
 
 
 # plotting functions

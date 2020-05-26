@@ -28,6 +28,7 @@ class MetaDivision(Deriver):
 
     defaults = {
         'initial_state': {},
+        'daughter_path': ('cell',),
         'id_function': CountForever(start=33).generate}
 
     def __init__(self, initial_parameters={}):
@@ -37,6 +38,7 @@ class MetaDivision(Deriver):
         self.compartment = initial_parameters['compartment']
         self.id_function = self.or_default(initial_parameters, 'id_function')
         self.cell_id = initial_parameters.get('cell_id', str(self.id_function()))
+        self.daughter_path = initial_parameters.get('daughter_path', self.defaults['daughter_path'])
 
         ports = {
             'global': ['divide'],
@@ -69,7 +71,7 @@ class MetaDivision(Deriver):
                     'agent_id': daughter_id})
                 daughter_updates.append({
                     'daughter': daughter_id,
-                    'path': (daughter_id, 'cell'),
+                    'path': (daughter_id,) + self.daughter_path,
                     'processes': compartment['processes'],
                     'topology': compartment['topology'],
                     'initial_state': {}})

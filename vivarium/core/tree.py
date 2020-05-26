@@ -8,6 +8,9 @@ import datetime
 import numpy as np
 import logging as log
 
+import pprint
+pretty=pprint.PrettyPrinter(indent=2)
+
 from vivarium.core.process import (
     Process,
     divider_library)
@@ -28,6 +31,15 @@ deriver_library = {
 }
 
 
+def key_for_value(d, looking):
+    found = None
+    for key, value in d.items():
+        if looking == value:
+            found = key
+            break
+    return found
+
+
 def get_in(d, path):
     if path:
         head = path[0]
@@ -39,13 +51,20 @@ def get_in(d, path):
 
 def assoc_in(d, path, value):
     if path:
+        return dict(d, **{path[0]: assoc_in(d.get(path[0], {}), path[1:], value)})
+    else:
+        return value
+
+
+def assoc_path(d, path, value):
+    if path:
         head = path[0]
         if len(path) == 1:
             d[head] = value
         else:
             if head not in d:
                 d[head] = {}
-            assoc_in(d[head], path[1:], value)
+            assoc_path(d[head], path[1:], value)
     else:
         value
 
@@ -133,12 +152,6 @@ def always_true(x):
 def identity(y):
     return y
 
-def check_update_schema(new, current, schema_type=None):
-    if current is not None and new != current:
-        raise Exception('schema merge error: {} is {} and {}'.format(schema_type, current, new))
-    else:
-        return new
-
 
 class Store(object):
     schema_keys = set([
@@ -164,6 +177,18 @@ class Store(object):
 
         self.apply_config(config)
 
+    def check_default(self, new_default):
+        if self.default is not None and new_default != self.default:
+            print('_default schema conflict: {} and {}. selecting {}'.format(
+                self.default, new_default, new_default))
+        return new_default
+
+    def check_value(self, new_value):
+        if self.value is not None and new_value != self.value:
+            raise Exception('_value schema conflict: {} and {}'.format(new_value, self.value))
+        else:
+            return new_value
+
     def apply_config(self, config):
         if '_subschema' in config:
             self.subschema = deep_merge(
@@ -174,12 +199,13 @@ class Store(object):
                 for key, value in config.items()
                 if key != '_subschema'}
 
-        if self.schema_keys & config.keys():
-            # check_update_schema, exception if mismatched schemas
+        if not config:
+            self.updater = updater_library['accumulate']
+        elif self.schema_keys & config.keys():
             if '_default' in config:
-                self.default = check_update_schema(config.get('_default'), self.default, '_default')
+                self.default = self.check_default(config.get('_default'))
             if '_value' in config:
-                self.value = check_update_schema(config.get('_value'), self.value, '_value')
+                self.value = self.check_value(config.get('_value'))
             else:
                 self.value = self.default
 
@@ -248,6 +274,14 @@ class Store(object):
             return self.parent.top()
         else:
             return self
+
+    def path_for(self):
+        if self.parent:
+            key = key_for_value(self.parent.children, self)
+            above = self.parent.path_for()
+            return above + (key,)
+        else:
+            return tuple()
 
     def get_value(self, condition=None, f=None):
         if self.children:
@@ -363,7 +397,7 @@ class Store(object):
 
     def reduce_to(self, path, reducer, initial=None):
         value = self.reduce(reducer, initial)
-        update = assoc_in({}, path, value)
+        update = assoc_path({}, path, value)
         self.apply_update(update)
 
     def set_value(self, value):
@@ -393,7 +427,7 @@ class Store(object):
                         generate['processes'],
                         generate['topology'],
                         generate['initial_state'])
-                    assoc_in(
+                    assoc_path(
                         topology_updates,
                         generate['path'],
                         generate['topology'])
@@ -413,6 +447,8 @@ class Store(object):
 
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
+
+                    # use initial state as default, merge in divided values
                     initial_state = deep_merge(
                         initial_state,
                         state)
@@ -422,7 +458,7 @@ class Store(object):
                         daughter['processes'],
                         daughter['topology'],
                         daughter['initial_state'])
-                    assoc_in(
+                    assoc_path(
                         topology_updates,
                         daughter['path'],
                         daughter['topology'])
@@ -455,6 +491,9 @@ class Store(object):
                 if '_updater' in update:
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
+
+            if updater is None:
+                import ipdb; ipdb.set_trace()
 
             self.value = updater(self.value, update)
 
@@ -604,7 +643,7 @@ class Compartment(object):
     def generate_topology(self, config):
         return {}
 
-    def generate(self, config):
+    def generate(self, config, path=tuple()):
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
 
@@ -614,8 +653,8 @@ class Compartment(object):
         topology = deep_merge(topology, derivers['topology'])
 
         return {
-            'processes': processes,
-            'topology': topology}
+            'processes': assoc_in({}, path, processes),
+            'topology': assoc_in({}, path, topology)}
 
 
 def generate_state(processes, topology, initial_state):
@@ -653,10 +692,24 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config['initial_state']
 
+        print('experiment {}'.format(self.experiment_id))
+
+        print('\nPROCESSES:')
+        pretty.pprint(self.processes)
+
+        print('\nTOPOLOGY:')
+        pretty.pprint(self.topology)
+
         self.state = generate_state(
             self.processes,
             self.topology,
             self.initial_state)
+
+        print('\nSTATE:')
+        pretty.pprint(self.state.get_value())
+
+        print('\nCONFIG:')
+        pretty.pprint(self.state.get_config())
 
         emitter_config = config.get('emitter', {})
         emitter_config['experiment_id'] = self.experiment_id
@@ -685,7 +738,7 @@ class Experiment(object):
             if topology is not None:
                 state_path = path[:-1] + topology
                 normal_path = normalize_path(state_path)
-                assoc_in(absolute, normal_path, update)
+                assoc_path(absolute, normal_path, update)
         return absolute
 
     def process_update(self, path, state, interval):
@@ -890,10 +943,12 @@ def test_recursive_store():
     state.apply_update({})
     state.state_for(['environment'], ['temperature'])
 
+    import ipdb; ipdb.set_trace()
+
 def test_in():
     blank = {}
     path = ['where', 'are', 'we']
-    assoc_in(blank, path, 5)
+    assoc_path(blank, path, 5)
     print(blank)
     print(get_in(blank, path))
     update_in(blank, path, lambda x: x + 6)
