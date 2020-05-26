@@ -120,11 +120,17 @@ if __name__ == '__main__':
     compartment_config = {
         'external_key': ('external',),
         'global_key': ('global',),
-        'cells_key': ('cells',)}
+        'cells_key': ('cell',)}
     compartment = GrowthDivision(compartment_config)
 
     # TODO -- pass in an environment compartment, add to experiment
     # settings for simulation and plot
+    initial_state = {
+        'external': {
+            'glc__D_e': 10,
+            'lcts_e': 10}}
+    # TODO -- why are external states not initializing?
+
     settings = {
         'environment': {
             'volume': 1e-6,  # L
@@ -132,6 +138,7 @@ if __name__ == '__main__':
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
             # 'exchange_port': ('exchange'),
         },
+        # 'initial_state': initial_state,
         'timestep': 1,
         'total_time': 100}
     timeseries = simulate_compartment_in_experiment(compartment, settings)
