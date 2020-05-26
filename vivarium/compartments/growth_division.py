@@ -94,7 +94,7 @@ class GrowthDivision(Compartment):
                 'external': external_key,
                 'exchange': external_key,
                 # 'fluxes': ['flux'], # just for testing
-                'fluxes': None,
+                'fluxes': ('fluxes',),
                 'global': global_key},
             'growth': {
                 'internal': ('cell',),
@@ -123,13 +123,24 @@ if __name__ == '__main__':
         'cells_key': ('cell',)}
     compartment = GrowthDivision(compartment_config)
 
-    # TODO -- pass in an environment compartment, add to experiment
     # settings for simulation and plot
+    # TODO -- this should not be necessary -- why are states not initializing?
     initial_state = {
+        'cell': {
+            'EIIglc': 1.8e-3,  # (mmol/L)
+            'g6p_c': 0.0,
+            'pep_c': 1.8e-1,
+            'pyr_c': 0.0,
+            'LacY': 0,
+            'lcts_p': 0.0,
+        },
         'external': {
-            'glc__D_e': 10,
-            'lcts_e': 10}}
-    # TODO -- why are external states not initializing?
+            'glc__D_e': 10.0,
+            'lcts_e': 10.0,
+        },
+        'fluxes': {
+            'EX_glc__D_e': 0.0,
+            'EX_lcts_e': 0.0}}
 
     settings = {
         'environment': {
@@ -138,7 +149,7 @@ if __name__ == '__main__':
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
             # 'exchange_port': ('exchange'),
         },
-        # 'initial_state': initial_state,
+        'initial_state': initial_state,
         'timestep': 1,
         'total_time': 100}
     timeseries = simulate_compartment_in_experiment(compartment, settings)

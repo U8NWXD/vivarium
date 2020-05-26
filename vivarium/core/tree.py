@@ -186,14 +186,12 @@ class Store(object):
                     self.default = config.get('_default')
                 else:
                     self.default = check_default
-
             if '_value' in config:
                 check_value = check_update_schema(config.get('_value'), self.value)
                 if check_value == 'conflict':
                     raise Exception('_value schema conflict: {} and {}'.format(config.get('_value'), self.value))
                 else:
                     self.value = check_value
-
             else:
                 self.value = self.default
 
