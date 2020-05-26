@@ -138,8 +138,6 @@ if __name__ == '__main__':
 
     import ipdb; ipdb.set_trace()
 
-    # timeseries = simulate_with_environment(compartment, settings)
-
     plot_settings = {
         'max_rows': 25,
         'skip_ports': ['prior_state']}

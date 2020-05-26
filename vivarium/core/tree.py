@@ -9,7 +9,7 @@ import numpy as np
 import logging as log
 
 import pprint
-pretty=pprint.PrettyPrinter(indent=1)
+pretty=pprint.PrettyPrinter(indent=2)
 
 from vivarium.core.process import (
     Process,
@@ -193,7 +193,7 @@ class Store(object):
                 else:
                     self.value = check_value
             else:
-                self.value = self.default
+                self.value = copy.deepcopy(self.default)
 
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):
@@ -674,6 +674,9 @@ class Experiment(object):
             self.processes,
             self.topology,
             self.initial_state)
+
+        print('STATE:')
+        pretty.pprint(self.state.get_value())
 
         emitter_config = config.get('emitter', {})
         emitter_config['experiment_id'] = self.experiment_id
