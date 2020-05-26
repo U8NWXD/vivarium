@@ -31,6 +31,15 @@ deriver_library = {
 }
 
 
+def key_for_value(d, looking):
+    found = None
+    for key, value in d.items():
+        if looking == value:
+            found = key
+            break
+    return found
+
+
 def get_in(d, path):
     if path:
         head = path[0]
@@ -264,6 +273,14 @@ class Store(object):
             return self.parent.top()
         else:
             return self
+
+    def path_for(self):
+        if self.parent:
+            key = key_for_value(self.parent.children, self)
+            above = self.parent.path_for()
+            return above + (key,)
+        else:
+            return tuple()
 
     def get_value(self, condition=None, f=None):
         if self.children:
@@ -924,6 +941,8 @@ def test_recursive_store():
     state = Store(environment_config)
     state.apply_update({})
     state.state_for(['environment'], ['temperature'])
+
+    import ipdb; ipdb.set_trace()
 
 def test_in():
     blank = {}
