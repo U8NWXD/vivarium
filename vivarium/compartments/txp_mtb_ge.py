@@ -50,12 +50,17 @@ class TransportMetabolismExpression(Compartment):
     """
 
     defaults = {
+        'global_key': ('..', 'global'),
+        'external_key': ('..', 'external'),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
         'expression': get_lacy_config(),
         'division': {}}
 
     def __init__(self, config):
+        self.global_key = config.get('global_key', self.defaults['global_key'])
+        self.external_key = config.get('external_key', self.defaults['external_key'])
+
         self.transport_config = config.get('transport', self.defaults['transport'])
         self.metabolism_config = config.get('metabolism', self.defaults['metabolism'])
         self.expression_config = config.get('expression', self.defaults['expression'])
@@ -98,26 +103,34 @@ class TransportMetabolismExpression(Compartment):
             'division': division}
 
     def generate_topology(self, config):
+        external_key = config.get('external_key', self.external_key)
+        global_key = config.get('global_key', self.global_key)
+
         return {
-        'transport': {
-            'internal': 'cytoplasm',
-            'external': 'environment',
-            'exchange': 'null',  # metabolism's exchange is used
-            'fluxes': 'flux_bounds',
-            'global': 'global'},
-        'metabolism': {
-            'internal': 'cytoplasm',
-            'external': 'environment',
-            'reactions': 'reactions',
-            'exchange': 'exchange',
-            'flux_bounds': 'flux_bounds',
-            'global': 'global'},
-        'expression': {
-            'counts': 'cytoplasm_counts',
-            'internal': 'cytoplasm',
-            'external': 'environment'},
-        'division': {
-            'global': 'global'}}
+            'transport': {
+                'internal': ('cytoplasm',),
+                'external': external_key,
+                'exchange': ('null',),  # metabolism's exchange is used
+                'fluxes': ('flux_bounds',),
+                'global': global_key,
+            },
+            'metabolism': {
+                'internal': ('cytoplasm',),
+                'external': external_key,
+                'reactions': ('reactions',),
+                'exchange': ('exchange',),
+                'flux_bounds': ('flux_bounds',),
+                'global': global_key,
+            },
+            'expression': {
+                'counts': ('cytoplasm_counts',),
+                'internal': ('cytoplasm',),
+                'external': external_key
+            },
+            'division': {
+                'global': global_key,
+            }
+        }
 
 
 # simulate
