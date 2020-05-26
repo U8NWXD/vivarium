@@ -37,7 +37,8 @@ class GrowthDivision(Compartment):
         'global_path': ('..', 'global',),
         'external_path': ('..', 'external',),
         'exchange_path': ('..', 'exchange',),
-        'cells_path': ('..', '..', 'cells',)}
+        'cells_path': ('..', '..', 'cells',),
+        'daughter_path': tuple()}
 
     def __init__(self, config):
         self.config = config
@@ -47,6 +48,7 @@ class GrowthDivision(Compartment):
         self.external_path = config.get('external_path', self.defaults['external_path'])
         self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
         self.cells_path = config.get('cells_path', self.defaults['cells_path'])
+        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
         # process configs
         self.transport_config = self.config.get('transport', get_glc_lct_config())
@@ -67,6 +69,7 @@ class GrowthDivision(Compartment):
 
         division_config = dict(
             config.get('division', {}),
+            daughter_path=self.daughter_path,
             cell_id=agent_id,
             compartment=self)
 

@@ -429,6 +429,8 @@ class Store(object):
 
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
+
+                    # use initial state as default, merge in divided values
                     initial_state = deep_merge(
                         initial_state,
                         state)
@@ -471,6 +473,9 @@ class Store(object):
                 if '_updater' in update:
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
+
+            if updater is None:
+                import ipdb; ipdb.set_trace()
 
             self.value = updater(self.value, update)
 
