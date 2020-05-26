@@ -143,12 +143,6 @@ def always_true(x):
 def identity(y):
     return y
 
-def check_update_schema(new, current):
-    if current is not None and new != current:
-        return 'conflict'
-    else:
-        return new
-
 
 class Store(object):
     schema_keys = set([
@@ -174,6 +168,19 @@ class Store(object):
 
         self.apply_config(config)
 
+    def check_default(self, new_default):
+        if self.default is not None and new_default != self.default:
+            print('_default schema conflict: {} and {}. selecting {}'.format(
+                self.default, new_default, new_default))
+        return new_default
+
+    def check_value(self, new_value):
+        if self.value is not None and new_value != self.value:
+            raise Exception('_value schema conflict: {} and {}'.format(new_value, self.value))
+        else:
+            return new_value
+
+
     def apply_config(self, config):
         if '_subschema' in config:
             self.subschema = deep_merge(
@@ -186,19 +193,9 @@ class Store(object):
 
         if self.schema_keys & config.keys():
             if '_default' in config:
-                check_default = check_update_schema(config.get('_default'), self.default)
-                if check_default == 'conflict':
-                    print('_default schema conflict: {} and {}. selecting {}'.format(
-                        self.default, config.get('_default'), config.get('_default')))
-                    self.default = config.get('_default')
-                else:
-                    self.default = check_default
+                self.default = self.check_default(config.get('_default'))
             if '_value' in config:
-                check_value = check_update_schema(config.get('_value'), self.value)
-                if check_value == 'conflict':
-                    raise Exception('_value schema conflict: {} and {}'.format(config.get('_value'), self.value))
-                else:
-                    self.value = check_value
+                self.value = self.check_value(config.get('_value'))
             else:
                 self.value = self.default
 

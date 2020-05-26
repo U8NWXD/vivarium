@@ -281,7 +281,7 @@ def simulate_process_in_experiment(process, settings={}):
 
 def simulate_compartment_in_experiment(compartment, settings={}):
     experiment = compartment_in_experiment(compartment, settings)
-    return simulate_experiment(experiment, settings={})
+    return simulate_experiment(experiment, settings)
 
 def simulate_experiment(experiment, settings={}):
     '''

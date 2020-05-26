@@ -34,17 +34,19 @@ from vivarium.utils.dict_utils import deep_merge
 class GrowthDivision(Compartment):
 
     defaults = {
-        'global_key': ('..', 'global',),
-        'external_key': ('..', 'external',),
-        'cells_key': ('..', '..', 'cells',)}
+        'global_path': ('..', 'global',),
+        'external_path': ('..', 'external',),
+        'exchange_path': ('..', 'exchange',),
+        'cells_path': ('..', '..', 'cells',)}
 
     def __init__(self, config):
         self.config = config
 
         # paths
-        self.global_key = config.get('global_key', self.defaults['global_key'])
-        self.external_key = config.get('external_key', self.defaults['external_key'])
-        self.cells_key = config.get('cells_key', self.defaults['cells_key'])
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.external_path = config.get('external_path', self.defaults['external_path'])
+        self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
+        self.cells_path = config.get('cells_path', self.defaults['cells_path'])
 
         # process configs
         self.transport_config = self.config.get('transport', get_glc_lct_config())
@@ -52,12 +54,12 @@ class GrowthDivision(Compartment):
             'type': 'globals',
             'source_port': 'global',
             'derived_port': 'global',
-            'global_port': self.global_key,
+            'global_port': self.global_path,
             'keys': []}
 
     def generate_processes(self, config):
         # declare the processes
-        agent_id = config.get('agent_id')
+        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
 
         transport_config = deep_merge(
             config.get('transport', {}),
@@ -84,30 +86,31 @@ class GrowthDivision(Compartment):
     def generate_topology(self, config):
         # make the topology.
         # for each process, map process ports to store ids
-        external_key = config.get('external_key', self.external_key)
-        global_key = config.get('global_key', self.global_key)
-        cells_key = config.get('cells_key', self.cells_key)
+        external_path = config.get('external_path', self.external_path)
+        exchange_path = config.get('external_path', self.exchange_path)
+        global_path = config.get('global_path', self.global_path)
+        cells_path = config.get('cells_path', self.cells_path)
 
         return {
             'transport': {
                 'internal': ('internal',),
-                'external': external_key,
-                'exchange': external_key,
+                'external': external_path,
+                'exchange': exchange_path,
                 'fluxes': ('fluxes',),
-                'global': global_key},
+                'global': global_path},
             'growth': {
                 'internal': ('internal',),
-                'global': global_key},
+                'global': global_path},
             'mass': {
-                'global': global_key},
+                'global': global_path},
             'division': {
-                'global': global_key,
-                'cells': cells_key},
+                'global': global_path,
+                'cells': cells_path},
             'expression': {
                 'internal': ('internal',),
-                'external': external_key,
+                'external': external_path,
                 'concentrations': ('internal_concentrations',),
-                'global': global_key}}
+                'global': global_path}}
 
 
 
@@ -117,43 +120,22 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     compartment_config = {
-        'external_key': ('external',),
-        'global_key': ('global',),
-        'cells_key': ('..', '..', 'cells',)}
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
     compartment = GrowthDivision(compartment_config)
 
     # settings for simulation and plot
-    # TODO -- this should not be necessary -- why are states not initializing?
-    initial_state = {
-        'cell': {
-            'EIIglc': 1.8e-3,  # (mmol/L)
-            'g6p_c': 0.0,
-            'pep_c': 1.8e-1,
-            'pyr_c': 0.0,
-            'LacY': 0,
-            'lcts_p': 0.0,
-        },
-        'external': {
-            'glc__D_e': 10.0,
-            'lcts_e': 10.0,
-        },
-        'fluxes': {
-            'EX_glc__D_e': 0.0,
-            'EX_lcts_e': 0.0}}
-
     settings = {
         'environment': {
             'volume': 1e-6,  # L
             'environment_port': 'external',
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
-            # 'exchange_port': ('exchange'),
         },
         'outer_path': ('cells', '0'),
-        'initial_state': initial_state,
         'timestep': 1,
         'total_time': 100}
-
-
 
     timeseries = simulate_compartment_in_experiment(compartment, settings)
 
