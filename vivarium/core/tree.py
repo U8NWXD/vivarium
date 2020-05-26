@@ -189,7 +189,6 @@ class Store(object):
         else:
             return new_value
 
-
     def apply_config(self, config):
         if '_subschema' in config:
             self.subschema = deep_merge(
@@ -200,7 +199,9 @@ class Store(object):
                 for key, value in config.items()
                 if key != '_subschema'}
 
-        if self.schema_keys & config.keys():
+        if not config:
+            self.updater = updater_library['accumulate']
+        elif self.schema_keys & config.keys():
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
             if '_value' in config:
