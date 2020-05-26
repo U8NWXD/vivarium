@@ -39,13 +39,20 @@ def get_in(d, path):
 
 def assoc_in(d, path, value):
     if path:
+        return dict(d, **{path[0]: assoc_in(d.get(path[0], {}), path[1:], value)})
+    else:
+        return value
+
+
+def assoc_path(d, path, value):
+    if path:
         head = path[0]
         if len(path) == 1:
             d[head] = value
         else:
             if head not in d:
                 d[head] = {}
-            assoc_in(d[head], path[1:], value)
+            assoc_path(d[head], path[1:], value)
     else:
         value
 
@@ -363,7 +370,7 @@ class Store(object):
 
     def reduce_to(self, path, reducer, initial=None):
         value = self.reduce(reducer, initial)
-        update = assoc_in({}, path, value)
+        update = assoc_path({}, path, value)
         self.apply_update(update)
 
     def set_value(self, value):
@@ -393,7 +400,7 @@ class Store(object):
                         generate['processes'],
                         generate['topology'],
                         generate['initial_state'])
-                    assoc_in(
+                    assoc_path(
                         topology_updates,
                         generate['path'],
                         generate['topology'])
@@ -422,7 +429,7 @@ class Store(object):
                         daughter['processes'],
                         daughter['topology'],
                         daughter['initial_state'])
-                    assoc_in(
+                    assoc_path(
                         topology_updates,
                         daughter['path'],
                         daughter['topology'])
@@ -685,7 +692,7 @@ class Experiment(object):
             if topology is not None:
                 state_path = path[:-1] + topology
                 normal_path = normalize_path(state_path)
-                assoc_in(absolute, normal_path, update)
+                assoc_path(absolute, normal_path, update)
         return absolute
 
     def process_update(self, path, state, interval):
@@ -893,7 +900,7 @@ def test_recursive_store():
 def test_in():
     blank = {}
     path = ['where', 'are', 'we']
-    assoc_in(blank, path, 5)
+    assoc_path(blank, path, 5)
     print(blank)
     print(get_in(blank, path))
     update_in(blank, path, lambda x: x + 6)
