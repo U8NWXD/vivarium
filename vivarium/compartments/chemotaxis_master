@@ -2,10 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.process import initialize_state
+from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    load_compartment,
-    get_derivers,
     simulate_with_environment,
     plot_simulation_output,
     plot_compartment_topology)
@@ -34,153 +32,140 @@ from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
 from vivarium.processes.membrane_potential import MembranePotential
 
 
-# the composite function
-def compose_chemotaxis_master(config):
-    """
-    A composite with kinetic transport, metabolism, and gene expression
-    """
 
-    ## Declare the processes.
-    # Transport
-    # load the kinetic parameters
-    transport_config = config.get('transport', get_glc_lct_config())
-    transport = ConvenienceKinetics(transport_config)
-    target_fluxes = transport.kinetic_rate_laws.reaction_ids
+class ChemotaxisMaster(Compartment):
 
-    # Metabolism
-    # get target fluxes from transport
-    # load regulation function
-    metabolism_config = config.get('metabolism', get_iAF1260b_config())
-    metabolism_config.update({'constrained_reaction_ids': target_fluxes})
-    metabolism = Metabolism(metabolism_config)
-
-    # flagella expression
-    flg_expression_config = get_flagella_expression_config({})
-    transcription = Transcription(flg_expression_config['transcription'])
-    translation = Translation(flg_expression_config['translation'])
-    degradation = RnaDegradation(flg_expression_config['degradation'])
-    complexation = Complexation(flg_expression_config['complexation'])
-
-    # chemotaxis -- flagella activity, receptor activity, and PMF
-    receptor_parameters = {'ligand': 'GLC'}
-    receptor_parameters.update(config)
-    receptor = ReceptorCluster(config.get('receptor', receptor_parameters))
-    flagella = FlagellaActivity(config.get('flagella', {}))
-    PMF = MembranePotential(config.get('PMF', {}))
-
-    # Division
-    # get initial volume from metabolism
-    division_config = config.get('division', {})
-    division_config.update({'initial_state': metabolism.initial_state})
-    division = Division(division_config)
-
-    # Place processes in layers
-    processes = {
-        'PMF': PMF,
-        'receptor': receptor,
-        'transport': transport,
-        'transcription': transcription,
-        'translation': translation,
-        'degradation': degradation,
-        'complexation': complexation,
-        'metabolism': metabolism,
-        'flagella': flagella,
-        'division': division,
+    defaults = {
+        'transport': get_glc_lct_config(),
+        'global_key': ('..', 'global'),
+        'external_key': ('..', 'external')
     }
 
-    # Make the topology
-    # for each process, map process ports to store ids
-    topology = {
-        'transport': {
-            'internal': 'internal',
-            'external': 'environment',
-            'exchange': 'null',  # metabolism's exchange is used
-            'fluxes': 'flux_bounds',
-            'global': 'global'},
+    def __init__(self, config):
+        self.config = config
+        self.global_key = config.get('global_key', self.defaults['global_key'])
+        self.external_key = config.get('external_key', self.defaults['external_key'])
 
-        'metabolism': {
-            'internal': 'internal',
-            'external': 'environment',
-            'reactions': 'reactions',
-            'exchange': 'exchange',
-            'flux_bounds': 'flux_bounds',
-            'global': 'global'},
+        self.transport_config = self.config.get('transport', self.defaults['transport'])
+        self.transport_config['global_deriver_config'] = {
+            'type': 'globals',
+            'source_port': 'global',
+            'derived_port': 'global',
+            'global_port': self.global_key,
+            'keys': []}
 
-        'transcription': {
-            'chromosome': 'chromosome',
-            'molecules': 'internal',
-            'proteins': 'proteins',
-            'transcripts': 'transcripts',
-            'factors': 'concentrations'},
+    def generate_processes(self, config):
+        ## Declare the processes.
+        # Transport
+        # load the kinetic parameters
+        transport_config = config.get('transport', self.transport_config)
+        transport = ConvenienceKinetics(transport_config)
+        target_fluxes = transport.kinetic_rate_laws.reaction_ids
 
-        'translation': {
-            'ribosomes': 'ribosomes',
-            'molecules': 'internal',
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'concentrations': 'concentrations',
-            'global': 'global'},
+        # Metabolism
+        # get target fluxes from transport
+        # load regulation function
+        metabolism_config = config.get('metabolism', get_iAF1260b_config())
+        metabolism_config.update({'constrained_reaction_ids': target_fluxes})
+        metabolism = Metabolism(metabolism_config)
 
-        'degradation': {
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'molecules': 'internal',
-            'global': 'global'},
+        # flagella expression
+        flg_expression_config = get_flagella_expression_config({})
+        transcription = Transcription(flg_expression_config['transcription'])
+        translation = Translation(flg_expression_config['translation'])
+        degradation = RnaDegradation(flg_expression_config['degradation'])
+        complexation = Complexation(flg_expression_config['complexation'])
 
-        'complexation': {
-            'monomers': 'proteins',
-            'complexes': 'proteins',
-            'global': 'global'},
+        # chemotaxis -- flagella activity, receptor activity, and PMF
+        receptor_parameters = {'ligand': 'GLC'}
+        receptor_parameters.update(config)
+        receptor = ReceptorCluster(config.get('receptor', receptor_parameters))
+        flagella = FlagellaActivity(config.get('flagella', {}))
+        PMF = MembranePotential(config.get('PMF', {}))
 
-        'receptor': {
-            'external': 'environment',
-            'internal': 'internal'},
+        # Division
+        # get initial volume from metabolism
+        division_config = config.get('division', {})
+        division_config.update({'initial_state': metabolism.initial_state})
+        division = Division(division_config)
 
-        'flagella': {
-            'internal': 'internal',
-            'membrane': 'membrane',
-            'flagella_counts': 'proteins',
-            'flagella_activity': 'flagella_activity',
-            'external': 'environment'},
+        return {
+            'PMF': PMF,
+            'receptor': receptor,
+            'transport': transport,
+            'transcription': transcription,
+            'translation': translation,
+            'degradation': degradation,
+            'complexation': complexation,
+            'metabolism': metabolism,
+            'flagella': flagella,
+            'division': division}
 
-        'PMF': {
-            'external': 'environment',
-            'membrane': 'membrane',
-            'internal': 'internal'},
 
-        'division': {
-            'global': 'global'}
-    }
+    def generate_topology(self, config):
+        external_key = config.get('external_key', self.external_key)
+        global_key = config.get('global_key', self.global_key)
 
-    # add derivers
-    derivers = get_derivers(processes, topology)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = processes.copy()
-    all_processes.update(derivers['deriver_processes'])
-    topology.update(derivers['deriver_topology'])
+        return {
+            'transport': {
+                'internal': ('internal',),
+                'external': external_key,
+                'exchange': ('null',),  # metabolism's exchange is used
+                'fluxes': ('flux_bounds',),
+                'global': global_key},
 
-    # initialize the states
-    initial_state = {
-        'internal': {'flagella': 8}}
-    states = initialize_state(
-        all_processes,
-        topology,
-        config.get('initial_state', initial_state))
+            'metabolism': {
+                'internal': ('internal',),
+                'external': external_key,
+                'reactions': ('reactions',),
+                'exchange': ('exchange',),
+                'flux_bounds': ('flux_bounds',),
+                'global': global_key},
 
-    options = {
-        'name': config.get('name', 'chemotaxis_master'),
-        'environment_port': 'environment',
-        # 'exchange_port': 'exchange',
-        'topology': topology,
-        'initial_time': config.get('initial_time', 0.0),
-        'divide_condition': divide_condition}
+            'transcription': {
+                'chromosome': ('chromosome',),
+                'molecules': ('internal',),
+                'proteins': ('proteins',),
+                'transcripts': ('transcripts',),
+                'factors': ('concentrations',)},
 
-    return {
-        'processes': processes,
-        'derivers': deriver_processes,
-        'states': states,
-        'options': options}
+            'translation': {
+                'ribosomes': ('ribosomes',),
+                'molecules': ('internal',),
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'concentrations': ('concentrations',),
+                'global': global_key},
 
+            'degradation': {
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'molecules': ('internal',),
+                'global': global_key},
+
+            'complexation': {
+                'monomers': ('proteins',),
+                'complexes': ('proteins',),
+                'global': global_key},
+
+            'receptor': {
+                'external': external_key,
+                'internal': ('internal',)},
+
+            'flagella': {
+                'internal': ('internal',),
+                'membrane': ('membrane',),
+                'flagella_counts': ('proteins',),
+                'flagella_activity': ('flagella_activity',),
+                'external': external_key},
+
+            'PMF': {
+                'external': external_key,
+                'membrane': ('membrane',),
+                'internal': ('internal',)},
+
+            'division': {
+                'global': global_key}}
 
 
 

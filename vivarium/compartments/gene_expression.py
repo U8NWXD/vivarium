@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import networkx as nx
 
-from vivarium.core.process import initialize_state
+from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     get_derivers,
     load_compartment,
@@ -24,85 +24,65 @@ from vivarium.data.amino_acids import amino_acids
 from vivarium.data.nucleotides import nucleotides
 
 
-def compose_gene_expression(config):
 
-    # declare the processes
-    transcription = Transcription(config.get('transcription', {}))
-    translation = Translation(config.get('translation', {}))
-    degradation = RnaDegradation(config.get('degradation', {}))
-    complexation = Complexation(config.get('complexation', {}))
-    division = Division(config)
+class GeneExpression(Compartment):
 
-    # place processes in layers
-    processes = {
-        'transcription': transcription,
-        'translation': translation,
-        'degradation': degradation,
-        'complexation': complexation,
-        'division': division}
+    defaults = {
+        'transport': get_glc_lct_config(),
+        'global_key': ('..', 'global')
+    }
 
-    # make the topology
-    topology = {
-        'transcription': {
-            'chromosome': 'chromosome',
-            'molecules': 'molecules',
-            'proteins': 'proteins',
-            'transcripts': 'transcripts',
-            'factors': 'concentrations'},
+    def __init__(self, config):
+        self.config = config
+        self.global_key = config.get('global_key', self.defaults['global_key'])
 
-        'translation': {
-            'ribosomes': 'ribosomes',
-            'molecules': 'molecules',
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'concentrations': 'concentrations',
-            'global': 'global'},
+    def generate_processes(self, config):
+        transcription = Transcription(config.get('transcription', {}))
+        translation = Translation(config.get('translation', {}))
+        degradation = RnaDegradation(config.get('degradation', {}))
+        complexation = Complexation(config.get('complexation', {}))
+        division = Division(config)
 
-        'degradation': {
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'molecules': 'molecules',
-            'global': 'global'},
+        return {
+            'transcription': transcription,
+            'translation': translation,
+            'degradation': degradation,
+            'complexation': complexation,
+            'division': division}
 
-        'complexation': {
-            'monomers': 'proteins',
-            'complexes': 'proteins',
-            'global': 'global'},
+    def generate_topology(self, config):
+        global_key = config.get('global_key', self.global_key)
 
-        'division': {
-            'global': 'global'}}
+        return {
+            'transcription': {
+                'chromosome': ('chromosome',),
+                'molecules': ('molecules',),
+                'proteins': ('proteins',),
+                'transcripts': ('transcripts',),
+                'factors': ('concentrations',)},
 
-    # add derivers
-    deriver_config = {
-        'mass': {
-            'dark_mass': 1339,  # fg
-            'ports': {'global': 'global'}}}
-    derivers = get_derivers(processes, topology, deriver_config)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = processes.copy()
-    all_processes.update(derivers['deriver_processes'])
-    topology.update(derivers['deriver_topology'])  # add derivers to the topology
+            'translation': {
+                'ribosomes': ('ribosomes',),
+                'molecules': ('molecules',),
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'concentrations': ('concentrations',),
+                'global': global_key},
 
+            'degradation': {
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'molecules': ('molecules',),
+                'global': global_key},
 
-    # initialize the states
-    states = initialize_state(
-        all_processes,
-        topology,
-        config.get('initial_state', {}))
+            'complexation': {
+                'monomers': ('proteins',),
+                'complexes': ('proteins',),
+                'global': global_key},
 
-    options = {
-        'name': 'gene_expression_composite',
-        'environment_port': 'environment',
-        'exchange_port': 'exchange',
-        'topology': topology,
-        'initial_time': config.get('initial_time', 0.0),
-        'divide_condition': divide_condition}
+            'division': {
+                'global': global_key}}
 
-    return {
-        'processes': processes,
-        'derivers': deriver_processes,
-        'states': states,
-        'options': options}
 
 
 # analysis
