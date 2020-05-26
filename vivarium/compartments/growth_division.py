@@ -148,7 +148,7 @@ if __name__ == '__main__':
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
             # 'exchange_port': ('exchange'),
         },
-        'outer_path': ('cells', '0')
+        'outer_path': ('cells', '0'),
         'initial_state': initial_state,
         'timestep': 1,
         'total_time': 100}
@@ -158,10 +158,8 @@ if __name__ == '__main__':
     timeseries = simulate_compartment_in_experiment(compartment, settings)
 
 
-
-    import ipdb; ipdb.set_trace()
-
-
+    import ipdb;
+    ipdb.set_trace()
 
 
     plot_settings = {

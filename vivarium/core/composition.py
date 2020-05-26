@@ -9,6 +9,7 @@ import networkx as nx
 
 from vivarium.core.tree import (
     Experiment,
+    update_in,
     generate_derivers,
     deriver_library
 )
@@ -224,29 +225,43 @@ def compartment_in_experiment(compartment, settings={}):
     processes = network['processes']
     topology = network['topology']
 
-
-
-
-    import ipdb; ipdb.set_trace()
-
-
-
-
     if timeline:
         timeline_port_mapping = settings['timeline_port_mapping']
         timeline_port_mapping.update({'global': ('global',)})  # timeline requires a global port
         timeline_process = Timeline({'timeline': timeline})
-        processes.update({'timeline': timeline_process})
-        topology.update({
-            'timeline': {
-                port: timeline_port_mapping[port] for port in timeline_process.ports}})
+
+        update_in(
+            processes,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'timeline': timeline_process}))
+
+        update_in(
+            topology,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'timeline': {
+                    port: (port,) for port in timeline_process.ports}}))
 
     if environment:
         environment_process = HomogeneousEnvironment(environment)
-        processes.update({'environment_process': environment_process})
-        topology.update({
-            'environment_process': {
-                port: (port,) for port in environment_process.ports}})
+
+        update_in(
+            processes,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'environment_process': environment_process}))
+
+        update_in(
+            topology,
+            outer_path,
+            lambda existing: deep_merge(
+                existing,
+                {'environment_process': {
+                    port: (port,) for port in environment_process.ports}}))
 
     return Experiment({
         'processes': processes,
