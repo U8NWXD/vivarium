@@ -616,7 +616,7 @@ class Compartment(object):
     def generate_topology(self, config):
         return {}
 
-    def generate(self, config):
+    def generate(self, config, path=tuple()):
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
 
@@ -626,8 +626,8 @@ class Compartment(object):
         topology = deep_merge(topology, derivers['topology'])
 
         return {
-            'processes': processes,
-            'topology': topology}
+            'processes': assoc_in({}, path, processes),
+            'topology': assoc_in({}, path, topology)}
 
 
 def generate_state(processes, topology, initial_state):
@@ -665,10 +665,11 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config['initial_state']
 
-
         print('experiment {}'.format(self.experiment_id))
+
         print('\nPROCESSES:')
         pretty.pprint(self.processes)
+
         print('\nTOPOLOGY:')
         pretty.pprint(self.topology)
 

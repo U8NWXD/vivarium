@@ -40,13 +40,13 @@ class GrowthDivision(Compartment):
 
     def __init__(self, config):
         self.config = config
+
+        # paths
         self.global_key = config.get('global_key', self.defaults['global_key'])
         self.external_key = config.get('external_key', self.defaults['external_key'])
         self.cells_key = config.get('cells_key', self.defaults['cells_key'])
 
-        # self.external_key = ('..',) + self.config.get('external_key', ('external',))
-        # self.cells_key = ('..', '..') + self.config.get('cells_key', ('cells',))
-
+        # process configs
         self.transport_config = self.config.get('transport', get_glc_lct_config())
         self.transport_config['global_deriver_config'] = {
             'type': 'globals',
@@ -90,14 +90,13 @@ class GrowthDivision(Compartment):
 
         return {
             'transport': {
-                'internal': ('cell',),
+                'internal': ('internal',),
                 'external': external_key,
                 'exchange': external_key,
-                # 'fluxes': ['flux'], # just for testing
                 'fluxes': ('fluxes',),
                 'global': global_key},
             'growth': {
-                'internal': ('cell',),
+                'internal': ('internal',),
                 'global': global_key},
             'mass': {
                 'global': global_key},
@@ -105,9 +104,9 @@ class GrowthDivision(Compartment):
                 'global': global_key,
                 'cells': cells_key},
             'expression': {
-                'internal': ('cell',),
+                'internal': ('internal',),
                 'external': external_key,
-                'concentrations': ('cell_concentrations',),
+                'concentrations': ('internal_concentrations',),
                 'global': global_key}}
 
 
@@ -120,7 +119,7 @@ if __name__ == '__main__':
     compartment_config = {
         'external_key': ('external',),
         'global_key': ('global',),
-        'cells_key': ('cell',)}
+        'cells_key': ('..', '..', 'cells',)}
     compartment = GrowthDivision(compartment_config)
 
     # settings for simulation and plot
@@ -149,12 +148,21 @@ if __name__ == '__main__':
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
             # 'exchange_port': ('exchange'),
         },
+        'outer_path': ('cells', '0')
         'initial_state': initial_state,
         'timestep': 1,
         'total_time': 100}
+
+
+
     timeseries = simulate_compartment_in_experiment(compartment, settings)
 
+
+
     import ipdb; ipdb.set_trace()
+
+
+
 
     plot_settings = {
         'max_rows': 25,

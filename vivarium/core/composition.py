@@ -218,10 +218,19 @@ def compartment_in_experiment(compartment, settings={}):
     emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
+    outer_path = settings.get('outer_path', tuple())
 
-    network = compartment.generate(compartment_config)
+    network = compartment.generate(compartment_config, outer_path)
     processes = network['processes']
     topology = network['topology']
+
+
+
+
+    import ipdb; ipdb.set_trace()
+
+
+
 
     if timeline:
         timeline_port_mapping = settings['timeline_port_mapping']
