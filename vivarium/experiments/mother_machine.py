@@ -27,6 +27,7 @@ from vivarium.processes.diffusion_field import plot_field_output
 def mother_machine_experiment(config):
     # configure the experiment
     n_agents = config.get('n_agents', 1)
+    emitter = config.get('emitter', {'type': 'timeseries'})
 
     # get the environment
     environment = Lattice(config.get('environment', {}))
@@ -42,7 +43,9 @@ def mother_machine_experiment(config):
     return Experiment({
         'processes': processes,
         'topology': topology,
-        'initial_state': config.get('initial_state', {})})
+        'initial_state': config.get('initial_state', {}),
+        'emitter': emitter,
+    })
 
 
 
@@ -103,7 +106,7 @@ def get_mother_machine_config():
         }
     }
 
-def run_mother_machine(time=10):
+def run_mother_machine(time=5, out_dir='out'):
     mm_config = get_mother_machine_config()
     experiment = mother_machine_experiment(mm_config)
 
@@ -115,16 +118,10 @@ def run_mother_machine(time=10):
     data = simulate_experiment(experiment, settings)
 
     # make snapshot plot
+    multibody_config = mm_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
-    plot_snapshots(agents, fields, config, out_dir, 'snapshots')
-
-
-    import ipdb; ipdb.set_trace()
-    # TODO -- did the mm_config get in there?
-    # TODO -- get channel height, have multibody perform deletion
-
-
+    plot_snapshots(agents, fields, multibody_config, out_dir, 'snapshots')
 
 
 if __name__ == '__main__':
@@ -132,7 +129,7 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine()
+    run_mother_machine(out_dir)
 
     # make snapshot
     agents = {time: time_data['agents'] for time, time_data in mm_data.items()}
