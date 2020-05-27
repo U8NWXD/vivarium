@@ -364,25 +364,28 @@ def get_glc_lct_transport():
     }
 
     transport_kinetics = {
+        # lcts uptake by LacY
         'LCTSt3ipp': {
             ('internal', 'LacY'): {
-                ('external', 'h_p'): None,  # None to make a reactant non-limiting
+                ('external', 'h_p'): None,
                 ('external', 'lcts_p'): 1e0,
-                'kcat_f': 6e1,
+                'kcat_f': 7.8e3,  # 1/s
             }
         },
+        # g6p PTS uptake by EIIglc
         'GLCptspp': {
             ('internal', 'EIIglc'): {
                 ('external', 'glc__D_e'): 1e0,
                 ('internal', 'pep_c'): 1e0,
-                'kcat_f': 6e1,
+                'kcat_f': 7.5e5,  # 1/s
             }
         },
+        # glc uptake by GalP
         'GLCt2pp': {
             ('internal', 'GalP'): {
                 ('external', 'glc__D_p'): 1e0,
-                ('external', 'h_p'): None,  # None to make a reactant non-limiting
-                'kcat_f': 6e1,
+                ('external', 'h_p'): None,
+                'kcat_f': 1.5e3,  # 1/s
             }
         },
     }
