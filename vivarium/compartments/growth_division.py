@@ -137,17 +137,7 @@ if __name__ == '__main__':
             'states': list(compartment.transport_config['initial_state']['external'].keys()),
         },
         'outer_path': ('cells', '0'),
+        'return_raw_data': True,
         'timestep': 1,
         'total_time': 100}
-
-    timeseries = simulate_compartment_in_experiment(compartment, settings)
-
-
-    import ipdb;
-    ipdb.set_trace()
-
-
-    plot_settings = {
-        'max_rows': 25,
-        'skip_ports': ['prior_state']}
-    plot_simulation_output(timeseries, plot_settings, out_dir)
+    data = simulate_compartment_in_experiment(compartment, settings)

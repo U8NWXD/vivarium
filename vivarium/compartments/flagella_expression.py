@@ -17,7 +17,7 @@ from vivarium.states.chromosome import Chromosome, rna_bases, sequence_monomers
 from vivarium.processes.transcription import UNBOUND_RNAP_KEY
 from vivarium.processes.translation import UNBOUND_RIBOSOME_KEY
 from vivarium.compartments.gene_expression import (
-    compose_gene_expression,
+    GeneExpression,
     plot_gene_expression_output,
     gene_network_plot
 )
@@ -97,8 +97,7 @@ def get_flagella_expression_config(config):
 
 def generate_flagella_compartment(config):
     flagella_expression_config = get_flagella_expression_config(config)
-
-    return compose_gene_expression(flagella_expression_config)
+    return GeneExpression(flagella_expression_config)
 
 
 def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
