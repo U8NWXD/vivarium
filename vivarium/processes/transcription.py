@@ -369,12 +369,14 @@ class Transcription(Process):
         self.stoichiometry = build_stoichiometry(self.promoter_count)
         self.initiation = StochasticSystem(self.stoichiometry, random_seed=np.random.randint(2**31))
 
+        self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
+
         self.ports = {
             'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
             'molecules': self.molecule_ids,
             'factors': self.transcription_factors,
             'transcripts': self.transcript_ids,
-            'proteins': [UNBOUND_RNAP_KEY] + self.transcription_factors}
+            'proteins': self.protein_ids}
 
         log.debug('transcription parameters: {}'.format(self.parameters))
 
@@ -398,64 +400,143 @@ class Transcription(Process):
             promoter_order=self.promoter_order,
             genes=self.genes)
 
-    def default_settings(self):
-        default_state = {
-            'chromosome': {
-                'rnaps': [],
-                'rnap_id': 0,
-                'root_domain': 0,
-                'domains': {
-                    0: {
-                        'id': 0,
-                        'lead': 0,
-                        'lag': 0,
-                        'children': []}}},
-            'molecules': {},
-            'proteins': {UNBOUND_RNAP_KEY: 10},
-            'factors': {
-                key: 0.0
-                for key in self.transcription_factors}}
+    def ports_schema(self):
+        schema = {}
 
-        default_state['molecules'].update({
-            nucleotide: 100
-            for nucleotide in self.monomer_ids})
+        schema['chromosome'] = {
+            'rnap_id': {
+                '_default': 1,
+                '_updater': 'set'},
+            'root_domain': {
+                '_default': 0,
+                '_updater': 'set'},
+            'domains': {
+                '*': {
+                    'id': {
+                        '_default': 1,
+                        '_updater': 'set'},
+                    'lead': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'lag': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'children': {
+                        '_default': [],
+                        '_updater': 'set'}}},
+            'rnaps': {
+                '*': {
+                    'id': {
+                        '_default': -1,
+                        '_updater': 'set'},
+                    'domain': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'state': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'position': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template_index': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'terminator': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True}}}}
 
-        chromosome = Chromosome(
-            self.chromosome_config(
-                default_state['chromosome']))
+        schema['molecules'] = {
+            molecule: {
+                '_default': 100,
+                '_emit': True}
+            for molecule in self.molecule_ids}
 
-        operons = [operon.id for operon in chromosome.operons()]
+        schema['factors'] = {
+            factor: {
+                '_default': 0.0}
+            for factor in self.transcription_factors}
 
-        default_state['transcripts'] = {
-            operon: 0
-            for operon in operons}
+        schema['transcripts'] = {
+            protein: {
+                '_emit': True}
+            for protein in self.protein_ids}
 
-        default_state = deep_merge(
-            default_state,
-            self.parameters.get('initial_state', {}))
+        schema['proteins'] = {
+            protein: {
+                '_default': 0}
+            for protein in self.protein_ids}
 
-        default_emitter_keys = {
-            'chromosome': ['rnaps'],
-            'molecules': self.monomer_ids,
-            'proteins': [UNBOUND_RNAP_KEY],
-            'transcripts': operons}
+        return schema
 
-        schema = {
-            'chromosome': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in self.ports['chromosome']}}
+    # def default_settings(self):
+    #     default_state = {
+    #         'chromosome': {
+    #             'rnaps': [],
+    #             'rnap_id': 0,
+    #             'root_domain': 0,
+    #             'domains': {
+    #                 0: {
+    #                     'id': 0,
+    #                     'lead': 0,
+    #                     'lag': 0,
+    #                     'children': []}}},
+    #         'molecules': {},
+    #         'proteins': {UNBOUND_RNAP_KEY: 10},
+    #         'factors': {
+    #             key: 0.0
+    #             for key in self.transcription_factors}}
 
-        return {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'parameters': self.parameters}
+    #     default_state['molecules'].update({
+    #         nucleotide: 100
+    #         for nucleotide in self.monomer_ids})
+
+    #     chromosome = Chromosome(
+    #         self.chromosome_config(
+    #             default_state['chromosome']))
+
+    #     operons = [operon.id for operon in chromosome.operons()]
+
+    #     default_state['transcripts'] = {
+    #         operon: 0
+    #         for operon in operons}
+
+    #     default_state = deep_merge(
+    #         default_state,
+    #         self.parameters.get('initial_state', {}))
+
+    #     default_emitter_keys = {
+    #         'chromosome': ['rnaps'],
+    #         'molecules': self.monomer_ids,
+    #         'proteins': [UNBOUND_RNAP_KEY],
+    #         'transcripts': operons}
+
+    #     schema = {
+    #         'chromosome': {
+    #             state_id : {
+    #                 'updater': 'set'}
+    #             for state_id in self.ports['chromosome']}}
+
+    #     return {
+    #         'state': default_state,
+    #         'emitter_keys': default_emitter_keys,
+    #         'schema': schema,
+    #         'parameters': self.parameters}
 
     def next_update(self, timestep, states):
+        chromosome_state = states['chromosome']
+        chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
+        original_rnap_keys = chromosome_state['rnaps'].keys()
         chromosome = Chromosome(
-            self.chromosome_config(
-                states['chromosome']))
+            self.chromosome_config(chromosome_state))
+
         molecules = states['molecules']
         proteins = states['proteins']
         factors = states['factors'] # as concentrations
@@ -596,6 +677,32 @@ class Transcription(Process):
             for key, count in elongation.monomers.items()}
 
         chromosome_dict = chromosome.to_dict()
+        rnaps = {
+            rnap['id']: rnap
+            for rnap in chromosome_dict['rnaps']}
+
+        bound_rnaps = rnaps.keys() - original_rnap_keys
+        completed_rnaps = original_rnap_keys - rnaps.keys()
+        existential_rnaps = bound_rnaps + completed_rnaps
+        rnap_updates = {
+            rnap_id: rnap
+            for rnap_id, rnap in rnaps.items()
+            if rnap_id not in existential_rnaps}
+        generated_rnaps = [
+            {
+                'path': (bound,),
+                'processes': {},
+                'topology': {},
+                'initial_state': rnaps[bound]}
+            for bound in bound_rnaps]
+        deleted_rnaps = [
+            (bound,)
+            for bound in completed_rnaps]
+
+        rnap_updates['_generate'] = generated_rnaps
+        rnap_updates['_delete'] = deleted_rnaps
+        chromosome_dict['rnaps'] = rnap_updates
+
         update = {
             'chromosome': {
                 key: chromosome_dict[key]
@@ -605,6 +712,8 @@ class Transcription(Process):
             'transcripts': elongation.complete_polymers}
 
         log.debug('molecules update: {}'.format(update['molecules']))
+
+        import ipdb; ipdb.set_trace()
 
         return update
 
