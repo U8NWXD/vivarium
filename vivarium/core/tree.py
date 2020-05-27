@@ -416,8 +416,12 @@ class Store(object):
                     if self.subschema:
                         self.inner[child] = Store(self.subschema, self)
                     else:
-                        print("setting value that doesn't exist in tree {} {}".format(
-                            child, child_value))
+                        pass
+
+                        # TODO: continue to ignore extra keys?
+                        # print("setting value that doesn't exist in tree {} {}".format(
+                        #     child, child_value))
+
                 if child in self.inner:
                     self.inner[child].set_value(child_value)
         else:
@@ -492,6 +496,9 @@ class Store(object):
                         topology_updates = deep_merge(
                             topology_updates,
                             {key: inner_updates})
+                elif self.subschema:
+                    self.inner[key] = Store(self.subschema, self)
+                    self.inner[key].set_value(value)
 
             return topology_updates
 
@@ -508,9 +515,6 @@ class Store(object):
                 if '_updater' in update:
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
-
-            if updater is None:
-                import ipdb; ipdb.set_trace()
 
             self.value = updater(self.value, update)
 
