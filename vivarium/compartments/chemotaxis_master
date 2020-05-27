@@ -2,11 +2,9 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.process import initialize_state
+from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    load_compartment,
-    get_derivers,
-    simulate_with_environment,
+    simulate_compartment_in_experiment,
     plot_simulation_output,
     plot_compartment_topology)
 from vivarium.compartments.gene_expression import plot_gene_expression_output
@@ -34,163 +32,143 @@ from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
 from vivarium.processes.membrane_potential import MembranePotential
 
 
-# the composite function
-def compose_chemotaxis_master(config):
-    """
-    A composite with kinetic transport, metabolism, and gene expression
-    """
 
-    ## Declare the processes.
-    # Transport
-    # load the kinetic parameters
-    transport_config = config.get('transport', get_glc_lct_config())
-    transport = ConvenienceKinetics(transport_config)
-    target_fluxes = transport.kinetic_rate_laws.reaction_ids
+class ChemotaxisMaster(Compartment):
 
-    # Metabolism
-    # get target fluxes from transport
-    # load regulation function
-    metabolism_config = config.get('metabolism', get_iAF1260b_config())
-    metabolism_config.update({'constrained_reaction_ids': target_fluxes})
-    metabolism = Metabolism(metabolism_config)
-
-    # flagella expression
-    flg_expression_config = get_flagella_expression_config({})
-    transcription = Transcription(flg_expression_config['transcription'])
-    translation = Translation(flg_expression_config['translation'])
-    degradation = RnaDegradation(flg_expression_config['degradation'])
-    complexation = Complexation(flg_expression_config['complexation'])
-
-    # chemotaxis -- flagella activity, receptor activity, and PMF
-    receptor_parameters = {'ligand': 'GLC'}
-    receptor_parameters.update(config)
-    receptor = ReceptorCluster(config.get('receptor', receptor_parameters))
-    flagella = FlagellaActivity(config.get('flagella', {}))
-    PMF = MembranePotential(config.get('PMF', {}))
-
-    # Division
-    # get initial volume from metabolism
-    division_config = config.get('division', {})
-    division_config.update({'initial_state': metabolism.initial_state})
-    division = Division(division_config)
-
-    # Place processes in layers
-    processes = {
-        'PMF': PMF,
-        'receptor': receptor,
-        'transport': transport,
-        'transcription': transcription,
-        'translation': translation,
-        'degradation': degradation,
-        'complexation': complexation,
-        'metabolism': metabolism,
-        'flagella': flagella,
-        'division': division,
+    defaults = {
+        'transport': get_glc_lct_config(),
+        'global_path': ('..', 'global'),
+        'external_path': ('..', 'external')
     }
 
-    # Make the topology
-    # for each process, map process ports to store ids
-    topology = {
-        'transport': {
-            'internal': 'internal',
-            'external': 'environment',
-            'exchange': 'null',  # metabolism's exchange is used
-            'fluxes': 'flux_bounds',
-            'global': 'global'},
+    def __init__(self, config):
+        self.config = config
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.external_path = config.get('external_path', self.defaults['external_path'])
 
-        'metabolism': {
-            'internal': 'internal',
-            'external': 'environment',
-            'reactions': 'reactions',
-            'exchange': 'exchange',
-            'flux_bounds': 'flux_bounds',
-            'global': 'global'},
+        self.transport_config = self.config.get('transport', self.defaults['transport'])
+        self.transport_config['global_deriver_config'] = {
+            'type': 'globals',
+            'source_port': 'global',
+            'derived_port': 'global',
+            'global_port': self.global_path,
+            'keys': []}
 
-        'transcription': {
-            'chromosome': 'chromosome',
-            'molecules': 'internal',
-            'proteins': 'proteins',
-            'transcripts': 'transcripts',
-            'factors': 'concentrations'},
+    def generate_processes(self, config):
+        ## Declare the processes.
+        # Transport
+        # load the kinetic parameters
+        transport_config = config.get('transport', self.transport_config)
+        transport = ConvenienceKinetics(transport_config)
+        target_fluxes = transport.kinetic_rate_laws.reaction_ids
 
-        'translation': {
-            'ribosomes': 'ribosomes',
-            'molecules': 'internal',
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'concentrations': 'concentrations',
-            'global': 'global'},
+        # Metabolism
+        # get target fluxes from transport
+        # load regulation function
+        metabolism_config = config.get('metabolism', get_iAF1260b_config())
+        metabolism_config.update({'constrained_reaction_ids': target_fluxes})
+        metabolism = Metabolism(metabolism_config)
 
-        'degradation': {
-            'transcripts': 'transcripts',
-            'proteins': 'proteins',
-            'molecules': 'internal',
-            'global': 'global'},
+        # flagella expression
+        flg_expression_config = get_flagella_expression_config({})
+        transcription = Transcription(flg_expression_config['transcription'])
+        translation = Translation(flg_expression_config['translation'])
+        degradation = RnaDegradation(flg_expression_config['degradation'])
+        complexation = Complexation(flg_expression_config['complexation'])
 
-        'complexation': {
-            'monomers': 'proteins',
-            'complexes': 'proteins',
-            'global': 'global'},
+        # chemotaxis -- flagella activity, receptor activity, and PMF
+        receptor_parameters = {'ligand': 'GLC'}
+        receptor_parameters.update(config)
+        receptor = ReceptorCluster(config.get('receptor', receptor_parameters))
+        flagella = FlagellaActivity(config.get('flagella', {}))
+        PMF = MembranePotential(config.get('PMF', {}))
 
-        'receptor': {
-            'external': 'environment',
-            'internal': 'internal'},
+        # Division
+        # get initial volume from metabolism
+        division_config = config.get('division', {})
+        division_config.update({'initial_state': metabolism.initial_state})
+        division = Division(division_config)
 
-        'flagella': {
-            'internal': 'internal',
-            'membrane': 'membrane',
-            'flagella_counts': 'proteins',
-            'flagella_activity': 'flagella_activity',
-            'external': 'environment'},
-
-        'PMF': {
-            'external': 'environment',
-            'membrane': 'membrane',
-            'internal': 'internal'},
-
-        'division': {
-            'global': 'global'}
-    }
-
-    # add derivers
-    derivers = get_derivers(processes, topology)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = processes.copy()
-    all_processes.update(derivers['deriver_processes'])
-    topology.update(derivers['deriver_topology'])
-
-    # initialize the states
-    initial_state = {
-        'internal': {'flagella': 8}}
-    states = initialize_state(
-        all_processes,
-        topology,
-        config.get('initial_state', initial_state))
-
-    options = {
-        'name': config.get('name', 'chemotaxis_master'),
-        'environment_port': 'environment',
-        # 'exchange_port': 'exchange',
-        'topology': topology,
-        'initial_time': config.get('initial_time', 0.0),
-        'divide_condition': divide_condition}
-
-    return {
-        'processes': processes,
-        'derivers': deriver_processes,
-        'states': states,
-        'options': options}
+        return {
+            'PMF': PMF,
+            'receptor': receptor,
+            'transport': transport,
+            'transcription': transcription,
+            'translation': translation,
+            'degradation': degradation,
+            'complexation': complexation,
+            'metabolism': metabolism,
+            'flagella': flagella,
+            'division': division}
 
 
+    def generate_topology(self, config):
+        external_path = config.get('external_path', self.external_path)
+        global_path = config.get('global_path', self.global_path)
 
+        return {
+            'transport': {
+                'internal': ('internal',),
+                'external': external_path,
+                'exchange': ('null',),  # metabolism's exchange is used
+                'fluxes': ('flux_bounds',),
+                'global': global_path},
 
-if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'chemotaxis_master')
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+            'metabolism': {
+                'internal': ('internal',),
+                'external': external_path,
+                'reactions': ('reactions',),
+                'exchange': ('exchange',),
+                'flux_bounds': ('flux_bounds',),
+                'global': global_path},
 
-    compartment = load_compartment(compose_chemotaxis_master)
-    options = compartment.configuration
+            'transcription': {
+                'chromosome': ('chromosome',),
+                'molecules': ('internal',),
+                'proteins': ('proteins',),
+                'transcripts': ('transcripts',),
+                'factors': ('concentrations',)},
+
+            'translation': {
+                'ribosomes': ('ribosomes',),
+                'molecules': ('internal',),
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'concentrations': ('concentrations',),
+                'global': global_path},
+
+            'degradation': {
+                'transcripts': ('transcripts',),
+                'proteins': ('proteins',),
+                'molecules': ('internal',),
+                'global': global_path},
+
+            'complexation': {
+                'monomers': ('proteins',),
+                'complexes': ('proteins',),
+                'global': global_path},
+
+            'receptor': {
+                'external': external_path,
+                'internal': ('internal',)},
+
+            'flagella': {
+                'internal': ('internal',),
+                'membrane': ('membrane',),
+                'flagella_counts': ('proteins',),
+                'flagella_activity': ('flagella_activity',),
+                'external': external_path},
+
+            'PMF': {
+                'external': external_path,
+                'membrane': ('membrane',),
+                'internal': ('internal',)},
+
+            'division': {
+                'global': global_path}}
+
+def run_chemotaxis_master(out_dir):
+    compartment = ChemotaxisMaster({})
 
     # save the topology network
     settings = {'show_ports': True}
@@ -199,17 +177,7 @@ if __name__ == '__main__':
         settings,
         out_dir)
 
-    # simulate
-    timeline = [(10, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
-    settings = {
-        'environment_port': options.get('environment_port'),
-        'exchange_port': options.get('exchange_port'),
-        'environment_volume': 1e-13,  # L
-        'timeline': timeline}
-
-    timeseries = simulate_with_environment(compartment, settings)
-
-    # print growth
+    timeseries = test_chemotaxis_master()
     volume_ts = timeseries['global']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
@@ -231,3 +199,24 @@ if __name__ == '__main__':
         timeseries,
         gene_exp_plot_config,
         out_dir)
+
+def test_chemotaxis_master():
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
+    compartment = ChemotaxisMaster(compartment_config)
+
+    settings = {
+        'timestep': 1,
+        'total_time': 100}
+    return simulate_compartment_in_experiment(compartment, settings)
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'tests', 'chemotaxis_master')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    run_chemotaxis_master(out_dir)

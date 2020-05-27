@@ -474,8 +474,6 @@ def simulate_compartment(compartment, settings={}):
 
 
 
-
-
 # plotting functions
 def plot_compartment_topology(compartment, settings, out_dir='out', filename='topology'):
     """
@@ -489,8 +487,9 @@ def plot_compartment_topology(compartment, settings, out_dir='out', filename='to
     node_distance = 1
     layer_distance = 10
 
-    topology = compartment.topology
-    process_layers = compartment.processes
+    network = compartment.generate({})
+    topology = network['topology']
+    processes = network['processes']
 
     # get figure settings
     show_ports = settings.get('show_ports', True)
