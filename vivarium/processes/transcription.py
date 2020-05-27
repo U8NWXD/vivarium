@@ -10,7 +10,9 @@ import logging as log
 from arrow import StochasticSystem
 
 from vivarium.utils.dict_utils import deep_merge
+from vivarium.core.tree import pp
 from vivarium.core.process import Process, keys_list
+from vivarium.core.composition import process_in_experiment
 from vivarium.states.chromosome import Chromosome, Rnap, Promoter, frequencies, add_merge, toy_chromosome_config
 from vivarium.utils.polymerize import Elongation, build_stoichiometry, template_products
 from vivarium.data.nucleotides import nucleotides
@@ -533,7 +535,8 @@ class Transcription(Process):
     def next_update(self, timestep, states):
         chromosome_state = states['chromosome']
         chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
-        original_rnap_keys = chromosome_state['rnaps'].keys()
+        original_rnap_keys = [
+            rnap['id'] for rnap in chromosome_state['rnaps']]
         chromosome = Chromosome(
             self.chromosome_config(chromosome_state))
 
@@ -683,23 +686,23 @@ class Transcription(Process):
 
         bound_rnaps = rnaps.keys() - original_rnap_keys
         completed_rnaps = original_rnap_keys - rnaps.keys()
-        existential_rnaps = bound_rnaps + completed_rnaps
+        # existential_rnaps = bound_rnaps + completed_rnaps
         rnap_updates = {
             rnap_id: rnap
             for rnap_id, rnap in rnaps.items()
-            if rnap_id not in existential_rnaps}
-        generated_rnaps = [
-            {
-                'path': (bound,),
-                'processes': {},
-                'topology': {},
-                'initial_state': rnaps[bound]}
-            for bound in bound_rnaps]
+            if rnap_id not in completed_rnaps}
+            # if rnap_id not in existential_rnaps}
+        # generated_rnaps = [
+        #     {
+        #         'path': (bound,),
+        #         'processes': {},
+        #         'topology': {},
+        #         'initial_state': rnaps[bound]}
+        #     for bound in bound_rnaps]
         deleted_rnaps = [
-            (bound,)
-            for bound in completed_rnaps]
+            (completed,)
+            for completed in completed_rnaps]
 
-        rnap_updates['_generate'] = generated_rnaps
         rnap_updates['_delete'] = deleted_rnaps
         chromosome_dict['rnaps'] = rnap_updates
 
@@ -718,6 +721,12 @@ class Transcription(Process):
         return update
 
 
+def unflatten_rnaps(chromosome):
+    chromosome['rnaps'] = {
+        rnap['id']: rnap
+        for rnap in chromosome['rnaps']}
+    return chromosome
+
 def test_transcription():
     parameters = {
         'elongation_rate': 10.0}
@@ -725,19 +734,19 @@ def test_transcription():
     chromosome = Chromosome(toy_chromosome_config)
     transcription = Transcription(parameters)
 
-    states = {
-        'chromosome': chromosome.to_dict(),
-        'molecules': {},
-        'proteins': {UNBOUND_RNAP_KEY: 10},
-        'factors': {'tfA': 0.2, 'tfB': 0.7}}
+    experiment = process_in_experiment(transcription, {
+        'initial_state': {
+            'chromosome': unflatten_rnaps(chromosome.to_dict()),
+            'molecules': {
+                nucleotide: 10
+                for nucleotide in transcription.monomer_ids},
+            'proteins': {UNBOUND_RNAP_KEY: 10},
+            'factors': {'tfA': 0.2, 'tfB': 0.7}}})
 
-    states['molecules'].update({
-        nucleotide: 10
-        for nucleotide in transcription.monomer_ids})
+    pp(experiment.state.get_value())
+    experiment.update_interval(10.0, 1.0)
+    pp(experiment.state.get_value())
 
-    update = transcription.next_update(1.0, states)
-
-    print(update)
     print('complete!')
 
 

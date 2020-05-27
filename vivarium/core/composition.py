@@ -179,7 +179,7 @@ def make_agents(keys, compartment, config=None):
         'topology': topology}
 
 def process_in_experiment(process, settings={}):
-    process_settings = process.default_settings()
+    initial_state = settings.get('initial_state', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
@@ -187,7 +187,7 @@ def process_in_experiment(process, settings={}):
     processes = {'process': process}
     topology = {
         'process': {
-            port: (port,) for port in process.ports}}
+            port: (port,) for port in process.ports_schema().keys()}}
 
     if timeline:
         timeline_process = Timeline({'timeline': timeline})
@@ -212,7 +212,7 @@ def process_in_experiment(process, settings={}):
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
-        'initial_state': process_settings.get('state', {})})
+        'initial_state': initial_state})
 
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
