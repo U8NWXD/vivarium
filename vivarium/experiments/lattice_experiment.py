@@ -34,7 +34,7 @@ def lattice_experiment(config):
 
     # get the agents
     growth_division = GrowthDivision({
-        'cells_key': ('..', 'agents')})
+        'cells_path': ('..', 'agents')})
     agents = make_agents(range(count), growth_division, {})
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']

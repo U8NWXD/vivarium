@@ -684,36 +684,36 @@ def simulate_motility(config, settings):
 
     return experiment.emitter.get_data()
 
-def run_mother_machine():
-    bounds = [30, 30]
-    channel_height = 0.7 * bounds[1]
-    channel_space = 1.5
-
-    settings = {
-        'growth_rate': 0.03,
-        'growth_rate_noise': 0.02,
-        'division_volume': 2.6,
-        'channel_height': channel_height,
-        'total_time': 240}
-    mm_config = {
-        'animate': True,
-        'mother_machine': {
-            'channel_height': channel_height,
-            'channel_space': channel_space},
-        'jitter_force': 2e-2,
-        'bounds': bounds}
-    body_config = {
-        'bounds': bounds,
-        'channel_height': channel_height,
-        'channel_space': channel_space,
-        'n_agents': 5}
-    mm_config.update(mother_machine_body_config(body_config))
-    mm_data = simulate_growth_division(mm_config, settings)
-
-    # make snapshot
-    agents = {time: time_data['agents'] for time, time_data in mm_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, mm_config, out_dir, 'mother_machine_snapshots')
+# def run_mother_machine():
+#     bounds = [30, 30]
+#     channel_height = 0.7 * bounds[1]
+#     channel_space = 1.5
+#
+#     settings = {
+#         'growth_rate': 0.03,
+#         'growth_rate_noise': 0.02,
+#         'division_volume': 2.6,
+#         'channel_height': channel_height,
+#         'total_time': 240}
+#     mm_config = {
+#         'animate': True,
+#         'mother_machine': {
+#             'channel_height': channel_height,
+#             'channel_space': channel_space},
+#         'jitter_force': 2e-2,
+#         'bounds': bounds}
+#     body_config = {
+#         'bounds': bounds,
+#         'channel_height': channel_height,
+#         'channel_space': channel_space,
+#         'n_agents': 5}
+#     mm_config.update(mother_machine_body_config(body_config))
+#     mm_data = simulate_growth_division(mm_config, settings)
+#
+#     # make snapshot
+#     agents = {time: time_data['agents'] for time, time_data in mm_data.items()}
+#     fields = {}
+#     plot_snapshots(agents, fields, mm_config, out_dir, 'mother_machine_snapshots')
 
 def run_motility(out_dir):
     # test motility
@@ -1115,14 +1115,11 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--mother', '-m', action='store_true', default=False)
     parser.add_argument('--motility', '-o', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     args = parser.parse_args()
 
-    if args.mother:
-        run_mother_machine()
-    elif args.motility:
+    if args.motility:
         run_motility(out_dir)
     elif args.growth:
         data = run_growth_division()

@@ -692,6 +692,18 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config['initial_state']
 
+        self.state = generate_state(
+            self.processes,
+            self.topology,
+            self.initial_state)
+
+        emitter_config = config.get('emitter', {})
+        emitter_config['experiment_id'] = self.experiment_id
+        self.emitter = get_emitter(emitter_config)
+        self.emit_configuration()
+
+        self.local_time = 0.0
+
         print('experiment {}'.format(self.experiment_id))
 
         print('\nPROCESSES:')
@@ -700,23 +712,11 @@ class Experiment(object):
         print('\nTOPOLOGY:')
         pretty.pprint(self.topology)
 
-        self.state = generate_state(
-            self.processes,
-            self.topology,
-            self.initial_state)
-
         print('\nSTATE:')
         pretty.pprint(self.state.get_value())
 
-        print('\nCONFIG:')
-        pretty.pprint(self.state.get_config())
-
-        emitter_config = config.get('emitter', {})
-        emitter_config['experiment_id'] = self.experiment_id
-        self.emitter = get_emitter(emitter_config)
-        self.emit_configuration()
-
-        self.local_time = 0.0
+        # print('\nCONFIG:')
+        # pretty.pprint(self.state.get_config())
 
     def emit_configuration(self):
         data = {

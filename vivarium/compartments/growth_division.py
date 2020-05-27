@@ -38,6 +38,7 @@ class GrowthDivision(Compartment):
         'external_path': ('..', 'external',),
         'exchange_path': ('..', 'exchange',),
         'cells_path': ('..', '..', 'cells',),
+        'transport_config': get_glc_lct_config(),
         'daughter_path': tuple()}
 
     def __init__(self, config):
@@ -51,7 +52,7 @@ class GrowthDivision(Compartment):
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
         # process configs
-        self.transport_config = self.config.get('transport', get_glc_lct_config())
+        self.transport_config = self.config.get('transport_config', self.defaults['transport_config'])
         self.transport_config['global_deriver_config'] = {
             'type': 'globals',
             'source_port': 'global',
