@@ -328,6 +328,98 @@ class ConvenienceKinetics(Process):
 
 
 # functions
+def get_glc_lct_transport():
+
+    transport_reactions = {
+        'LCTSt3ipp': {
+            'stoichiometry': {
+                ('internal', 'h_c'): 1.0,
+                ('external', 'h_p'): -1.0,
+                ('internal', 'lcts_c'): 1.0,
+                ('external', 'lcts_p'): -1.0
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'LacY')]
+        },
+        'GLCptspp': {
+            'stoichiometry': {
+                ('internal', 'g6p_c'): 1.0,
+                ('external', 'glc__D_e'): -1.0,
+                ('internal', 'pep_c'): -1.0,
+                ('internal', 'pyr_c'): 1.0,
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'EIIglc')]
+        },
+        'GLCt2pp': {
+            'stoichiometry': {
+                ('internal', 'glc__D_c'): 1.0,
+                ('external', 'glc__D_p'): -1.0,
+                ('internal', 'h_c'): 1.0,
+                ('external', 'h_p'): -1.0,
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'GalP')]
+        },
+    }
+
+    transport_kinetics = {
+        'LCTSt3ipp': {
+            ('internal', 'LacY'): {
+                ('external', 'h_p'): None,  # None to make a reactant non-limiting
+                ('external', 'lcts_p'): 1e0,
+                'kcat_f': 6e1,
+            }
+        },
+        'GLCptspp': {
+            ('internal', 'EIIglc'): {
+                ('external', 'glc__D_e'): 1e0,
+                ('internal', 'pep_c'): 1e0,
+                'kcat_f': 6e1,
+            }
+        },
+        'GLCt2pp': {
+            ('internal', 'GalP'): {
+                ('external', 'glc__D_p'): 1e0,
+                ('external', 'h_p'): None,  # None to make a reactant non-limiting
+                'kcat_f': 6e1,
+            }
+        },
+    }
+
+    transport_initial_state = {
+        'internal': {
+            'EIIglc': 1.8e-3,  # (mmol/L)
+            'g6p_c': 0.0,
+            'pep_c': 1.8e-1,
+            'pyr_c': 0.0,
+            'LacY': 0,
+            'lcts_p': 0.0,
+        },
+        'external': {
+            'glc__D_e': 10.0,
+            'lcts_e': 10.0,
+        },
+        'fluxes': {
+            'EX_glc__D_e': 0.0,
+            'EX_lcts_e': 0.0,
+        }
+    }
+
+    transport_ports = {
+        'internal': [
+            'g6p_c', 'pep_c', 'pyr_c', 'EIIglc', 'LacY', 'lcts_p'],
+        'external': [
+            'glc__D_e', 'lcts_e']
+    }
+
+    return {
+        'reactions': transport_reactions,
+        'kinetic_parameters': transport_kinetics,
+        'initial_state': transport_initial_state,
+        'ports': transport_ports}
+
+
 def get_glc_lct_config():
     """
     :py:class:`ConvenienceKinetics` configuration for simplified glucose
@@ -346,7 +438,7 @@ def get_glc_lct_config():
             'stoichiometry': {
                 ('internal', 'g6p_c'): 1.0,
                 ('external', 'glc__D_e'): -1.0,
-                ('internal', 'pep_c'): -1.0,  # TODO -- PEP requires homeostasis mechanism to avoid depletion
+                ('internal', 'pep_c'): -1.0,
                 ('internal', 'pyr_c'): 1.0,
             },
             'is reversible': False,
