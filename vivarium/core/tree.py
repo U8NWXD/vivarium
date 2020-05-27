@@ -165,9 +165,9 @@ class Store(object):
         '_emit',
         '_units'])
 
-    def __init__(self, config, parent=None):
-        self.parent = parent
-        self.children = {}
+    def __init__(self, config, outer=None):
+        self.outer = outer
+        self.inner = {}
         self.subschema = {}
         self.properties = {}
         self.default = None
@@ -191,15 +191,21 @@ class Store(object):
         else:
             return new_value
 
+    def apply_subschema_config(self, config, subschema_key):
+        self.subschema = deep_merge(
+            self.subschema,
+            config.get(subschema_key, {}))
+        return {
+            key: value
+            for key, value in config.items()
+            if key != subschema_key}
+
     def apply_config(self, config):
+        if '*' in config:
+            config = self.apply_subschema_config(config, '*')
+
         if '_subschema' in config:
-            self.subschema = deep_merge(
-                self.subschema,
-                config.get('_subschema', {}))
-            config = {
-                key: value
-                for key, value in config.items()
-                if key != '_subschema'}
+            config = self.apply_subschema_config(config, '_subschema')
 
         if self.schema_keys & config.keys():
             if '_default' in config:
@@ -229,10 +235,10 @@ class Store(object):
             self.value = None
 
             for key, child in config.items():
-                if not key in self.children:
-                    self.children[key] = Store(child, parent=self)
+                if not key in self.inner:
+                    self.inner[key] = Store(child, outer=self)
                 else:
-                    self.children[key].apply_config(child)
+                    self.inner[key].apply_config(child)
 
     def get_updater(self, update):
         updater = self.updater
@@ -249,10 +255,10 @@ class Store(object):
         if self.subschema:
             config['_subschema'] = self.subschema
 
-        if self.children:
+        if self.inner:
             child_config = {
                 key: child.get_config()
-                for key, child in self.children.items()}
+                for key, child in self.inner.items()}
             config.update(child_config)
         else:
             config.update({
@@ -270,21 +276,21 @@ class Store(object):
         return config
 
     def top(self):
-        if self.parent:
-            return self.parent.top()
+        if self.outer:
+            return self.outer.top()
         else:
             return self
 
     def path_for(self):
-        if self.parent:
-            key = key_for_value(self.parent.children, self)
-            above = self.parent.path_for()
+        if self.outer:
+            key = key_for_value(self.outer.inner, self)
+            above = self.outer.path_for()
             return above + (key,)
         else:
             return tuple()
 
     def get_value(self, condition=None, f=None):
-        if self.children:
+        if self.inner:
             if condition is None:
                 condition = always_true
 
@@ -293,18 +299,21 @@ class Store(object):
 
             return {
                 key: f(child.get_value(condition, f))
-                for key, child in self.children.items()
+                for key, child in self.inner.items()
                 if condition(child)}
         else:
-            return self.value
+            if self.subschema:
+                return {}
+            else:
+                return self.value
 
     def get_path(self, path):
         if path:
             step = path[0]
             if step == '..':
-                child = self.parent
+                child = self.outer
             else:
-                child = self.children.get(step)
+                child = self.inner.get(step)
 
             if child:
                 return child.get_path(path[1:])
@@ -335,7 +344,7 @@ class Store(object):
 
         state = {}
         for key, value in template.items():
-            child = self.children[key]
+            child = self.inner[key]
             if value is None:
                 state[key] = child.get_value()
             else:
@@ -344,8 +353,8 @@ class Store(object):
 
     def emit_data(self):
         data = {}
-        if self.children:
-            for key, child in self.children.items():
+        if self.inner:
+            for key, child in self.inner.items():
                 child_data = child.emit_data()
                 if child_data is not None or child_data == 0:
                     data[key] = child_data
@@ -359,15 +368,15 @@ class Store(object):
 
     def delete_path(self, path):
         if not path:
-            self.children = {}
+            self.inner = {}
             self.value = None
             return self
         else:
             target = self.get_path(path[:-1])
             remove = path[-1]
-            if remove in target.children:
-                lost = target.children[remove]
-                del target.children[remove]
+            if remove in target.inner:
+                lost = target.inner[remove]
+                del target.inner[remove]
                 return lost
 
     def divide_value(self):
@@ -376,13 +385,13 @@ class Store(object):
             if isinstance(self.divider, dict):
                 divider = self.divider['divider']
                 topology = self.divider['topology']
-                state = self.parent.get_values(topology)
+                state = self.outer.get_values(topology)
                 return divider(self.value, state)
             else:
                 return self.divider(self.value)
-        elif self.children:
+        elif self.inner:
             daughters = [{}, {}]
-            for key, child in self.children.items():
+            for key, child in self.inner.items():
                 division = child.divide_value()
                 if division:
                     for daughter, divide in zip(daughters, division):
@@ -401,15 +410,25 @@ class Store(object):
         self.apply_update(update)
 
     def set_value(self, value):
-        if self.children:
+        if self.inner or self.subschema:
             for child, child_value in value.items():
-                if child in self.children:
-                    self.children[child].set_value(child_value)
+                if not child in self.inner:
+                    if self.subschema:
+                        self.inner[child] = Store(self.subschema, self)
+                    else:
+                        pass
+
+                        # TODO: continue to ignore extra keys?
+                        # print("setting value that doesn't exist in tree {} {}".format(
+                        #     child, child_value))
+
+                if child in self.inner:
+                    self.inner[child].set_value(child_value)
         else:
             self.value = value
 
     def apply_update(self, update):
-        if self.children:
+        if self.inner or self.subschema:
             topology_updates = {}
 
             if '_delete' in update:
@@ -440,10 +459,10 @@ class Store(object):
                 divide = update['_divide']
                 mother = divide['mother']
                 daughters = divide['daughters']
-                initial_state = self.children[mother].get_value(
+                initial_state = self.inner[mother].get_value(
                     condition=lambda child: not(isinstance(child.value, Process)),
                     f=lambda child: copy.deepcopy(child))
-                states = self.children[mother].divide_value()
+                states = self.inner[mother].divide_value()
 
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
@@ -464,19 +483,22 @@ class Store(object):
                         daughter['topology'])
 
                     self.apply_subschemas()
-                    self.children[daughter_id].set_value(initial_state)
+                    self.inner[daughter_id].set_value(initial_state)
                 self.delete_path((mother,))
 
                 update = dissoc(update, '_divide')
 
             for key, value in update.items():
-                if key in self.children:
-                    child = self.children[key]
+                if key in self.inner:
+                    child = self.inner[key]
                     inner_updates = child.apply_update(value)
                     if inner_updates:
                         topology_updates = deep_merge(
                             topology_updates,
                             {key: inner_updates})
+                elif self.subschema:
+                    self.inner[key] = Store(self.subschema, self)
+                    self.inner[key].set_value(value)
 
             return topology_updates
 
@@ -494,14 +516,11 @@ class Store(object):
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
 
-            if updater is None:
-                import ipdb; ipdb.set_trace()
-
             self.value = updater(self.value, update)
 
     def child_value(self, key):
-        if key in self.children:
-            return self.children[key].get_value()
+        if key in self.inner:
+            return self.inner[key].get_value()
 
     def state_for(self, path, keys):
         state = self.get_path(path)
@@ -516,7 +535,7 @@ class Store(object):
 
     def depth(self, path=()):
         base = [(path, self)]
-        for key, child in self.children.items():
+        for key, child in self.inner.items():
             down = tuple(path + (key,))
             base += child.depth(down)
         return base
@@ -527,33 +546,43 @@ class Store(object):
             for path, state in self.depth()
             if state.value and isinstance(state.value, Process)}
 
-    def establish_path(self, path, config, child_key='child'):
+    def establish_path(self, path, config, initial=None):
         if len(path) > 0:
             path_step = path[0]
             remaining = path[1:]
 
             if path_step == '..':
-                if not self.parent:
-                    raise Exception('parent does not exist for path: {}'.format(path))
-                return self.parent.establish_path(remaining, config, child_key)
+                if not self.outer:
+                    raise Exception('outer does not exist for path: {}'.format(path))
+                return self.outer.establish_path(
+                    remaining, config,
+                    initial.get('..') if initial and isinstance(
+                        initial, dict) else None)
+
             else:
-                if not path_step in self.children:
-                    self.children[path_step] = Store({}, self)
-                return self.children[path_step].establish_path(remaining, config, child_key)
+                if not path_step in self.inner:
+                    self.inner[path_step] = Store({}, self)
+                return self.inner[path_step].establish_path(
+                    remaining, config,
+                    initial.get(path_step) if initial and isinstance(
+                        initial, dict) else None)
+
         else:
             self.apply_config(config)
+            if initial:
+                self.value = initial
             return self
 
     def apply_subschema(self, subschema=None):
         if subschema is None:
             subschema = self.subschema
-        for child_key, child in self.children.items():
+        for child_key, child in self.inner.items():
             child.apply_config(subschema)
 
     def apply_subschemas(self):
         if self.subschema:
             self.apply_subschema()
-        for child in self.children.values():
+        for child in self.inner.values():
             child.apply_subschemas()
 
     def update_subschema(self, path, subschema):
@@ -573,7 +602,7 @@ class Store(object):
                 process_state = Store({
                     '_value': subprocess,
                     '_updater': 'set'}, self)
-                self.children[key] = process_state
+                self.inner[key] = process_state
                 for port, targets in subprocess.ports_schema().items():
                     path = subtopology[port]
                     if path:
@@ -584,17 +613,16 @@ class Store(object):
                                     '_subschema': schema})
                                 glob.apply_subschema()
                             else:
-                                if initial and target in initial:
-                                    schema = dict(
-                                        schema,
-                                        _value=initial[target])
                                 subpath = tuple(path) + (target,)
-                                self.establish_path(subpath, schema)
+                                self.establish_path(
+                                    subpath, schema,
+                                    initial.get(target) if initial and isinstance(
+                                        initial, dict) else None)
             else:
-                if not key in self.children:
-                    self.children[key] = Store({}, self)
+                if not key in self.inner:
+                    self.inner[key] = Store({}, self)
                 substate = initial_state.get(key, {})
-                self.children[key].generate_paths(
+                self.inner[key].generate_paths(
                     subprocess,
                     subtopology,
                     substate)
@@ -602,6 +630,7 @@ class Store(object):
     def generate(self, path, processes, topology, initial_state):
         target = self.establish_path(path, {})
         target.generate_paths(processes, topology, initial_state)
+        target.set_value(initial_state)
 
 
 def generate_derivers(processes, topology):
@@ -665,7 +694,7 @@ class Compartment(object):
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
-    state.apply_subschemas()
+    state.set_value(initial_state)
     return state
 
 
@@ -749,7 +778,7 @@ class Experiment(object):
     def process_update(self, path, state, interval):
         process = state.value
         process_topology = get_in(self.topology, path)
-        ports = process.find_states(state.parent, process_topology)
+        ports = process.find_states(state.outer, process_topology)
         update = process.next_update(interval, ports)
         absolute = self.absolute_update(path, update)
         return absolute
