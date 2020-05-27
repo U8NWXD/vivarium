@@ -4,10 +4,7 @@ import os
 import argparse
 
 from vivarium.core.tree import Compartment
-from vivarium.core.composition import compartment_in_experiment
-
-
-
+from vivarium.core.composition import simulate_compartment_in_experiment
 
 from vivarium.core.composition import (
     simulate_with_environment,
@@ -50,23 +47,27 @@ class TransportMetabolismExpression(Compartment):
     """
 
     defaults = {
-        'global_key': ('..', 'global'),
-        'external_key': ('..', 'external'),
+        'global_path': ('..', 'global'),
+        'external_path': ('..', 'external'),
+        'daughter_path': tuple(),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
         'expression': get_lacy_config(),
         'division': {}}
 
     def __init__(self, config):
-        self.global_key = config.get('global_key', self.defaults['global_key'])
-        self.external_key = config.get('external_key', self.defaults['external_key'])
-
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.external_path = config.get('external_path', self.defaults['external_path'])
+        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
+        
         self.transport_config = config.get('transport', self.defaults['transport'])
         self.metabolism_config = config.get('metabolism', self.defaults['metabolism'])
         self.expression_config = config.get('expression', self.defaults['expression'])
         self.division_config = config.get('division', self.defaults['division'])
 
     def generate_processes(self, config):
+        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
+
         # Transport
         # load the kinetic parameters
         transport = ConvenienceKinetics(config.get(
@@ -88,9 +89,11 @@ class TransportMetabolismExpression(Compartment):
             self.expression_config))
 
         # Division
-        division_config = config.get(
-            'division',
-            self.division_config)
+        division_config = dict(
+            config.get('division', {}),
+            daughter_path=self.daughter_path,
+            cell_id=agent_id,
+            compartment=self)
         # initial_mass = metabolism.initial_mass
         # division_config.update({'constrained_reaction_ids': target_fluxes})
         # TODO -- configure metadivision
@@ -103,64 +106,56 @@ class TransportMetabolismExpression(Compartment):
             'division': division}
 
     def generate_topology(self, config):
-        external_key = config.get('external_key', self.external_key)
-        global_key = config.get('global_key', self.global_key)
+        external_path = config.get('external_path', self.external_path)
+        global_path = config.get('global_path', self.global_path)
 
         return {
             'transport': {
                 'internal': ('cytoplasm',),
-                'external': external_key,
+                'external': external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
-                'global': global_key,
+                'global': global_path,
             },
             'metabolism': {
                 'internal': ('cytoplasm',),
-                'external': external_key,
+                'external': external_path,
                 'reactions': ('reactions',),
                 'exchange': ('exchange',),
                 'flux_bounds': ('flux_bounds',),
-                'global': global_key,
+                'global': global_path,
             },
             'expression': {
                 'counts': ('cytoplasm_counts',),
                 'internal': ('cytoplasm',),
-                'external': external_key
+                'external': external_path
             },
             'division': {
-                'global': global_key,
+                'global': global_path,
             }
         }
 
 
 # simulate
-def test_txp_mtb_ge(config={}, time=10):
-
+def test_txp_mtb_ge(total_time=10):
     # configure the compartment
-    compartment = TransportMetabolismExpression(config)
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
+    compartment = TransportMetabolismExpression(compartment_config)
 
-    # configure experiment
-    experiment_settings = {
-        'compartment': config}
-    experiment = compartment_in_experiment(
-        compartment,
-        experiment_settings)
-
-    import ipdb;
-    ipdb.set_trace()
-
-    # run experiment
-    timestep = 1
-    time = 0
-    while time < end_time:
-        experiment.update(timestep)
-        time += timestep
-    return experiment.emitter.get_data()
+    # simulate
+    settings = {
+        'timestep': 1,
+        'total_time': total_time}
+    return simulate_compartment_in_experiment(compartment, settings)
 
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
 
     # run simulation
-    timeseries = test_txp_mtb_ge(config, 2520) # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeseries = test_txp_mtb_ge(2520) # 2520 sec (42 min) is the expected doubling time in minimal media
     volume_ts = timeseries['global']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
