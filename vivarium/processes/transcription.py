@@ -478,60 +478,6 @@ class Transcription(Process):
 
         return schema
 
-    # def default_settings(self):
-    #     default_state = {
-    #         'chromosome': {
-    #             'rnaps': [],
-    #             'rnap_id': 0,
-    #             'root_domain': 0,
-    #             'domains': {
-    #                 0: {
-    #                     'id': 0,
-    #                     'lead': 0,
-    #                     'lag': 0,
-    #                     'children': []}}},
-    #         'molecules': {},
-    #         'proteins': {UNBOUND_RNAP_KEY: 10},
-    #         'factors': {
-    #             key: 0.0
-    #             for key in self.transcription_factors}}
-
-    #     default_state['molecules'].update({
-    #         nucleotide: 100
-    #         for nucleotide in self.monomer_ids})
-
-    #     chromosome = Chromosome(
-    #         self.chromosome_config(
-    #             default_state['chromosome']))
-
-    #     operons = [operon.id for operon in chromosome.operons()]
-
-    #     default_state['transcripts'] = {
-    #         operon: 0
-    #         for operon in operons}
-
-    #     default_state = deep_merge(
-    #         default_state,
-    #         self.parameters.get('initial_state', {}))
-
-    #     default_emitter_keys = {
-    #         'chromosome': ['rnaps'],
-    #         'molecules': self.monomer_ids,
-    #         'proteins': [UNBOUND_RNAP_KEY],
-    #         'transcripts': operons}
-
-    #     schema = {
-    #         'chromosome': {
-    #             state_id : {
-    #                 'updater': 'set'}
-    #             for state_id in self.ports['chromosome']}}
-
-    #     return {
-    #         'state': default_state,
-    #         'emitter_keys': default_emitter_keys,
-    #         'schema': schema,
-    #         'parameters': self.parameters}
-
     def next_update(self, timestep, states):
         chromosome_state = states['chromosome']
         chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
@@ -543,10 +489,6 @@ class Transcription(Process):
         molecules = states['molecules']
         proteins = states['proteins']
         factors = states['factors'] # as concentrations
-
-        # print('concentrations: flhDC - {}, fliA - {}'.format(
-        #     factors['flhDC'],
-        #     factors['fliA']))
 
         promoter_rnaps = chromosome.promoter_rnaps()
         promoter_domains = chromosome.promoter_domains()
@@ -592,8 +534,6 @@ class Transcription(Process):
             self.elongation)
 
         initiation_affinity = self.build_affinity_vector(chromosome.promoters, factors)
-
-        # print('initiation affinity - {}'.format(initiation_affinity))
 
         while time < timestep:
             # build the state vector for the gillespie simulation
@@ -684,26 +624,16 @@ class Transcription(Process):
             rnap['id']: rnap
             for rnap in chromosome_dict['rnaps']}
 
-        bound_rnaps = rnaps.keys() - original_rnap_keys
         completed_rnaps = original_rnap_keys - rnaps.keys()
-        # existential_rnaps = bound_rnaps + completed_rnaps
         rnap_updates = {
             rnap_id: rnap
             for rnap_id, rnap in rnaps.items()
             if rnap_id not in completed_rnaps}
-            # if rnap_id not in existential_rnaps}
-        # generated_rnaps = [
-        #     {
-        #         'path': (bound,),
-        #         'processes': {},
-        #         'topology': {},
-        #         'initial_state': rnaps[bound]}
-        #     for bound in bound_rnaps]
-        deleted_rnaps = [
+        delete_rnaps = [
             (completed,)
             for completed in completed_rnaps]
 
-        rnap_updates['_delete'] = deleted_rnaps
+        rnap_updates['_delete'] = delete_rnaps
         chromosome_dict['rnaps'] = rnap_updates
 
         update = {
@@ -715,8 +645,6 @@ class Transcription(Process):
             'transcripts': elongation.complete_polymers}
 
         log.debug('molecules update: {}'.format(update['molecules']))
-
-        import ipdb; ipdb.set_trace()
 
         return update
 

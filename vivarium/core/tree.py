@@ -690,10 +690,8 @@ class Compartment(object):
 
 def generate_state(processes, topology, initial_state):
     state = Store({})
-    import ipdb; ipdb.set_trace()
     state.generate_paths(processes, topology, initial_state)
     state.set_value(initial_state)
-    # state.apply_subschemas()
     return state
 
 
