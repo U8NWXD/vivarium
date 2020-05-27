@@ -10,6 +10,8 @@ import logging as log
 
 import pprint
 pretty=pprint.PrettyPrinter(indent=2)
+def pp(x):
+    pretty.pprint(x)
 
 from vivarium.core.process import (
     Process,
@@ -199,9 +201,7 @@ class Store(object):
                 for key, value in config.items()
                 if key != '_subschema'}
 
-        if not config:
-            self.updater = updater_library['accumulate']
-        elif self.schema_keys & config.keys():
+        if self.schema_keys & config.keys():
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
             if '_value' in config:
@@ -472,9 +472,11 @@ class Store(object):
             for key, value in update.items():
                 if key in self.children:
                     child = self.children[key]
-                    topology_updates = deep_merge(
-                        topology_updates,
-                        {key: child.apply_update(value)})
+                    inner_updates = child.apply_update(value)
+                    if inner_updates:
+                        topology_updates = deep_merge(
+                            topology_updates,
+                            {key: inner_updates})
 
             return topology_updates
 
@@ -752,6 +754,7 @@ class Experiment(object):
     def apply_update(self, update):
         topology_updates = self.state.apply_update(update)
         if topology_updates:
+            print('topology updates for update {}: {}'.format(update, topology_updates))
             self.topology = deep_merge(self.topology, topology_updates)
 
     def run_derivers(self, derivers):

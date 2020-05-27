@@ -267,9 +267,10 @@ class ConvenienceKinetics(Process):
             if port in set_ports:
                 for state_id in states:
                     schema[port][state_id]['_updater'] = 'set'
-            if port in emit_ports:
-                for state_id in states:
-                    schema[port][state_id]['_emit'] = True
+
+            emitting = port in emit_ports
+            for state_id in states:
+                schema[port][state_id]['_emit'] = emitting
 
         return schema
 

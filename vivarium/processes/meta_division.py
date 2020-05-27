@@ -76,12 +76,6 @@ class MetaDivision(Deriver):
                     'topology': compartment['topology'],
                     'initial_state': {}})
 
-
-
-
-            import ipdb; ipdb.set_trace()
-
-
             # initial state will be provided by division in the tree
             return {
                 'cells': {
