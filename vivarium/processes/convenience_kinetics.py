@@ -369,7 +369,7 @@ def get_glc_lct_transport():
             ('internal', 'LacY'): {
                 ('external', 'h_p'): None,
                 ('external', 'lcts_p'): 1e0,
-                'kcat_f': 7.8e3,  # 1/s
+                'kcat_f': 7.8e2,  # 1/s
             }
         },
         # g6p PTS uptake by EIIglc
@@ -377,7 +377,7 @@ def get_glc_lct_transport():
             ('internal', 'EIIglc'): {
                 ('external', 'glc__D_e'): 1e0,
                 ('internal', 'pep_c'): 1e0,
-                'kcat_f': 7.5e5,  # 1/s
+                'kcat_f': 7.5e4,  # 1/s
             }
         },
         # glc uptake by GalP
@@ -385,7 +385,7 @@ def get_glc_lct_transport():
             ('internal', 'GalP'): {
                 ('external', 'glc__D_p'): 1e0,
                 ('external', 'h_p'): None,
-                'kcat_f': 1.5e3,  # 1/s
+                'kcat_f': 1.5e2,  # 1/s
             }
         },
     }
