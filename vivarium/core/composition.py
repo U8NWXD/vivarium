@@ -152,11 +152,9 @@ def get_schema(process_list, topology):
 
 
 # loading functions
-def make_agents(keys, compartment, config=None):
+def make_agents(keys, compartment, config={}):
     processes = {}
     topology = {}
-    if config is None:
-        config = {}
 
     for agent in keys:
         # agent_id = str(uuid.uuid1())
