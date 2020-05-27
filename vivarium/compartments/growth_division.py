@@ -75,13 +75,13 @@ class GrowthDivision(Compartment):
             compartment=self)
 
         growth = GrowthProtein(config.get('growth', {}))
-        transport = ConvenienceKinetics(transport_config)
+        # transport = ConvenienceKinetics(transport_config)
         division = MetaDivision(division_config)
         expression = MinimalExpression(config.get('expression', {}))
         mass = TreeMass(config.get('mass', {}))
 
         return {
-            'transport': transport,
+            # 'transport': transport,
             'growth': growth,
             'expression': expression,
             'division': division,
@@ -96,12 +96,12 @@ class GrowthDivision(Compartment):
         agents_path = config.get('agents_path', self.agents_path)
 
         return {
-            'transport': {
-                'internal': ('internal',),
-                'external': external_path,
-                'exchange': exchange_path,
-                'fluxes': ('fluxes',),
-                'global': global_path},
+            # 'transport': {
+            #     'internal': ('internal',),
+            #     'external': external_path,
+            #     'exchange': exchange_path,
+            #     'fluxes': ('fluxes',),
+            #     'global': global_path},
             'growth': {
                 'internal': ('internal',),
                 'global': global_path},
