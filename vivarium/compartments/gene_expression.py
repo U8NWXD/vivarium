@@ -28,7 +28,6 @@ from vivarium.data.nucleotides import nucleotides
 class GeneExpression(Compartment):
 
     defaults = {
-        'transport': get_glc_lct_config(),
         'global_key': ('..', 'global')
     }
 
