@@ -8,9 +8,7 @@ import networkx as nx
 
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    get_derivers,
-    load_compartment,
-    simulate_compartment
+    simulate_compartment_in_experiment
 )
 from vivarium.utils.make_network import save_network
 
@@ -28,12 +26,12 @@ from vivarium.data.nucleotides import nucleotides
 class GeneExpression(Compartment):
 
     defaults = {
-        'global_key': ('..', 'global')
+        'global_path': ('..', 'global')
     }
 
     def __init__(self, config):
         self.config = config
-        self.global_key = config.get('global_key', self.defaults['global_key'])
+        self.global_path = config.get('global_path', self.defaults['global_path'])
 
     def generate_processes(self, config):
         transcription = Transcription(config.get('transcription', {}))
@@ -50,7 +48,7 @@ class GeneExpression(Compartment):
             'division': division}
 
     def generate_topology(self, config):
-        global_key = config.get('global_key', self.global_key)
+        global_path = config.get('global_path', self.global_path)
 
         return {
             'transcription': {
@@ -66,21 +64,21 @@ class GeneExpression(Compartment):
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'concentrations': ('concentrations',),
-                'global': global_key},
+                'global': global_path},
 
             'degradation': {
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'molecules': ('molecules',),
-                'global': global_key},
+                'global': global_path},
 
             'complexation': {
                 'monomers': ('proteins',),
                 'complexes': ('proteins',),
-                'global': global_key},
+                'global': global_path},
 
             'division': {
-                'global': global_key}}
+                'global': global_path}}
 
 
 
@@ -372,7 +370,6 @@ def gene_network_plot(data, out_dir, filename='gene_network'):
 
     plt.close()
 
-
 def plot_gene_expression_output(timeseries, config, out_dir='out'):
 
     name = config.get('name', 'gene_expression')
@@ -448,25 +445,37 @@ def plot_gene_expression_output(timeseries, config, out_dir='out'):
     plt.savefig(fig_path, bbox_inches='tight')
 
 
-if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'gene_expression_composite')
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    # load the compartment
-    gene_expression_compartment = load_compartment(compose_gene_expression)
-
-    # run simulation
-    sim_settings = {
-        'total_time': 100,
-    }
-    timeseries = simulate_compartment(gene_expression_compartment, sim_settings)
-
+# test
+def run_gene_expression(out_dir):
+    timeseries = test_gene_expression()
     plot_settings = {
         'name': 'gene_expression',
         'ports': {
             'transcripts': 'transcripts',
             'molecules': 'molecules',
             'proteins': 'proteins'}}
-
     plot_gene_expression_output(timeseries, plot_settings, out_dir)
+
+def test_gene_expression():
+    # load the compartment
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
+    compartment = GeneExpression(compartment_config)
+
+    # simulate
+    settings = {
+        'timestep': 1,
+        'total_time': 10}
+    return simulate_compartment_in_experiment(compartment, settings)
+
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'tests', 'gene_expression_composite')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    run_gene_expression(out_dir)

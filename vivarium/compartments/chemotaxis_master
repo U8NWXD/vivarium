@@ -167,19 +167,8 @@ class ChemotaxisMaster(Compartment):
             'division': {
                 'global': global_path}}
 
-
-
-if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'chemotaxis_master')
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    compartment_config = {
-        'external_path': ('external',),
-        'exchange_path': ('exchange',),
-        'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
-    compartment = ChemotaxisMaster(compartment_config)
+def run_chemotaxis_master(out_dir):
+    compartment = ChemotaxisMaster({})
 
     # save the topology network
     settings = {'show_ports': True}
@@ -188,12 +177,7 @@ if __name__ == '__main__':
         settings,
         out_dir)
 
-    # settings for simulation and plot
-    settings = {
-        'timestep': 1,
-        'total_time': 100}
-
-    # timeseries = simulate_compartment_in_experiment(compartment, settings)
+    timeseries = test_chemotaxis_master()
     volume_ts = timeseries['global']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
@@ -215,3 +199,24 @@ if __name__ == '__main__':
         timeseries,
         gene_exp_plot_config,
         out_dir)
+
+def test_chemotaxis_master():
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
+    compartment = ChemotaxisMaster(compartment_config)
+
+    settings = {
+        'timestep': 1,
+        'total_time': 100}
+    return simulate_compartment_in_experiment(compartment, settings)
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'tests', 'chemotaxis_master')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    run_chemotaxis_master(out_dir)

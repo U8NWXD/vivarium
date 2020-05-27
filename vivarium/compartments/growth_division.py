@@ -139,13 +139,7 @@ if __name__ == '__main__':
         'outer_path': ('cells', '0'),
         'timestep': 1,
         'total_time': 100}
-
     timeseries = simulate_compartment_in_experiment(compartment, settings)
-
-
-    import ipdb;
-    ipdb.set_trace()
-
 
     plot_settings = {
         'max_rows': 25,
