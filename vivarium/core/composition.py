@@ -152,10 +152,13 @@ def get_schema(process_list, topology):
 
 
 # loading functions
-def make_agents(keys, compartment, config={}):
+def make_agents(keys, compartment, config=None):
+
+    if config is None:
+        config = {}
+
     processes = {}
     topology = {}
-
     for agent in keys:
         # agent_id = str(uuid.uuid1())
         agent_id = str(agent)
@@ -167,10 +170,8 @@ def make_agents(keys, compartment, config={}):
             agent_id=agent_id))
 
         # save processes and topology
-        processes[agent_id] = {
-            'cell': agent['processes']}
-        topology[agent_id] = {
-            'cell': agent['topology']}
+        processes[agent_id] = agent['processes']
+        topology[agent_id] = agent['topology']
 
     return {
         'processes': processes,

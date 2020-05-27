@@ -31,8 +31,9 @@ def mother_machine_experiment(config):
 
     # get the environment
     environment = Lattice(config.get('environment', {}))
-    processes = environment.generate_processes()
-    topology = environment.generate_topology()
+    network = environment.generate({})
+    processes = network['processes']
+    topology = network['topology']
 
     # get the agents
     growth_division = GrowthDivisionMinimal({'agents_path': ('..', 'agents')})
@@ -54,11 +55,12 @@ def get_mother_machine_config():
     bounds = [10, 10]
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
-    n_agents = 1
+    n_agents = 3
 
     ## growth division agent
     growth_division_config = {
         'agents_path': ('..', '..', 'agents'),
+        'global_path': ('global',),
         'growth_rate': 0.03,
         'growth_rate_noise': 0.02,
         'division_volume': 2.6}

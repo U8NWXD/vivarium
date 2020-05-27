@@ -645,7 +645,10 @@ class Compartment(object):
     def generate_topology(self, config):
         return {}
 
-    def generate(self, config, path=tuple()):
+    def generate(self, config=None, path=tuple()):
+        if config is None:
+            config = {}
+
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
 
