@@ -182,16 +182,24 @@ class Multibody(Process):
         parameters = {}
         parameters.update(initial_parameters)
 
-        self.initial_agents_schema = {
-            agent_id: {
-                'global': {
-                    key: {
-                        '_default': value,
-                        '_value': value}
-                    for key, value in agent.items()}}
-            for agent_id, agent in self.initial_agents.items()}
 
-        self.glob_schema = {
+        super(Multibody, self).__init__(ports, parameters)
+
+    # def default_settings(self):
+    #
+    #     state = {'agents': self.initial_agents}
+    #
+    #     schema = {'agents': {'updater': 'merge'}}
+
+    #     return {
+    #         'state': state,
+    #         'schema': schema,
+    #         'emitter_keys': default_emitter_keys,
+    #         'time_step': 2
+    #     }
+
+    def ports_schema(self):
+        glob_schema = {
             '*': {
                 'global': {
                     'location': {
@@ -224,30 +232,23 @@ class Multibody(Process):
                         '_default': [0.0, 0.0],
                         '_updater': 'set'}}}}
 
-        self.schema = {
-            'agents': self.initial_agents_schema}
-        self.schema['agents'].update(self.glob_schema)
+        initial_agents_schema = {
+            agent_id: {
+                port: {
+                    state: {
+                        '_default': value,
+                        '_value': value}
+                    for state, value in state_values.items()}
+                for port, state_values in states.items()}
+            for agent_id, states in self.initial_agents.items()}
 
-        super(Multibody, self).__init__(ports, parameters)
+        schema = {'agents': initial_agents_schema}
+        schema['agents'].update(glob_schema)
 
-    def default_settings(self):
 
-        state = {'agents': self.initial_agents}
+        import ipdb; ipdb.set_trace()
 
-        schema = {'agents': {'updater': 'merge'}}
-
-        default_emitter_keys = {
-            port_id: keys for port_id, keys in self.ports.items()}
-
-        return {
-            'state': state,
-            'schema': schema,
-            'emitter_keys': default_emitter_keys,
-            'time_step': 2
-        }
-
-    def ports_schema(self):
-        return self.schema
+        return schema
 
     def next_update(self, timestep, states):
         agents = states['agents']
@@ -562,9 +563,10 @@ def mother_machine_body_config(config):
     length = 2
     volume = volume_from_length(length, width)
 
-    n_agents = config['n_agents']
+    agent_ids = config['agent_ids']
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     channel_space = config.get('channel_space', 1)
+    n_agents = len(agent_ids)
 
     # possible locations, shuffled for index-in
     n_spaces = math.floor(bounds[0]/channel_space)
@@ -585,7 +587,7 @@ def mother_machine_body_config(config):
                 'width': width,
                 'mass': 1 * units.fg,
                 'forces': [0, 0]}}
-        for index, agent_id in enumerate(range(n_agents))}
+        for index, agent_id in enumerate(agent_ids)}
 
     return {
         'agents': agent_config,

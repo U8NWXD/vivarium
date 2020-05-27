@@ -750,16 +750,16 @@ class Experiment(object):
         print('experiment {}'.format(self.experiment_id))
 
         print('\nPROCESSES:')
-        pretty.pprint(self.processes)
+        pp(self.processes)
 
         print('\nTOPOLOGY:')
-        pretty.pprint(self.topology)
+        pp(self.topology)
 
         print('\nSTATE:')
-        pretty.pprint(self.state.get_value())
+        pp(self.state.get_value())
 
         # print('\nCONFIG:')
-        # pretty.pprint(self.state.get_config())
+        # pp(self.state.get_config())
 
     def emit_configuration(self):
         data = {
@@ -825,6 +825,9 @@ class Experiment(object):
 
     def update(self, timestep):
         ''' Run each process for the given time step and update the related states. '''
+
+
+        import ipdb; ipdb.set_trace()
 
         time = 0
 

@@ -25,8 +25,11 @@ from vivarium.processes.diffusion_field import plot_field_output
 
 
 def mother_machine_experiment(config):
+
+    import ipdb; ipdb.set_trace()
+
     # configure the experiment
-    n_agents = config.get('n_agents', 1)
+    agent_ids = config.get('agent_ids', [])
     emitter = config.get('emitter', {'type': 'timeseries'})
 
     # get the environment
@@ -37,7 +40,7 @@ def mother_machine_experiment(config):
 
     # get the agents
     growth_division = GrowthDivisionMinimal({'agents_path': ('..', 'agents')})
-    agents = make_agents(range(n_agents), growth_division, config.get('growth_division', {}))
+    agents = make_agents(agent_ids, growth_division, config.get('growth_division', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
 
@@ -56,6 +59,8 @@ def get_mother_machine_config():
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
     n_agents = 1
+
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
     ## growth division agent
     growth_division_config = {
@@ -79,7 +84,7 @@ def get_mother_machine_config():
         'bounds': bounds,
         'channel_height': channel_height,
         'channel_space': channel_space,
-        'n_agents': n_agents}
+        'agent_ids': agent_ids}
     multibody_config.update(mother_machine_body_config(body_config))
 
     # diffusion
@@ -101,7 +106,7 @@ def get_mother_machine_config():
     }
 
     return {
-        'n_agents': n_agents,
+        'agent_ids': agent_ids,
         'growth_division': growth_division_config,
         'environment': {
             'multibody': multibody_config,
