@@ -4,9 +4,9 @@ import os
 
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    get_derivers,
-    simulate_with_environment,
-    plot_simulation_output, load_compartment)
+    simulate_compartment_in_experiment,
+    plot_simulation_output
+)
 from vivarium.compartments.gene_expression import plot_gene_expression_output
 
 # processes
@@ -17,7 +17,6 @@ from vivarium.processes.transcription import Transcription
 from vivarium.processes.translation import Translation
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
-
 
 
 
@@ -35,8 +34,6 @@ def compose_master(config):
         # 'options': options
     }
 
-
-
 def default_metabolism_config():
     metabolism_config = get_iAF1260b_config()
     metabolism_config.update({
@@ -51,16 +48,16 @@ def default_metabolism_config():
 class Master(Compartment):
 
     defaults = {
-        'global_key': ('..', 'global'),
-        'external_key': ('..', 'external'),
+        'global_path': ('..', 'global'),
+        'external_path': ('..', 'external'),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
     }
 
     def __init__(self, config):
         self.config = config
-        self.global_key = config.get('global_key', self.defaults['global_key'])
-        self.external_key = config.get('external_key', self.defaults['external_key'])
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.external_path = config.get('external_path', self.defaults['external_path'])
 
     def generate_processes(self, config):
 
@@ -103,24 +100,24 @@ class Master(Compartment):
             'division': division}
 
     def generate_topology(self, config):
-        external_key = config.get('external_key', self.external_key)
-        global_key = config.get('global_key', self.global_key)
+        external_path = config.get('external_path', self.external_path)
+        global_path = config.get('global_path', self.global_path)
 
         topology = {
             'transport': {
                 'internal': ('metabolites',),
-                'external': external_key,
+                'external': external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
-                'global': global_key},
+                'global': global_path},
 
             'metabolism': {
                 'internal': ('metabolites',),
-                'external': external_key,
+                'external': external_path,
                 'reactions': ('reactions',),
                 'exchange': ('exchange',),
                 'flux_bounds': ('flux_bounds',),
-                'global': global_key},
+                'global': global_path},
 
             'transcription': {
                 'chromosome': ('chromosome',),
@@ -140,36 +137,20 @@ class Master(Compartment):
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'molecules': ('metabolites',),
-                'global': global_key},
+                'global': global_path},
 
             'complexation': {
                 'monomers': ('proteins',),
                 'complexes': ('proteins',)},
 
             'division': {
-                'global': global_key}}
+                'global': global_path}}
 
 
-
-if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'master_composite')
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    compartment = load_compartment(compose_master)
-
-    # settings for simulation and plot
-    options = compartment.configuration
-
-    # define timeline
-    timeline = [(2520, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
-
-    settings = {
-        'environment_port': options['environment_port'],
-        'exchange_port': options['exchange_port'],
-        'environment_volume': 1e-13,  # L
-        'timeline': timeline,
-    }
+def run_master(out_dir):
+    timeseries = test_master()
+    volume_ts = timeseries['global']['volume']
+    print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
     plot_settings = {
         'max_rows': 20,
@@ -184,9 +165,30 @@ if __name__ == '__main__':
             'molecules': 'metabolites',
             'proteins': 'proteins'}}
 
-    # saved_state = simulate_compartment(compartment, settings)
-    timeseries = simulate_with_environment(compartment, settings)
-    volume_ts = timeseries['global']['volume']
-    print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
     plot_gene_expression_output(timeseries, expression_plot_settings, out_dir)
     plot_simulation_output(timeseries, plot_settings, out_dir)
+
+def test_master():
+    # load the compartment
+    compartment_config = {
+        'external_path': ('external',),
+        'exchange_path': ('exchange',),
+        'global_path': ('global',),
+        'cells_path': ('..', '..', 'cells',)}
+    compartment = Master(compartment_config)
+
+    # simulate
+    settings = {
+        'timestep': 1,
+        'total_time': 10}
+    return simulate_compartment_in_experiment(compartment, settings)
+
+
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'tests', 'master_composite')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    run_master(out_dir)
