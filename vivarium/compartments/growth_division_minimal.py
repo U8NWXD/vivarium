@@ -1,0 +1,93 @@
+from __future__ import absolute_import, division, print_function
+
+import os
+
+from vivarium.core.process import (
+    initialize_state)
+
+from vivarium.core.tree import (
+    Compartment,
+)
+
+from vivarium.core.composition import (
+    simulate_compartment_in_experiment,
+    plot_simulation_output
+)
+
+# processes
+from vivarium.processes.growth import Growth
+from vivarium.processes.meta_division import MetaDivision
+
+from vivarium.utils.dict_utils import deep_merge
+
+
+class GrowthDivisionMinimal(Compartment):
+
+    defaults = {
+        'global_path': ('..', 'global',),
+        'agents_path': ('..', '..', 'cells',),
+        'daughter_path': tuple()}
+
+    def __init__(self, config):
+        self.config = config
+
+        # paths
+        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.agents_path = config.get('agents_path', self.defaults['agents_path'])
+        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
+
+
+    def generate_processes(self, config):
+        # declare the processes
+        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
+
+        division_config = dict(
+            config.get('division', {}),
+            daughter_path=self.daughter_path,
+            cell_id=agent_id,
+            compartment=self)
+
+        growth = Growth(config.get('growth', {}))
+        division = MetaDivision(division_config)
+
+        return {
+            'growth': growth,
+            'division': division}
+
+    def generate_topology(self, config):
+        global_path = config.get('global_path', self.global_path)
+        agents_path = config.get('agents_path', self.agents_path)
+
+        return {
+            'growth': {
+                'internal': ('internal',),
+                'global': global_path},
+            'division': {
+                'global': global_path,
+                'cells': agents_path},
+            }
+
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'tests', 'growth_division_minimal')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    compartment_config = {
+        'global_path': ('global',),
+        'agents_path': ('..', '..', 'cells',)}
+    compartment = GrowthDivisionMinimal(compartment_config)
+
+    # settings for simulation and plot
+    settings = {
+        'environment': {
+            'volume': 1e-6,  # L
+            'environment_port': 'external',
+            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+        },
+        'outer_path': ('cells', '0'),
+        'return_raw_data': True,
+        'timestep': 1,
+        'total_time': 100}
+    data = simulate_compartment_in_experiment(compartment, settings)

@@ -16,7 +16,7 @@ from vivarium.core.composition import (
 
 # compartments
 from vivarium.compartments.lattice import Lattice
-from vivarium.compartments.growth_division import GrowthDivision
+from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 # processes
 from vivarium.processes.multibody_physics import plot_snapshots, mother_machine_body_config, volume_from_length
@@ -35,7 +35,7 @@ def mother_machine_experiment(config):
     topology = environment.generate_topology()
 
     # get the agents
-    growth_division = GrowthDivision({'agents_path': ('..', 'agents')})
+    growth_division = GrowthDivisionMinimal({'agents_path': ('..', 'agents')})
     agents = make_agents(range(n_agents), growth_division, config.get('growth_division', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
