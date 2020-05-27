@@ -143,7 +143,7 @@ def test_txp_mtb_ge(total_time=10):
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',)}
     compartment = TransportMetabolismExpression(compartment_config)
 
     # simulate

@@ -34,7 +34,7 @@ def mother_machine_experiment(config):
     topology = environment.generate_topology()
 
     # get the agents
-    growth_division = GrowthDivision({'cells_path': ('..', 'agents')})
+    growth_division = GrowthDivision({'agents_path': ('..', 'agents')})
     agents = make_agents(range(n_agents), growth_division, config.get('growth_division', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
@@ -48,17 +48,20 @@ def mother_machine_experiment(config):
 
 # configurations
 def get_mother_machine_config():
-    bounds = [30, 30]
+    bounds = [10, 10]
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
-    n_agents = 5
-    # growth division agent
+    n_agents = 1
+
+    ## growth division agent
     growth_division_config = {
+        'agents_path': ('..', '..', 'agents'),
         'growth_rate': 0.03,
         'growth_rate_noise': 0.02,
-        'division_volume': 2.6 }
+        'division_volume': 2.6}
 
-    # environment
+    ## environment
+    # multibody
     multibody_config = {
         'animate': True,
         'mother_machine': {
@@ -74,12 +77,29 @@ def get_mother_machine_config():
         'n_agents': n_agents}
     multibody_config.update(mother_machine_body_config(body_config))
 
+    # diffusion
+    diffusion_config = {
+        'molecules': ['glc'],
+        'gradient': {
+            'type': 'gaussian',
+            'molecules': {
+                'glc':{
+                    'center': [0.25, 0.5],
+                    'deviation': 30},
+            }},
+        # 'initial_state': {
+        #     'glc': 8.0,
+        # },
+        'n_bins': bounds,
+        'size': bounds,
+    }
+
     return {
         'n_agents': n_agents,
         'growth_division': growth_division_config,
         'environment': {
             'multibody': multibody_config,
-            'diffusion': {},
+            'diffusion': diffusion_config,
         }
     }
 

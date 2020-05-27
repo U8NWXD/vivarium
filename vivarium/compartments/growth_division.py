@@ -37,7 +37,7 @@ class GrowthDivision(Compartment):
         'global_path': ('..', 'global',),
         'external_path': ('..', 'external',),
         'exchange_path': ('..', 'exchange',),
-        'cells_path': ('..', '..', 'cells',),
+        'agents_path': ('..', '..', 'cells',),
         'transport_config': get_glc_lct_config(),
         'daughter_path': tuple()}
 
@@ -48,7 +48,7 @@ class GrowthDivision(Compartment):
         self.global_path = config.get('global_path', self.defaults['global_path'])
         self.external_path = config.get('external_path', self.defaults['external_path'])
         self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
-        self.cells_path = config.get('cells_path', self.defaults['cells_path'])
+        self.agents_path = config.get('agents_path', self.defaults['agents_path'])
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
         # process configs
@@ -93,7 +93,7 @@ class GrowthDivision(Compartment):
         external_path = config.get('external_path', self.external_path)
         exchange_path = config.get('external_path', self.exchange_path)
         global_path = config.get('global_path', self.global_path)
-        cells_path = config.get('cells_path', self.cells_path)
+        agents_path = config.get('agents_path', self.agents_path)
 
         return {
             'transport': {
@@ -109,7 +109,7 @@ class GrowthDivision(Compartment):
                 'global': global_path},
             'division': {
                 'global': global_path,
-                'cells': cells_path},
+                'cells': agents_path},
             'expression': {
                 'internal': ('internal',),
                 'external': external_path,
@@ -127,7 +127,7 @@ if __name__ == '__main__':
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',)}
     compartment = GrowthDivision(compartment_config)
 
     # settings for simulation and plot

@@ -174,7 +174,7 @@ def test_master():
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',)}
     compartment = Master(compartment_config)
 
     # simulate

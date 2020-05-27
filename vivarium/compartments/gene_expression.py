@@ -462,7 +462,7 @@ def test_gene_expression():
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',)}
     compartment = GeneExpression(compartment_config)
 
     # simulate
