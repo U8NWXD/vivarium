@@ -738,6 +738,9 @@ class Experiment(object):
 
         self.local_time = 0.0
 
+        # run the derivers
+        self.send_updates([])
+
         print('experiment {}'.format(self.experiment_id))
 
         print('\nPROCESSES:')

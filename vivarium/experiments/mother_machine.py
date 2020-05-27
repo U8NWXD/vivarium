@@ -52,7 +52,7 @@ def mother_machine_experiment(config):
 
 # configurations
 def get_mother_machine_config():
-    bounds = [10, 10]
+    bounds = [20, 20]
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
     n_agents = 3
@@ -68,7 +68,7 @@ def get_mother_machine_config():
     ## environment
     # multibody
     multibody_config = {
-        'animate': True,
+        'animate': False,
         'mother_machine': {
             'channel_height': channel_height,
             'channel_space': channel_space},
@@ -95,6 +95,7 @@ def get_mother_machine_config():
         # 'initial_state': {
         #     'glc': 8.0,
         # },
+        'diffusion': 0.0,
         'n_bins': bounds,
         'size': bounds,
     }
@@ -131,9 +132,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(out_dir)
-
-    # make snapshot
-    agents = {time: time_data['agents'] for time, time_data in mm_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, mm_config, out_dir, 'mother_machine_snapshots')
+    run_mother_machine(10, out_dir)

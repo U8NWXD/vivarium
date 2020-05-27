@@ -205,6 +205,7 @@ class Multibody(Process):
                     'length': {
                         '_emit': True,
                         '_default': 2.0,
+                        '_divider': 'split',  # TODO -- might want this to be set by agent
                         '_updater': 'set'},
                     'width': {
                         '_emit': True,

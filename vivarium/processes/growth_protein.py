@@ -10,6 +10,7 @@ class GrowthProtein(Process):
     defaults = {
         'growth_rate': 0.0006,
         'global_deriver_key': 'global_deriver',
+        'mass_deriver_key': 'mass_deriver',
     }
 
     def __init__(self, initial_parameters={}):
@@ -23,6 +24,8 @@ class GrowthProtein(Process):
         self.growth_rate = self.or_default(initial_parameters, 'growth_rate')
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
+        self.mass_deriver_key = self.or_default(
+            initial_parameters, 'mass_deriver_key')
 
         parameters = {
             'growth_rate': self.growth_rate}
@@ -57,8 +60,13 @@ class GrowthProtein(Process):
                 'deriver': 'globals',
                 'port_mapping': {
                     'global': 'global'},
-                'config': {
-                    'width': 1.11}}}
+                'config': {}},
+            self.mass_deriver_key: {
+                'deriver': 'mass',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {}},
+        }
 
     def next_update(self, timestep, states):
         protein = states['internal']['protein']

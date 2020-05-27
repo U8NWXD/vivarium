@@ -15,7 +15,7 @@ from vivarium.core.composition import (
 )
 
 # processes
-from vivarium.processes.growth import Growth
+from vivarium.processes.growth_protein import GrowthProtein
 from vivarium.processes.meta_division import MetaDivision
 
 from vivarium.utils.dict_utils import deep_merge
@@ -47,7 +47,7 @@ class GrowthDivisionMinimal(Compartment):
             cell_id=agent_id,
             compartment=self)
 
-        growth = Growth(config.get('growth', {}))
+        growth = GrowthProtein(config.get('growth', {}))
         division = MetaDivision(division_config)
 
         return {

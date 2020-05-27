@@ -28,7 +28,7 @@ class TreeMass(Deriver):
 
     defaults = {
         'from_path': ('..', '..'),
-        'initial_mass': 0.0 * units.fg,  # wet mass in fg
+        'initial_mass': 0.0 * units.fg,
     }
 
     def __init__(self, initial_parameters={}):
