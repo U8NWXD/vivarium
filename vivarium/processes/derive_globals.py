@@ -121,7 +121,7 @@ class DeriveGlobals(Deriver):
     def next_update(self, timestep, states):
         # states
         density = states['global']['density'] * units.g / units.L
-        mass = states['global']['mass'] * units.fg
+        mass = states['global']['mass']
         width = states['global']['width']
 
         # get volume from mass, and more variables from volume

@@ -55,7 +55,7 @@ def get_mother_machine_config():
     bounds = [20, 20]
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
-    n_agents = 3
+    n_agents = 1
 
     ## growth division agent
     growth_division_config = {

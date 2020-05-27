@@ -29,6 +29,7 @@ from pygame.locals import *
 from pygame.color import *
 
 # vivarium imports
+from vivarium.utils.units import units
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.process import (
     Process,
@@ -216,6 +217,7 @@ class Multibody(Process):
                         '_default': 0.0,
                         '_updater': 'set'},
                     'mass': {
+                        '_units': units.fg,
                         '_default': 1.0,
                         '_updater': 'set'},
                     'motile_force': {
@@ -374,7 +376,7 @@ class Multibody(Process):
     def add_body_from_center(self, body_id, body):
         width = body['width'] * self.pygame_scale
         length = body['length'] * self.pygame_scale
-        mass = body['mass']
+        mass = body['mass'].magnitude
         center_position = body['location']
         angle = body['angle']
         angular_velocity = body.get('angular_velocity', 0.0)
@@ -412,7 +414,7 @@ class Multibody(Process):
 
         length = specs['length'] * self.pygame_scale
         width = specs['width'] * self.pygame_scale
-        mass = specs['mass']
+        mass = specs['mass'].magnitude
         motile_force = specs.get('motile_force', [0, 0])
 
         body, shape = self.agent_bodies[body_id]
@@ -540,7 +542,7 @@ def random_agent_config(bounds):
         'volume': volume,
         'length': length,
         'width': width,
-        'mass': 1,
+        'mass': 1 * units.fg,
         'forces': [0, 0]}}
 
 def random_body_config(config):
@@ -581,7 +583,7 @@ def mother_machine_body_config(config):
                 'volume': volume,
                 'length': length,
                 'width': width,
-                'mass': 1,
+                'mass': 1 * units.fg,
                 'forces': [0, 0]}}
         for index, agent_id in enumerate(range(n_agents))}
 
@@ -808,7 +810,7 @@ def simulate_growth_division(config, settings):
             angle = state['global']['angle']
             length = state['global']['length']
             width = state['global']['width']
-            mass = state['global']['mass']
+            mass = state['global']['mass'].magnitude
 
             # update
             growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
@@ -843,7 +845,7 @@ def simulate_growth_division(config, settings):
                     'global': {
                         'volume': new_volume,
                         'length': new_length,
-                        'mass': new_mass}}
+                        'mass': new_mass * units.fg}}
 
         # update experiment
         experiment.send_updates([{'agents': agent_updates}])

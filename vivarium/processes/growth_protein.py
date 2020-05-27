@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
+from vivarium.utils.units import units
 from vivarium.core.process import Process
 
 
@@ -45,7 +46,7 @@ class GrowthProtein(Process):
                     '_divider': 'split',
                     '_emit': True,
                     '_properties': {
-                        'mass': 1e-3}}},
+                        'mw': 1e-3 * units.g / units.mol}}},
             'global': {
                 'volume': {
                     '_updater': 'set',

@@ -7,14 +7,12 @@ from vivarium.processes.derive_globals import AVOGADRO
 
 
 def calculate_mass(value, path, node):
-    if 'mass' in node.properties:
-        unit_mass = node.properties['mass']
+    if 'mw' in node.properties:
         count = node.value
-        mw = unit_mass * (units.g / units.mol)
+        mw = node.properties['mw']
         mol = count / AVOGADRO
         added_mass = mw * mol
-        mass = added_mass.to('fg')
-        return value + mass.magnitude
+        return value + added_mass
     else:
         return value
 
@@ -45,6 +43,7 @@ class TreeMass(Deriver):
         return {
             'global': {
                 'mass': {
+                    '_units': units.fg,
                     '_default': self.initial_mass.magnitude,
                     '_updater': 'set'}}}
 
@@ -55,4 +54,4 @@ class TreeMass(Deriver):
                     '_reduce': {
                         'reducer': calculate_mass,
                         'from': self.from_path,
-                        'initial': 0.0}}}}
+                        'initial': 0.0 * units.fg}}}}

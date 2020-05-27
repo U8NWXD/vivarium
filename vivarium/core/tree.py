@@ -520,7 +520,7 @@ class Store(object):
 
             if self.units:
                 units_value = updater(self.value * self.units, update)
-                self.value = units_value.to(self.units)
+                self.value = units_value.to(self.units).magnitude
             else:
                 self.value = updater(self.value, update)
 
