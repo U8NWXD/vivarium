@@ -304,6 +304,8 @@ class Store(object):
         else:
             if self.subschema:
                 return {}
+            elif self.units:
+                return self.value * self.units
             else:
                 return self.value
 
@@ -516,7 +518,11 @@ class Store(object):
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
 
-            self.value = updater(self.value, update)
+            if self.units:
+                units_value = updater(self.value * self.units, update)
+                self.value = units_value.to(self.units)
+            else:
+                self.value = updater(self.value, update)
 
     def child_value(self, key):
         if key in self.inner:
