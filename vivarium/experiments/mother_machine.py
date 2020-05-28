@@ -39,7 +39,7 @@ def mother_machine_experiment(config):
     topology = network['topology']
 
     # get the agents
-    growth_division = GrowthDivisionMinimal({'agents_path': ('..', 'agents')})
+    growth_division = GrowthDivisionMinimal(config.get('growth_division', {}))
     agents = make_agents(agent_ids, growth_division, config.get('growth_division', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
@@ -55,11 +55,11 @@ def mother_machine_experiment(config):
 
 # configurations
 def get_mother_machine_config():
-    bounds = [10, 10]
+    bounds = [20, 20]
     n_bins = [10, 10]
     channel_height = 0.7 * bounds[1]
     channel_space = 1.5
-    n_agents = 1
+    n_agents = 3
 
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
@@ -78,7 +78,7 @@ def get_mother_machine_config():
         'mother_machine': {
             'channel_height': channel_height,
             'channel_space': channel_space},
-        'jitter_force': 0,
+        'jitter_force': 1e-3,
         'bounds': bounds}
 
     body_config = {
@@ -98,7 +98,7 @@ def get_mother_machine_config():
                     'center': [0.5, 0.5],
                     'deviation': 3},
             }},
-        'diffusion': 1e-1,
+        'diffusion': 5e-3,
         'n_bins': n_bins,
         'size': bounds}
 

@@ -36,7 +36,7 @@ class GrowthProtein(Process):
 
         # default state
         # 1000 proteins per fg
-        self.initial_protein = 1339000000  # (wet mass in fg)
+        self.initial_protein = 2e9  # (wet mass in fg)
         self.divide_protein = self.initial_protein*2
 
         parameters = {
