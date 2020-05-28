@@ -15,7 +15,7 @@ from vivarium.core.composition import (
 class GrowthProtein(Process):
  
     defaults = {
-        'growth_rate': 0.0006,
+        'growth_rate': 0.006,
         'global_deriver_key': 'global_deriver',
         'mass_deriver_key': 'mass_deriver',
     }
@@ -34,6 +34,11 @@ class GrowthProtein(Process):
         self.mass_deriver_key = self.or_default(
             initial_parameters, 'mass_deriver_key')
 
+        # default state
+        # 1000 proteins per fg
+        self.initial_protein = 1339000  # (wet mass in fg)
+        self.divide_protein = self.initial_protein*2
+
         parameters = {
             'growth_rate': self.growth_rate}
         parameters.update(initial_parameters)
@@ -41,14 +46,10 @@ class GrowthProtein(Process):
         super(GrowthProtein, self).__init__(ports, parameters)
 
     def ports_schema(self):
-        # default state
-        # 1000 proteins per fg
-        protein = 1339000  # (wet mass in fg)
-
         return {
             'internal': {
                 'protein': {
-                    '_default': protein,
+                    '_default': self.initial_protein,
                     '_divider': 'split',
                     '_emit': True,
                     '_properties': {
@@ -85,7 +86,9 @@ class GrowthProtein(Process):
         if np.random.random() < extra:
             new_protein += 1
 
-        divide = np.random.random() < 0.02
+        divide = False
+        if protein >= self.divide_protein:
+            divide = True
 
         return {
             'internal': {

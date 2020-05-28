@@ -82,7 +82,7 @@ if __name__ == '__main__':
         'outer_path': ('cells', '0'),
         'return_raw_data': True,
         'timestep': 1,
-        'total_time': 150}
+        'total_time': 600}
     output_data = simulate_compartment_in_experiment(compartment, settings)
 
     plot_settings = {}

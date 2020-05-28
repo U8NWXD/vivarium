@@ -758,14 +758,14 @@ class Experiment(object):
         emitter_config = config.get('emitter', {})
         emitter_config['experiment_id'] = self.experiment_id
         self.emitter = get_emitter(emitter_config)
-        self.emit_configuration()
 
         self.local_time = 0.0
 
         # run the derivers
         self.send_updates([])
 
-        # run emitters
+        # run emitter
+        self.emit_configuration()
         self.emit_data()
 
         print('experiment {}'.format(self.experiment_id))

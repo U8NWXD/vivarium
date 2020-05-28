@@ -120,7 +120,6 @@ def run_mother_machine(time=5, out_dir='out'):
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
-
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
