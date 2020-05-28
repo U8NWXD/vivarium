@@ -59,6 +59,9 @@ class MinimalExpression(Process):
 
     def ports_schema(self):
         return {
+            'global': {},
+            'concentrations': {},
+            'external': {},
             'internal': {
                 state : {
                     '_updater': 'accumulate',
