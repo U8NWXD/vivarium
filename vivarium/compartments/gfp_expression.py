@@ -6,7 +6,7 @@ from vivarium.data.proteins import GFP
 from vivarium.data.chromosomes.gfp_chromosome import gfp_plasmid_config
 from vivarium.states.chromosome import Chromosome, rna_bases, sequence_monomers
 from vivarium.utils.polymerize import generate_template
-from vivarium.compartments.gene_expression import compose_gene_expression, plot_gene_expression_output
+from vivarium.compartments.gene_expression import GeneExpression, plot_gene_expression_output
 from vivarium.processes.transcription import UNBOUND_RNAP_KEY
 from vivarium.processes.translation import UNBOUND_RIBOSOME_KEY
 from vivarium.utils.make_media import Media
@@ -92,7 +92,7 @@ def generate_gfp_compartment(config):
             'transcripts': {'GFP_RNA': 0},
             'proteins': proteins}}
 
-    return compose_gene_expression(gfp_config)
+    return GeneExpression(gfp_config)
 
 if __name__ == '__main__':
     out_dir = os.path.join('out', 'tests', 'gfp_expression_composite')

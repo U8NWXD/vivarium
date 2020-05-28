@@ -11,7 +11,7 @@ from vivarium.core.composition import (
 )
 
 # composite
-from vivarium.compartments.txp_mtb_ge import compose_txp_mtb_ge
+from vivarium.compartments.txp_mtb_ge import TransportMetabolismExpression
 
 # process configurations
 from vivarium.processes.metabolism import get_iAF1260b_config
@@ -63,7 +63,7 @@ def compose_glc_lct_shifter(config):
 
     config.update(shifter_config)
 
-    return compose_txp_mtb_ge(config)
+    return TransportMetabolismExpression(config)
 
 
 
