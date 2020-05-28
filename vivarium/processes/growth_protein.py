@@ -36,7 +36,7 @@ class GrowthProtein(Process):
 
         # default state
         # 1000 proteins per fg
-        self.initial_protein = 1339000  # (wet mass in fg)
+        self.initial_protein = 1339000000  # (wet mass in fg)
         self.divide_protein = self.initial_protein*2
 
         parameters = {
@@ -53,7 +53,7 @@ class GrowthProtein(Process):
                     '_divider': 'split',
                     '_emit': True,
                     '_properties': {
-                        'mw': 1e-3 * units.g / units.mol}}},
+                        'mw': 1e2 * units.g / units.mol}}},
             'global': {
                 'volume': {
                     '_updater': 'set',

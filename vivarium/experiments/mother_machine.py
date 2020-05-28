@@ -78,7 +78,7 @@ def get_mother_machine_config():
         'mother_machine': {
             'channel_height': channel_height,
             'channel_space': channel_space},
-        'jitter_force': 1e-2,
+        'jitter_force': 0,
         'bounds': bounds}
 
     body_config = {
@@ -144,4 +144,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(100, out_dir)
+    run_mother_machine(500, out_dir)
