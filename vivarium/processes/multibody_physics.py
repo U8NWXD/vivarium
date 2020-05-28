@@ -120,6 +120,7 @@ class Multibody(Process):
         'physics_dt': 0.005,
         'force_scaling': 100,  # scales from pN
         'jitter_force': 1e-3,  # pN
+        'time_step': 2,
         'bounds': DEFAULT_BOUNDS,
         'mother_machine': False,
         'animate': False,
@@ -181,23 +182,16 @@ class Multibody(Process):
         ports = {
             'agents': ['*']}
 
-        parameters = {}
+        parameters = {'time_step': self.defaults['time_step']}
         parameters.update(initial_parameters)
 
 
         super(Multibody, self).__init__(ports, parameters)
 
     # def default_settings(self):
-    #
-    #     state = {'agents': self.initial_agents}
-    #
     #     schema = {'agents': {'updater': 'merge'}}
-
     #     return {
-    #         'state': state,
     #         'schema': schema,
-    #         'emitter_keys': default_emitter_keys,
-    #         'time_step': 2
     #     }
 
     def ports_schema(self):
@@ -238,6 +232,7 @@ class Multibody(Process):
             agent_id: {
                 port: {
                     state: {
+                        '_value': value if state in ['location', 'angle'] else None,
                         '_default': value}
                     for state, value in state_values.items()}
                 for port, state_values in states.items()}

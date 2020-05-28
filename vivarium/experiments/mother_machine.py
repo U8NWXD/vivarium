@@ -19,8 +19,10 @@ from vivarium.compartments.lattice import Lattice
 from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 # processes
-from vivarium.processes.multibody_physics import plot_snapshots, mother_machine_body_config, volume_from_length
-from vivarium.processes.diffusion_field import plot_field_output
+from vivarium.processes.multibody_physics import (
+    plot_snapshots,
+    mother_machine_body_config,
+    volume_from_length)
 
 
 
@@ -75,7 +77,7 @@ def get_mother_machine_config():
         'mother_machine': {
             'channel_height': channel_height,
             'channel_space': channel_space},
-        'jitter_force': 2e-2,
+        'jitter_force': 1e-2,
         'bounds': bounds}
 
     body_config = {
@@ -92,25 +94,19 @@ def get_mother_machine_config():
             'type': 'gaussian',
             'molecules': {
                 'glc':{
-                    'center': [0.25, 0.5],
-                    'deviation': 30},
+                    'center': [0.5, 0.5],
+                    'deviation': 3},
             }},
-        # 'initial_state': {
-        #     'glc': 8.0,
-        # },
-        'diffusion': 0.0,
+        'diffusion': 1e-1,
         'n_bins': n_bins,
-        'size': bounds,
-    }
+        'size': bounds}
 
     return {
         'agent_ids': agent_ids,
         'growth_division': growth_division_config,
         'environment': {
             'multibody': multibody_config,
-            'diffusion': diffusion_config,
-        }
-    }
+            'diffusion': diffusion_config}}
 
 def run_mother_machine(time=5, out_dir='out'):
     mm_config = get_mother_machine_config()
