@@ -750,6 +750,9 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
 
                 for port_id, state_ts in agent_ts.items():
                     for state_id, state in state_ts.items():
+                        if not isinstance(state[0], (float, int)):
+                            continue
+
                         n_times = len(state)
                         plot_times = time_vec[time_idx:time_idx+n_times]
                         ax = state_axes[state_id]

@@ -11,7 +11,8 @@ from vivarium.core.tree import (
 )
 from vivarium.core.composition import (
     make_agents,
-    simulate_experiment
+    simulate_experiment,
+    plot_agent_data
 )
 
 # compartments
@@ -119,7 +120,13 @@ def run_mother_machine(time=5, out_dir='out'):
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
-    # make snapshot plot
+
+    # agents plot
+    plot_settings = {
+        'agents_key': 'agents'}
+    plot_agent_data(data, plot_settings, out_dir)
+
+    # snapshot plot
     multibody_config = mm_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
@@ -138,4 +145,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(10, out_dir)
+    run_mother_machine(100, out_dir)
