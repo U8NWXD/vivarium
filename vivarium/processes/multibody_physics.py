@@ -232,7 +232,7 @@ class Multibody(Process):
             agent_id: {
                 port: {
                     state: {
-                        '_value': value if state in ['location', 'angle'] else None,
+                        # '_value': value if state in ['location', 'angle'] else None,
                         '_default': value}
                     for state, value in state_values.items()}
                 for port, state_values in states.items()}
@@ -289,7 +289,7 @@ class Multibody(Process):
             for body in self.space.bodies:
                 self.apply_jitter_force(body)
                 self.apply_motile_force(body)
-                self.apply_viscous_force(body)
+                # self.apply_viscous_force(body)
 
             # run for a physics timestep
             self.space.step(self.physics_dt)
