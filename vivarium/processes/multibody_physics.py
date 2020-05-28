@@ -405,7 +405,6 @@ class Multibody(Process):
         self.agent_bodies[body_id] = (body, shape)
 
     def update_body(self, body_id, specs):
-
         length = specs['length'] * self.pygame_scale
         width = specs['width'] * self.pygame_scale
         mass = specs['mass'].magnitude

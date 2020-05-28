@@ -217,8 +217,8 @@ class Store(object):
 
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
-            elif self.value is None:
-                self.value = self.default
+            # elif self.value is None:
+            #     self.value = self.default
 
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):
@@ -439,6 +439,14 @@ class Store(object):
         else:
             self.value = value
 
+    def apply_defaults(self):
+        if self.inner:
+            for child in self.inner.values():
+                child.apply_defaults()
+        else:
+            if self.value is None:
+                self.value = self.default
+
     def apply_update(self, update):
         if self.inner or self.subschema:
             topology_updates = {}
@@ -463,6 +471,7 @@ class Store(object):
                         generate['path'],
                         generate['topology'])
                 self.apply_subschemas()
+                self.apply_defaults()
 
                 update = dissoc(update, '_generate')
 
@@ -496,6 +505,7 @@ class Store(object):
 
                     self.apply_subschemas()
                     self.inner[daughter_id].set_value(initial_state)
+                    self.apply_defaults()
                 self.delete_path((mother,))
 
                 update = dissoc(update, '_divide')
@@ -511,6 +521,7 @@ class Store(object):
                 elif self.subschema:
                     self.inner[key] = Store(self.subschema, self)
                     self.inner[key].set_value(value)
+                    self.inner[key].apply_defaults()
 
             return topology_updates
 
@@ -633,6 +644,7 @@ class Store(object):
                                         '_subschema': schema},
                                     source=source)
                                 glob.apply_subschema()
+                                glob.apply_defaults()
                             else:
                                 subpath = tuple(path) + (target,)
                                 self.establish_path(
@@ -655,6 +667,7 @@ class Store(object):
         target = self.establish_path(path, {})
         target.generate_paths(processes, topology, initial_state)
         target.set_value(initial_state)
+        target.apply_defaults()
 
 
 def generate_derivers(processes, topology):
@@ -719,6 +732,8 @@ def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
     state.set_value(initial_state)
+    state.apply_defaults()
+
     return state
 
 
