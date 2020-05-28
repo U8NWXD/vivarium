@@ -103,7 +103,7 @@ class Master(Compartment):
         external_path = config.get('external_path', self.external_path)
         global_path = config.get('global_path', self.global_path)
 
-        topology = {
+        return {
             'transport': {
                 'internal': ('metabolites',),
                 'external': external_path,
@@ -131,7 +131,8 @@ class Master(Compartment):
                 'molecules': ('metabolites',),
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
-                'concentrations': ('concentrations',)},
+                'concentrations': ('concentrations',),
+                'global': global_path},
 
             'degradation': {
                 'transcripts': ('transcripts',),
