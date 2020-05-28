@@ -226,7 +226,7 @@ class Multibody(Process):
                         '_updater': 'set'},
                     'mass': {
                         '_units': units.fg,
-                        '_default': 1.0,
+                        '_default': 1.0 * units.fg,
                         '_updater': 'set'},
                     'motile_force': {
                         '_default': [0.0, 0.0],
@@ -236,17 +236,13 @@ class Multibody(Process):
             agent_id: {
                 port: {
                     state: {
-                        '_default': value,
-                        '_value': value}
+                        '_default': value}
                     for state, value in state_values.items()}
                 for port, state_values in states.items()}
             for agent_id, states in self.initial_agents.items()}
 
         schema = {'agents': initial_agents_schema}
         schema['agents'].update(glob_schema)
-
-
-        import ipdb; ipdb.set_trace()
 
         return schema
 

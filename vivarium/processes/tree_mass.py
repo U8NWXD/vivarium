@@ -44,7 +44,7 @@ class TreeMass(Deriver):
             'global': {
                 'mass': {
                     '_units': units.fg,
-                    '_default': self.initial_mass.magnitude,
+                    '_default': self.initial_mass,
                     '_updater': 'set'}}}
 
     def next_update(self, timestep, states):

@@ -25,9 +25,6 @@ from vivarium.processes.diffusion_field import plot_field_output
 
 
 def mother_machine_experiment(config):
-
-    import ipdb; ipdb.set_trace()
-
     # configure the experiment
     agent_ids = config.get('agent_ids', [])
     emitter = config.get('emitter', {'type': 'timeseries'})

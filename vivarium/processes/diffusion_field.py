@@ -217,10 +217,13 @@ class DiffusionField(Process):
         schema = {'agents': self.initial_agents_schema}
         glob_schema = {
             '*': {
-                'location': {
-                    '_default': [0.5, 0.5],
-                    '_updater': 'set'},
-                'exchange': {},
+                'global': {
+                    'location': {
+                        '_default': [0.5, 0.5],
+                        '_updater': 'set'}},
+                'exchange': {
+                    molecule: {'_default': 0.0}
+                    for molecule in self.molecule_ids},
                 'local_environment': {
                     molecule: {'_default': 0.0}
                     for molecule in self.molecule_ids}}}

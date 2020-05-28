@@ -163,9 +163,10 @@ class Store(object):
         '_value',
         '_properties',
         '_emit',
-        '_units'])
+        # '_units',
+    ])
 
-    def __init__(self, config, outer=None):
+    def __init__(self, config, outer=None, source=None):
         self.outer = outer
         self.inner = {}
         self.subschema = {}
@@ -173,11 +174,12 @@ class Store(object):
         self.default = None
         self.updater = None
         self.value = None
-        self.units = None
+        # self.units = None
         self.divider = None
         self.emit = False
+        self.sources = {}
 
-        self.apply_config(config)
+        self.apply_config(config, source)
 
     def check_default(self, new_default):
         if self.default is not None and new_default != self.default:
@@ -188,8 +190,7 @@ class Store(object):
     def check_value(self, new_value):
         if self.value is not None and new_value != self.value:
             raise Exception('_value schema conflict: {} and {}'.format(new_value, self.value))
-        else:
-            return new_value
+        return new_value
 
     def apply_subschema_config(self, config, subschema_key):
         self.subschema = deep_merge(
@@ -200,19 +201,23 @@ class Store(object):
             for key, value in config.items()
             if key != subschema_key}
 
-    def apply_config(self, config):
+    def apply_config(self, config, source=None):
         if '*' in config:
             config = self.apply_subschema_config(config, '*')
 
         if '_subschema' in config:
+            if source:
+                self.sources[source] = config['_subschema']
             config = self.apply_subschema_config(config, '_subschema')
 
         if self.schema_keys & config.keys():
+            # self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
+
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
-            else:
+            elif self.value is None:
                 self.value = self.default
 
             self.updater = config.get('_updater', self.updater or 'accumulate')
@@ -229,16 +234,19 @@ class Store(object):
                 self.properties,
                 config.get('_properties', {}))
 
-            self.units = config.get('_units', self.units)
             self.emit = config.get('_emit', self.emit)
+
+            if source:
+                self.sources[source] = config
+
         else:
             self.value = None
 
             for key, child in config.items():
                 if not key in self.inner:
-                    self.inner[key] = Store(child, outer=self)
+                    self.inner[key] = Store(child, outer=self, source=source)
                 else:
-                    self.inner[key].apply_config(child)
+                    self.inner[key].apply_config(child, source=source)
 
     def get_updater(self, update):
         updater = self.updater
@@ -248,16 +256,18 @@ class Store(object):
                 updater = updater_library[updater]
         return updater
 
-    def get_config(self):
+    def get_config(self, sources=False):
         config = {}
         if self.properties:
             config['_properties'] = self.properties
         if self.subschema:
             config['_subschema'] = self.subschema
+        if sources and self.sources:
+            config['_sources'] = self.sources
 
         if self.inner:
             child_config = {
-                key: child.get_config()
+                key: child.get_config(sources)
                 for key, child in self.inner.items()}
             config.update(child_config)
         else:
@@ -268,8 +278,8 @@ class Store(object):
                 config['_updater'] = self.updater
             if self.divider:
                 config['_divider'] = self.divider
-            if self.units:
-                config['_units'] = self.units
+            # if self.units:
+            #     config['_units'] = self.units
             if self.emit:
                 config['_emit'] = self.emit
 
@@ -304,8 +314,8 @@ class Store(object):
         else:
             if self.subschema:
                 return {}
-            elif self.units:
-                return self.value * self.units
+            # elif self.units:
+            #     return self.value * self.units
             else:
                 return self.value
 
@@ -518,11 +528,11 @@ class Store(object):
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
 
-            if self.units:
-                units_value = updater(self.value * self.units, update)
-                self.value = units_value.to(self.units).magnitude
-            else:
-                self.value = updater(self.value, update)
+            # if self.units:
+            #     units_value = updater(self.value * self.units, update)
+            #     self.value = units_value.to(self.units).magnitude
+            # else:
+            self.value = updater(self.value, update)
 
     def child_value(self, key):
         if key in self.inner:
@@ -552,7 +562,7 @@ class Store(object):
             for path, state in self.depth()
             if state.value and isinstance(state.value, Process)}
 
-    def establish_path(self, path, config, initial=None):
+    def establish_path(self, path, config, initial=None, source=None):
         if len(path) > 0:
             path_step = path[0]
             remaining = path[1:]
@@ -562,19 +572,21 @@ class Store(object):
                     raise Exception('outer does not exist for path: {}'.format(path))
                 return self.outer.establish_path(
                     remaining, config,
-                    initial.get('..') if initial and isinstance(
-                        initial, dict) else None)
+                    initial=initial.get('..') if initial and isinstance(
+                        initial, dict) else None,
+                    source=source)
 
             else:
                 if not path_step in self.inner:
-                    self.inner[path_step] = Store({}, self)
+                    self.inner[path_step] = Store({}, outer=self, source=source)
                 return self.inner[path_step].establish_path(
                     remaining, config,
-                    initial.get(path_step) if initial and isinstance(
-                        initial, dict) else None)
+                    initial=initial.get(path_step) if initial and isinstance(
+                        initial, dict) else None,
+                    source=source)
 
         else:
-            self.apply_config(config)
+            self.apply_config(config, source=source)
             if initial:
                 self.value = initial
             return self
@@ -607,26 +619,32 @@ class Store(object):
             if isinstance(subprocess, Process):
                 process_state = Store({
                     '_value': subprocess,
-                    '_updater': 'set'}, self)
+                    '_updater': 'set'}, outer=self)
                 self.inner[key] = process_state
                 for port, targets in subprocess.ports_schema().items():
                     path = subtopology[port]
                     if path:
                         initial = get_in(initial_state, path)
                         for target, schema in targets.items():
+                            source = self.path_for() + (key,)
                             if target == '*':
-                                glob = self.establish_path(path, {
-                                    '_subschema': schema})
+                                glob = self.establish_path(
+                                    path, {
+                                        '_subschema': schema},
+                                    source=source)
                                 glob.apply_subschema()
                             else:
                                 subpath = tuple(path) + (target,)
                                 self.establish_path(
-                                    subpath, schema,
-                                    initial.get(target) if initial and isinstance(
-                                        initial, dict) else None)
+                                    subpath,
+                                    schema,
+                                    initial=initial.get(
+                                        target) if initial and isinstance(
+                                            initial, dict) else None,
+                                    source=source)
             else:
                 if not key in self.inner:
-                    self.inner[key] = Store({}, self)
+                    self.inner[key] = Store({}, outer=self)
                 substate = initial_state.get(key, {})
                 self.inner[key].generate_paths(
                     subprocess,

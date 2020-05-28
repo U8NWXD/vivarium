@@ -94,7 +94,7 @@ class DeriveGlobals(Deriver):
 
         default_state = {
             'global': {
-                'mass': mass.magnitude,
+                'mass': mass,
                 'volume': volume.to('fL').magnitude,
                 'mmol_to_counts': mmol_to_counts.magnitude,
                 'density': density.magnitude,
