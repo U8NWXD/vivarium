@@ -364,7 +364,7 @@ def get_gaussian_config(config={}):
     n_bins = config.get('n_bins', (20, 20))
     center = config.get('center', [0.5, 0.5])
     deviation = config.get('deviation', 5)
-    diffusion = config.get('deviation', 1e1)
+    diffusion = config.get('diffusion', 5e-1)
 
     return {
         'molecules': molecules,
@@ -440,7 +440,7 @@ def plot_fields(data, config, out_dir='out', filename='fields'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'diffusion_field')
+    out_dir = os.path.join('out', 'processes', 'diffusion_field')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

@@ -13,6 +13,7 @@ from vivarium.processes.multibody_physics import (
 )
 from vivarium.processes.diffusion_field import (
     DiffusionField,
+    get_gaussian_config,
     exchange_agent_config,
 )
 
@@ -63,12 +64,18 @@ class Lattice(Compartment):
                 'fields': ('fields',)}}
 
 
-def get_lattice_config(bounds=[25,25]):
+def get_lattice_config(config={}):
+    bounds = config.get('bounds', [25, 25])
+    molecules = config.get('molecules', ['glc'])
+    n_bins = config.get('n_bins', tuple(bounds))
+    center = config.get('center', [0.5, 0.5])
+    deviation = config.get('deviation', 5)
+    diffusion = config.get('diffusion', 1e0)
 
-    # multibody confid
+    # multibody config
     mbp_config = {
         # 'animate': True,
-        'jitter_force': 1e0,
+        'jitter_force': 1e2,
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
@@ -76,18 +83,13 @@ def get_lattice_config(bounds=[25,25]):
     mbp_config.update(random_body_config(body_config))
 
     # diffusion config
-    dff_mol = 'glc'
-    dff_config = {
-        'molecules': [dff_mol],
-        'n_bins': bounds,
+    dff_config = get_gaussian_config({
+        'molecules': molecules,
+        'n_bins': n_bins,
         'size': bounds,
-        'diffusion': 1e-10,
-        'gradient': {
-            'type': 'gaussian',
-            'molecules': {
-                dff_mol:{
-                    'center': [0.5, 0.5],
-                    'deviation': 5}}}}
+        'diffusion': diffusion,
+        'center': center,
+        'deviation': deviation})
 
     return {
         'bounds': bounds,
@@ -117,7 +119,7 @@ def test_lattice(config=get_lattice_config(), end_time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'lattice_compartment')
+    out_dir = os.path.join('out', 'compartments', 'lattice')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

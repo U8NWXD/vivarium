@@ -1121,7 +1121,7 @@ def init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'multibody')
+    out_dir = os.path.join('out', 'processes', 'multibody')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
