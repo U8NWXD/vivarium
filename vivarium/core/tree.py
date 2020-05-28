@@ -844,9 +844,6 @@ class Experiment(object):
     def update(self, timestep):
         ''' Run each process for the given time step and update the related states. '''
 
-
-        import ipdb; ipdb.set_trace()
-
         time = 0
 
         def empty_front(t):

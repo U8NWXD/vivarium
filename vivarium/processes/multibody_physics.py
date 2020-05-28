@@ -14,6 +14,7 @@ matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import hsv_to_rgb
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 
 # pymunk imports
@@ -685,37 +686,6 @@ def simulate_motility(config, settings):
 
     return experiment.emitter.get_data()
 
-# def run_mother_machine():
-#     bounds = [30, 30]
-#     channel_height = 0.7 * bounds[1]
-#     channel_space = 1.5
-#
-#     settings = {
-#         'growth_rate': 0.03,
-#         'growth_rate_noise': 0.02,
-#         'division_volume': 2.6,
-#         'channel_height': channel_height,
-#         'total_time': 240}
-#     mm_config = {
-#         'animate': True,
-#         'mother_machine': {
-#             'channel_height': channel_height,
-#             'channel_space': channel_space},
-#         'jitter_force': 2e-2,
-#         'bounds': bounds}
-#     body_config = {
-#         'bounds': bounds,
-#         'channel_height': channel_height,
-#         'channel_space': channel_space,
-#         'n_agents': 5}
-#     mm_config.update(mother_machine_body_config(body_config))
-#     mm_data = simulate_growth_division(mm_config, settings)
-#
-#     # make snapshot
-#     agents = {time: time_data['agents'] for time, time_data in mm_data.items()}
-#     fields = {}
-#     plot_snapshots(agents, fields, mm_config, out_dir, 'mother_machine_snapshots')
-
 def run_motility(out_dir):
     # test motility
     bounds = [100, 100]
@@ -739,10 +709,15 @@ def run_motility(out_dir):
     plot_motility(motility_timeseries, out_dir)
     plot_trajectory(motility_timeseries, motility_config, out_dir)
 
-    # make motility snapshot
+    # snapshots plot
     agents = {time: time_data['agents'] for time, time_data in motility_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, motility_config, out_dir, 'motility_snapshots')
+    data = {
+        'agents': agents,
+        'config': config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': 'motility_snapshots'}
+    plot_snapshots(data, plot_config)
 
 def run_growth_division():
     bounds = [20, 20]
@@ -762,10 +737,15 @@ def run_growth_division():
     gd_config.update(random_body_config(body_config))
     gd_data = simulate_growth_division(gd_config, settings)
 
-    # make snapshot
-    agents = {time: time_data['agents']['agents'] for time, time_data in gd_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, gd_config, out_dir, 'growth_division_snapshots')
+    # snapshots plot
+    agents = {time: time_data['agents'] for time, time_data in gd_data.items()}
+    data = {
+        'agents': agents,
+        'config': gd_config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': 'growth_division_snapshots'}
+    plot_snapshots(data, plot_config)
 
 def simulate_growth_division(config, settings):
 
@@ -890,19 +870,35 @@ def plot_agents(ax, agents, agent_colors={}):
         color = agent_colors.get(agent_id, [DEFAULT_HUE]+DEFAULT_SV)
         plot_agent(ax, agent_data, color)
 
-def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
+def plot_snapshots(data, plot_config):
     '''
         - agents (dict): with {time: agent_data}
         - fields TODO
         - config (dict): the environment config for the simulation
     '''
-    n_snapshots = 6
+    n_snapshots = plot_config.get('n_snapshots', 6)
+    out_dir = plot_config.get('out_dir', 'out')
+    filename = plot_config.get('filename', 'snapshots')
+
+    # get data
+    agents = data.get('agents', {})
+    fields = data.get('fields', {})
+    config = data.get('config', {})
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     edge_length_x = bounds[0]
     edge_length_y = bounds[1]
 
     # time steps that will be used
-    time_vec = list(agents.keys())
+    if agents and fields:
+        assert set(list(agents.keys())) == set(list(fields.keys())), 'agent and field times are different'
+        time_vec = list(agents.keys())
+    elif agents:
+        time_vec = list(agents.keys())
+    elif fields:
+        time_vec = list(fields.keys())
+    else:
+        raise Exception('No agents or field data')
+
     time_indices = np.round(np.linspace(0, len(time_vec) - 1, n_snapshots)).astype(int)
     snapshot_times = [time_vec[i] for i in time_indices]
 
@@ -918,17 +914,18 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
 
     # get agent ids
     agent_ids = set()
-    for time, time_data in agents.items():
-        current_agents = list(time_data.keys())
-        agent_ids.update(current_agents)
-    agent_ids = list(agent_ids)
+    if agents:
+        for time, time_data in agents.items():
+            current_agents = list(time_data.keys())
+            agent_ids.update(current_agents)
+        agent_ids = list(agent_ids)
 
-    # set agent colors
-    agent_colors = {}
-    for agent_id in agent_ids:
-        hue = random.choice(HUES)  # select random initial hue
-        color = [hue] + DEFAULT_SV
-        agent_colors[agent_id] = color
+        # set agent colors
+        agent_colors = {}
+        for agent_id in agent_ids:
+            hue = random.choice(HUES)  # select random initial hue
+            color = [hue] + DEFAULT_SV
+            agent_colors[agent_id] = color
 
     # make the figure
     n_rows = max(len(field_ids), 1)
@@ -938,11 +935,12 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
     plt.rcParams.update({'font.size': 36})
 
     # plot snapshot data in each subsequent column
-    for col_idx, (time_idx, time) in enumerate(zip(time_indices, snapshot_times), 1):
-        agents_now = agents[time]
+    for col_idx, (time_idx, time) in enumerate(zip(time_indices, snapshot_times)):
         if field_ids:
             for row_idx, field_id in enumerate(field_ids):
+
                 ax = init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time)
+
                 # transpose field to align with agent
                 field = np.transpose(np.array(fields[time][field_id])).tolist()
                 vmin, vmax = field_range[field_id]
@@ -953,7 +951,18 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
                                 vmax=vmax,
                                 cmap='BuPu')
 
-                plot_agents(ax, agents_now, agent_colors)
+                if agents:
+                    agents_now = agents[time]
+                    plot_agents(ax, agents_now, agent_colors)
+
+                # colorbar in new column after final snapshot
+                if col_idx == n_snapshots-1:
+                    cbar_col = col_idx + 1
+                    ax = fig.add_subplot(grid[row_idx, cbar_col])
+                    divider = make_axes_locatable(ax)
+                    cax = divider.append_axes("left", size="5%", pad=0.0)
+                    fig.colorbar(im, cax=cax, format='%.6f')
+                    ax.axis('off')
         else:
             row_idx = 0
             ax = init_axes(fig, bounds[0], bounds[1], grid, row_idx, col_idx, time)

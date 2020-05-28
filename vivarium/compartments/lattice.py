@@ -127,4 +127,11 @@ if __name__ == '__main__':
     # make snapshot plot
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
-    plot_snapshots(agents, fields, config, out_dir, 'snapshots')
+    data = {
+        'agents': agents,
+        'fields': fields,
+        'config': config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': 'snapshots'}
+    plot_snapshots(data, plot_config)

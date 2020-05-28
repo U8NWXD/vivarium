@@ -1,6 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
+import sys
 import os
+import argparse
 
 import numpy as np
 from scipy import constants
@@ -9,6 +11,8 @@ import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
 from vivarium.core.composition import simulate_process
+
+from vivarium.processes.multibody_physics import plot_snapshots
 
 
 # laplacian kernel for diffusion
@@ -193,14 +197,7 @@ class DiffusionField(Process):
             self.initial_state.update(gradient_fields)
 
         # agents
-        initial_agents = initial_parameters.get('agents', self.defaults['agents'])
-        self.initial_agents_schema = {
-            agent_id: {
-                key: {
-                    '_default': value,
-                    '_value': value}
-                for key, value in agent.items()}
-            for agent_id, agent in initial_agents.items()}
+        self.initial_agents = initial_parameters.get('agents', self.defaults['agents'])
 
         # make ports
         ports = {
@@ -214,32 +211,43 @@ class DiffusionField(Process):
 
     def ports_schema(self):
 
-        schema = {'agents': self.initial_agents_schema}
+        schema = {'agents': {}}
+        for agent_id, states in self.initial_agents.items():
+            location = states['global'].get('location', [])
+            exchange = states['global'].get('exchange', {})
+            # local_environment = states.get('local_environment', {})
+            schema['agents'][agent_id] = {
+                'global': {
+                    'location': {
+                        '_value': location},
+                    'exchange': {
+                        mol_id: {
+                            '_value': value}
+                        for mol_id, value in exchange.items()}}}
+
         glob_schema = {
             '*': {
                 'global': {
                     'location': {
                         '_default': [0.5, 0.5],
-                        '_updater': 'set'}},
-                'exchange': {
-                    molecule: {'_default': 0.0}
-                    for molecule in self.molecule_ids},
-                'local_environment': {
-                    molecule: {'_default': 0.0}
-                    for molecule in self.molecule_ids}}}
+                        '_updater': 'set'},
+                    'exchange': {
+                        molecule: {'_default': 0.0}
+                        for molecule in self.molecule_ids},
+                    'local_environment': {
+                        molecule: {'_default': 0.0}
+                        for molecule in self.molecule_ids}}}}
         schema['agents'].update(glob_schema)
 
         fields_schema = {
              'fields': {
                  field: {
                      '_default': self.initial_state.get(field, self.empty_field()),
-                     '_updater': 'set',
+                     '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
         schema.update(fields_schema)
-
         return schema
-
 
     def next_update(self, timestep, states):
         fields = states['fields'].copy()
@@ -272,7 +280,7 @@ class DiffusionField(Process):
         bin = np.array([
             location[0] * self.n_bins[0] / self.size[0],
             location[1] * self.n_bins[1] / self.size[1]])
-        bin_site = tuple(np.floor(bin).astype(int) % self.size)
+        bin_site = tuple(np.floor(bin).astype(int) % self.n_bins)
         return bin_site
 
     def get_single_local_environments(self, specs, fields):
@@ -339,97 +347,61 @@ class DiffusionField(Process):
         return delta_fields
 
 
-
 # testing
-def plot_field_output(data, config, out_dir='out', filename='field'):
-    n_snapshots = 6
-
-    # parameters
-    molecules = config.get('molecules', {})
-    molecule_ids = list(molecules)
-    n_fields = len(molecule_ids)
-
-    # n_bins = config.get('n_bins')
-    size = config.get('size')
-    length_x = size[0]
-    length_y = size[1]
-
-    # data
-    times = data.get('time')
-    field_series = data.get('fields')
-
-     # plot fields
-    time_vec = times
-    plot_steps = np.round(np.linspace(0, len(time_vec) - 1, n_snapshots)).astype(int).tolist()
-
-    # make figure
-    fig = plt.figure(figsize=(20 * n_snapshots, 10*n_fields))
-    grid = plt.GridSpec(n_fields, n_snapshots, wspace=0.2, hspace=0.2)
-    plt.rcParams.update({'font.size': 36})
-
-    for mol_idx, mol_id in enumerate(molecule_ids):
-        field_data = field_series[mol_id]
-        vmin = np.amin(field_data)
-        vmax = np.amax(field_data)
-
-        for time_index, time_step in enumerate(plot_steps, 0):
-            this_field = field_data[time_index]
-
-            ax = fig.add_subplot(grid[mol_idx, time_index])  # grid is (row, column)
-            ax.set(xlim=[0, length_x], ylim=[0, length_y], aspect=1)
-            ax.set_yticklabels([])
-            ax.set_xticklabels([])
-
-            # plot field
-            plt.imshow(np.transpose(this_field),
-                       vmin=vmin,
-                       vmax=vmax,
-                       origin='lower',
-                       extent=[0, length_x, 0, length_y],
-                       interpolation='nearest',
-                       cmap='YlGn')
-
-    fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.7, hspace=0.1)
-    plt.savefig(fig_path, bbox_inches='tight')
-    plt.close(fig)
-
-def get_random_field_config(n_bins=(10, 10)):
+def get_random_field_config(config={}):
+    size = config.get('size', (20, 20))
+    n_bins = config.get('n_bins', (10, 10))
     return {
         'molecules': ['glc'],
         'initial_state': {
             'glc': np.random.rand(n_bins[0], n_bins[1])},
         'n_bins': n_bins,
-        'size': n_bins}
+        'size': size}
 
-def get_gaussian_config(n_bins=(10, 10)):
+def get_gaussian_config(config={}):
+    molecules = config.get('molecules', ['glc'])
+    size = config.get('size', (50, 50))
+    n_bins = config.get('n_bins', (20, 20))
+    center = config.get('center', [0.5, 0.5])
+    deviation = config.get('deviation', 5)
+    diffusion = config.get('deviation', 1e1)
+
     return {
-        'molecules': ['glc'],
+        'molecules': molecules,
         'n_bins': n_bins,
-        'size': n_bins,
+        'size': size,
+        'diffusion': diffusion,
         'gradient': {
             'type': 'gaussian',
             'molecules': {
                 'glc': {
-                    'center': [0.5, 0.5],
-                    'deviation': 1}}}}
+                    'center': center,
+                    'deviation': deviation}}}}
 
-def get_secretion_agent_config(molecules=['glc'], n_bins=[10, 10]):
-    agent = {
-        'global': {
-            'location': [
-                    np.random.uniform(0, n_bins[0]),
-                    np.random.uniform(0, n_bins[1])],
-            'exchange': {
-                mol_id: 1e2 for mol_id in molecules}},
-        'local_environment': {
-                mol_id: 0 for mol_id in molecules}}
-    agents = {'1': agent}
+def get_secretion_agent_config(config={}):
+    molecules = config.get('molecules', ['glc'])
+    size = config.get('size', (20, 20))
+    n_bins = config.get('n_bins', (10, 10))
+    depth = config.get('depth', 30)
+    n_agents = config.get('n_agents', 3)
 
+    agents = {}
+    for agent in range(n_agents):
+        agent_id = str(agent)
+        agents[agent_id] = {
+            'global': {
+                'location': [
+                        np.random.uniform(0, size[0]),
+                        np.random.uniform(0, size[1])],
+                'exchange': {
+                    mol_id: 1e3 for mol_id in molecules},
+                'local_environment': {
+                        mol_id: 0 for mol_id in molecules}}}
     config = {
         'molecules': molecules,
         'n_bins': n_bins,
-        'size': n_bins,
+        'size': size,
+        'depth': depth,
         'agents': agents}
 
     return exchange_agent_config(config)
@@ -451,10 +423,20 @@ def exchange_agent_config(config):
 def test_diffusion_field(config=get_gaussian_config(), time=10):
     diffusion = DiffusionField(config)
     settings = {
+        'return_raw_data': True,
         'total_time': 10,
         'timestep': 1}
     return simulate_process(diffusion, settings)
 
+def plot_fields(data, config, out_dir='out', filename='fields'):
+    fields = {time: time_data['fields'] for time, time_data in data.items()}
+    data = {
+        'fields': fields,
+        'config': config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': filename}
+    plot_snapshots(data, plot_config)
 
 
 if __name__ == '__main__':
@@ -462,14 +444,24 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    config = get_random_field_config()
-    timeseries = test_diffusion_field(config, 10)
-    plot_field_output(timeseries, config, out_dir, 'random_field')
+    parser = argparse.ArgumentParser(description='diffusion_field')
+    parser.add_argument('--random', '-r', action='store_true', default=False)
+    parser.add_argument('--gaussian', '-g', action='store_true', default=False)
+    parser.add_argument('--secretion', '-s', action='store_true', default=False)
+    args = parser.parse_args()
+    no_args = (len(sys.argv) == 1)
 
-    gaussian_config = get_gaussian_config()
-    gaussian_timeseries = test_diffusion_field(gaussian_config, 10)
-    plot_field_output(gaussian_timeseries, gaussian_config, out_dir, 'gaussian_field')
+    if args.random or no_args:
+        config = get_random_field_config()
+        data = test_diffusion_field(config, 10)
+        plot_fields(data, config, out_dir, 'random_field')
 
-    secretion_config = get_secretion_agent_config()
-    secretion_timeseries = test_diffusion_field(secretion_config, 10)
-    plot_field_output(secretion_timeseries, secretion_config, out_dir, 'secretion')
+    if args.gaussian or no_args:
+        config = get_gaussian_config()
+        data = test_diffusion_field(config, 10)
+        plot_fields(data, config, out_dir, 'gaussian_field')
+
+    if args.secretion or no_args:
+        config = get_secretion_agent_config()
+        data = test_diffusion_field(config, 10)
+        plot_fields(data, config, out_dir, 'secretion')
