@@ -214,16 +214,12 @@ class Store(object):
             # self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
-
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
-            elif self.value is None:
-                self.value = self.default
 
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):
                 self.updater = updater_library[self.updater]
-
             self.divider = config.get('_divider', self.divider)
             if isinstance(self.divider, str):
                 self.divider = divider_library[self.divider]
@@ -789,7 +785,7 @@ class Experiment(object):
             'description': self.description,
             'processes': self.processes,
             'topology': self.topology,
-            'initial_state': self.initial_state}
+            'state': self.state.get_config()}
         emit_config = {
             'table': 'configuration',
             'data': data}
@@ -816,7 +812,7 @@ class Experiment(object):
     def apply_update(self, update):
         topology_updates = self.state.apply_update(update)
         if topology_updates:
-            print('topology updates for update {}: {}'.format(update, topology_updates))
+            # print('topology updates for update {}: {}'.format(update, topology_updates))
             self.topology = deep_merge(self.topology, topology_updates)
 
     def run_derivers(self, derivers):

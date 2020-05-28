@@ -116,6 +116,9 @@ class DeriveGlobals(Deriver):
                 if state_id in default_state[port]:
                     schema[port][state_id]['_default'] = default_state[port][state_id]
 
+        # # declare initial values
+        # schema['global']['mass']['_value'] = self.initial_mass
+
         return schema
 
     def next_update(self, timestep, states):
