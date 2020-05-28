@@ -5,6 +5,7 @@ import random
 
 import numpy as np
 import logging as log
+import pint
 
 import vivarium.core.emitter as emit
 from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -81,7 +82,7 @@ def divide_split(state):
         # some concentrations are considered infinite in the environment
         # an alternative option is to not divide the local environment state
         return [state, state]
-    elif isinstance(state, float):
+    elif isinstance(state, (float, pint.quantity._Quantity)):
         half = state/2
         return [half, half]
     else:

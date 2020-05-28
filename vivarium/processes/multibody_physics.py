@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import sys
 import argparse
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -691,7 +692,7 @@ def run_motility(out_dir):
     bounds = [100, 100]
     motility_sim_settings = {
         'timestep': 0.05,
-        'total_time': 5}
+        'total_time': 2}
     motility_config = {
         'animate': True,
         'jitter_force': 0,
@@ -713,7 +714,7 @@ def run_motility(out_dir):
     agents = {time: time_data['agents'] for time, time_data in motility_data.items()}
     data = {
         'agents': agents,
-        'config': config}
+        'config': motility_config}
     plot_config = {
         'out_dir': out_dir,
         'filename': 'motility_snapshots'}
@@ -725,7 +726,7 @@ def run_growth_division():
         'growth_rate': 0.02,
         'growth_rate_noise': 0.02,
         'division_volume': 2.6,
-        'total_time': 300}
+        'total_time': 100}
 
     gd_config = {
         'animate': True,
@@ -752,7 +753,6 @@ def simulate_growth_division(config, settings):
     # make the process
     multibody = Multibody(config)
     experiment = process_in_experiment(multibody)
-    
     experiment.state.update_subschema(
         ('agents',), {
             'global': {
@@ -966,6 +966,7 @@ def plot_snapshots(data, plot_config):
         else:
             row_idx = 0
             ax = init_axes(fig, bounds[0], bounds[1], grid, row_idx, col_idx, time)
+            agents_now = agents[time]
             plot_agents(ax, agents_now, agent_colors)
 
     fig_path = os.path.join(out_dir, filename)
@@ -1128,10 +1129,9 @@ if __name__ == '__main__':
     parser.add_argument('--motility', '-o', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     args = parser.parse_args()
+    no_args = (len(sys.argv) == 1)
 
-    if args.motility:
+    if args.motility or no_args:
         run_motility(out_dir)
-    elif args.growth:
-        data = run_growth_division()
-    else:
-        test_multibody()
+    elif args.growth or no_args:
+        run_growth_division()
