@@ -1,9 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
+import os
+
 import numpy as np
 
 from vivarium.utils.units import units
 from vivarium.core.process import Process
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    plot_simulation_output
+)
 
 
 class GrowthProtein(Process):
@@ -86,3 +92,13 @@ class GrowthProtein(Process):
                 'protein': new_protein},
             'global': {
                 'divide': divide}}
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'processes', 'growth_protein')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    process = GrowthProtein()
+    settings = {'total_time': 10}
+    timeseries = simulate_process_in_experiment(process, settings)
+    plot_simulation_output(timeseries, {}, out_dir)

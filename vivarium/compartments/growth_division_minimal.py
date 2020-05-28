@@ -2,16 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.process import (
-    initialize_state)
-
-from vivarium.core.tree import (
-    Compartment,
-)
-
+from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
-    plot_simulation_output
+    plot_agent_data
 )
 
 # processes
@@ -68,9 +62,8 @@ class GrowthDivisionMinimal(Compartment):
             }
 
 
-
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'growth_division_minimal')
+    out_dir = os.path.join('out', 'compartments', 'growth_division_minimal')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -84,10 +77,13 @@ if __name__ == '__main__':
         'environment': {
             'volume': 1e-6,  # L
             'environment_port': 'external',
-            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+            # 'states': list(compartment.transport_config['initial_state']['external'].keys()),
         },
         'outer_path': ('cells', '0'),
         'return_raw_data': True,
         'timestep': 1,
-        'total_time': 100}
-    data = simulate_compartment_in_experiment(compartment, settings)
+        'total_time': 150}
+    output_data = simulate_compartment_in_experiment(compartment, settings)
+
+    plot_settings = {}
+    plot_agent_data(output_data, plot_settings, out_dir)

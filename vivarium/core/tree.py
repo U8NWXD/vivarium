@@ -765,6 +765,9 @@ class Experiment(object):
         # run the derivers
         self.send_updates([])
 
+        # run emitters
+        self.emit_data()
+
         print('experiment {}'.format(self.experiment_id))
 
         print('\nPROCESSES:')

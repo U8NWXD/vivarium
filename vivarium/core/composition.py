@@ -712,8 +712,72 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
 
+def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
+    agents_key = settings.get('agents_key', 'cells')
+
+    time_vec = list(data.keys())
+    agents_timeseries = agent_timeseries_from_data(data, agents_key)
+
+    initial_agents = data[time_vec[0]][agents_key]
+    state_ids = []
+    for agent_id, state_data in initial_agents.items():
+        for port_id, states in state_data.items():
+            for state_id in states.keys():
+                if state_id not in state_ids:
+                    state_ids.append(state_id)
+
+    # make figure
+    n_rows = len(state_ids)
+    fig = plt.figure(figsize=(8, n_rows * 3))
+    grid = plt.GridSpec(n_rows + 1, 1, wspace=0.4, hspace=1.5)
+
+    col_idx = 0  # TODO -- make a different col_idx for each port
+    # set up the axes
+    state_axes = {state_id: fig.add_subplot(grid[row_idx, col_idx]) for row_idx, state_id in enumerate(state_ids)}
+    for state_id, ax in state_axes.items():
+        ax.title.set_text(str(state_id))
+        ax.title.set_fontsize(16)
+
+    # plot the agents
+    plotted_agents = []
+    for time_idx, (time, time_data) in enumerate(data.items()):
+        agents = time_data[agents_key]
+
+        for agent_id, agent_data in agents.items():
+            if agent_id not in plotted_agents:
+                plotted_agents.append(agent_id)
+                agent_ts = agents_timeseries[agent_id]
+
+                for port_id, state_ts in agent_ts.items():
+                    for state_id, state in state_ts.items():
+                        n_times = len(state)
+                        plot_times = time_vec[time_idx:time_idx+n_times]
+                        ax = state_axes[state_id]
+                        ax.plot(plot_times, state)  # TODO -- add agent color
+
+    # save figure
+    fig_path = os.path.join(out_dir, filename)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    plt.savefig(fig_path, bbox_inches='tight')
+
 
 # timeseries functions
+def agent_timeseries_from_data(data, agents_key='cells'):
+    timeseries = {}
+    for time, all_states in data.items():
+        agent_data = all_states[agents_key]
+        for agent_id, ports in agent_data.items():
+            if agent_id not in timeseries:
+                timeseries[agent_id] = {}
+            for port_id, states in ports.items():
+                if port_id not in timeseries[agent_id]:
+                    timeseries[agent_id][port_id] = {}
+                for state_id, state in states.items():
+                    if state_id not in timeseries[agent_id][port_id]:
+                        timeseries[agent_id][port_id][state_id] = []
+                    timeseries[agent_id][port_id][state_id].append(state)
+    return timeseries
+
 def save_timeseries(timeseries, out_dir='out'):
     '''Save a timeseries as a CSV in out_dir'''
     flattened = flatten_timeseries(timeseries)
