@@ -22,11 +22,17 @@ from vivarium.compartments.chemotaxis_minimal import (
 )
 
 # processes
-from vivarium.processes.multibody_physics import plot_snapshots
+from vivarium.processes.multibody_physics import (
+    plot_snapshots,
+    random_body_config
+)
 
 
 
 def make_chemotaxis_experiment(config={}):
+    # configure the experiment
+    agent_ids = config.get('agent_ids', [])
+    emitter = config.get('emitter', {'type': 'timeseries'})
 
     # get the environment
     env_config = config.get('environment', {})
@@ -35,51 +41,102 @@ def make_chemotaxis_experiment(config={}):
     processes = network['processes']
     topology = network['topology']
 
-    # get the agents
-    n_agents = config.get('n_agents', 1)
-    chemotaxis = ChemotaxisMinimal({
-        'external_key': ('..', 'external')})
-    agents = make_agents(range(n_agents), chemotaxis, {})
+    chemotaxis = ChemotaxisMinimal(config.get('chemotaxis', {}))
+    agents = make_agents(agent_ids, chemotaxis, config.get('chemotaxis', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
 
-    emitter = {'type': 'timeseries'}
     return Experiment({
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
-        'initial_state': config.get('initial_state', {})})
+        'initial_state': config.get('initial_state', {})
+    })
 
 
-def run_chemotaxis_experiment(out_dir):
-    time = 60
-    config = {
-        'environment': get_lattice_config(),
-        'chemotaxis': get_chemotaxis_config({})}
 
-    experiment = make_chemotaxis_experiment(config)
+# configurations
+def get_chemotaxis_experiment_config():
 
+    n_agents = 3
+    bounds = [20, 20]
+    n_bins = [10, 10]
+
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
+    ## minimal chemotaxis agent
+    chemotaxis_config = {
+        'agents_path': ('..', '..', 'agents'),
+        'global_path': ('global',)}
+
+    ## environment
+    # multibody
+    multibody_config = {
+        'animate': False,
+        'jitter_force': 1e-3,
+        'bounds': bounds}
+
+    body_config = {
+        'bounds': bounds,
+        'agent_ids': agent_ids}
+    multibody_config.update(random_body_config(body_config))
+
+
+    # diffusion
+    diffusion_config = {
+        'molecules': ['glc'],
+        # 'gradient': {
+        #     'type': 'gaussian',
+        #     'molecules': {
+        #         'glc':{
+        #             'center': [0.5, 0.5],
+        #             'deviation': 3},
+        #     }},
+        'diffusion': 5e-3,
+        'n_bins': n_bins,
+        'size': bounds}
+
+    return {
+        'agent_ids': agent_ids,
+        'chemotaxis': chemotaxis_config,
+        'environment': {
+            'multibody': multibody_config,
+            'diffusion': diffusion_config}}
+
+def run_chemotaxis_experiment(time=5, out_dir='out'):
+    chemotaxis_config = get_chemotaxis_experiment_config()
+    experiment = make_chemotaxis_experiment(chemotaxis_config)
+
+    # simulate
     settings = {
         'timestep': 1,
         'total_time': time,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
-    # make snapshot plot
+    # agents plot
+    plot_settings = {
+        'agents_key': 'agents'}
+    plot_agent_data(data, plot_settings, out_dir)
+
+    # snapshot plot
+    multibody_config = mm_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
     data = {
         'agents': agents,
         'fields': fields,
-        'config': config}
+        'config': multibody_config}
     plot_config = {
         'out_dir': out_dir,
         'filename': 'snapshots'}
     plot_snapshots(data, plot_config)
+
+
 
 if __name__ == '__main__':
     out_dir = os.path.join('out', 'experiments', 'minimal_chemotaxis')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(out_dir)
+    run_chemotaxis_experiment(10, out_dir)

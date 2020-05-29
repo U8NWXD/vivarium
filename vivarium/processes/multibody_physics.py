@@ -160,7 +160,6 @@ class Multibody(Process):
             self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
 
         # add static barriers
-        # TODO -- mother machine configuration
         self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
         self.add_barriers(self.bounds)
 
@@ -185,14 +184,7 @@ class Multibody(Process):
         parameters = {'time_step': self.defaults['time_step']}
         parameters.update(initial_parameters)
 
-
         super(Multibody, self).__init__(ports, parameters)
-
-    # def default_settings(self):
-    #     schema = {'agents': {'updater': 'merge'}}
-    #     return {
-    #         'schema': schema,
-    #     }
 
     def ports_schema(self):
         glob_schema = {
@@ -222,7 +214,7 @@ class Multibody(Process):
                         '_updater': 'set'},
                     'mass': {
                         '_units': units.fg,
-                        '_default': 1.0 * units.fg,
+                        '_default': 1400 * units.fg,
                         '_updater': 'set'},
                     'motile_force': {
                         '_default': [0.0, 0.0],
@@ -535,15 +527,15 @@ def random_agent_config(bounds):
         'volume': volume,
         'length': length,
         'width': width,
-        'mass': 1 * units.fg,
+        'mass': 1400 * units.fg,
         'forces': [0, 0]}}
 
 def random_body_config(config):
-    n_agents = config['n_agents']
+    agent_ids = config['agent_ids']
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     agent_config = {
         agent_id: random_agent_config(bounds)
-        for agent_id in range(n_agents)}
+        for agent_id in agent_ids}
 
     return {
         'agents': agent_config,
@@ -587,7 +579,10 @@ def mother_machine_body_config(config):
 
 # tests and simulations
 def test_multibody(config={'n_agents':1}, time=10):
-    body_config = random_body_config(config)
+    n_agents = config.get('n_agents',1)
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
+    body_config = random_body_config({'agent_ids': agent_ids})
     multibody = Multibody(body_config)
 
     # initialize agent's boundary state
@@ -682,6 +677,9 @@ def simulate_motility(config, settings):
     return experiment.emitter.get_data()
 
 def run_motility(out_dir):
+    n_agents = 6
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
     # test motility
     bounds = [100, 100]
     motility_sim_settings = {
@@ -693,7 +691,7 @@ def run_motility(out_dir):
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'n_agents': 6}
+        'agent_ids': agent_ids}
     motility_config.update(random_body_config(body_config))
 
     # run motility sim
@@ -715,6 +713,9 @@ def run_motility(out_dir):
     plot_snapshots(data, plot_config)
 
 def run_growth_division():
+    n_agents = 1
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
     bounds = [20, 20]
     settings = {
         'growth_rate': 0.02,
@@ -728,7 +729,7 @@ def run_growth_division():
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'n_agents': 1}
+        'agent_ids': agent_ids}
     gd_config.update(random_body_config(body_config))
     gd_data = simulate_growth_division(gd_config, settings)
 

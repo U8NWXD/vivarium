@@ -71,6 +71,8 @@ def get_lattice_config(config={}):
     center = config.get('center', [0.5, 0.5])
     deviation = config.get('deviation', 5)
     diffusion = config.get('diffusion', 1e0)
+    n_agents = config.get('n_agents', 1)
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
     # multibody config
     mbp_config = {
@@ -79,7 +81,7 @@ def get_lattice_config(config={}):
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'n_agents': 2}
+        'agent_ids': agent_ids}
     mbp_config.update(random_body_config(body_config))
 
     # diffusion config
