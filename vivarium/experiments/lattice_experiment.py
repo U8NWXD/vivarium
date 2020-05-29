@@ -7,10 +7,7 @@ from vivarium.core.tree import (
     generate_state,
     Experiment
 )
-from vivarium.core.composition import (
-    make_agents,
-    simulate_compartment,
-)
+from vivarium.core.composition import make_agents
 
 from vivarium.processes.multibody_physics import plot_snapshots
 
