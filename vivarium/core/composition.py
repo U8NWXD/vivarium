@@ -810,27 +810,29 @@ def assert_timeseries_close(
 class ToyLinearGrowthDeathProcess(Process):
 
     GROWTH_RATE = 1.0
-    THRESHOLD = 5.0
+    THRESHOLD = 6.0
 
     def __init__(self, initial_parameters={}):
+        self.targets = initial_parameters.get('targets')
         ports = {
-            'compartment': ['processes'],
             'global': ['mass'],
         }
         super(ToyLinearGrowthDeathProcess, self).__init__(
             ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'emitter_keys': {
-                'global': ['mass']},
-            'state': {
-                'global': {
-                    'mass': 0.0
-                }
-            },
-        }
-        return default_settings
+    def ports_schema(self):
+        schema = {
+            'global': {
+                'mass': {
+                    '_default': 0.0,
+                    '_emit': True}}}
+
+        schema['global'].update({
+            target: {
+                '_default': None}
+            for target in self.targets})
+        return schema
+
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
@@ -840,19 +842,18 @@ class ToyLinearGrowthDeathProcess(Process):
             'global': {'mass': mass_grown},
         }
         if mass > ToyLinearGrowthDeathProcess.THRESHOLD:
-            update['compartment'] = {
-                'processes': {},
-            }
+            update['global'] = {
+                '_delete': [(target,) for target in self.targets]}
+
         return update
 
 class TestSimulateProcess:
 
-    def test_compartment_state_port(self):
-        '''Check that compartment state ports are handled'''
-        process = ToyLinearGrowthDeathProcess()
-        settings = {
-            'compartment_state_port': 'compartment',
-        }
+    def test_process_deletion(self):
+        '''Check that processes are successfully deleted'''
+        process = ToyLinearGrowthDeathProcess({'targets': ['process']})
+        settings = {}
+
         timeseries = simulate_process(process, settings)
         expected_masses = [
             # Mass stops increasing the iteration after mass > 5 because
@@ -969,10 +970,6 @@ class ToyDeath(Process):
         update = {}
 
         if volume > 1.0:
-
-            import ipdb; ipdb.set_trace()
-            # TODO -- remove all processes
-
             # kill the cell
             update = {
                 'global': {
