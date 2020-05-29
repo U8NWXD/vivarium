@@ -23,7 +23,7 @@ class ChemotaxisMinimal(Compartment):
     defaults = {
         'ligand_id': 'MeAsp',
         'initial_ligand': 0.1,
-        'external_key': ('..', 'external',)
+        'external_path': ('..', 'external',)
     }
 
     def __init__(self, config):
@@ -35,8 +35,8 @@ class ChemotaxisMinimal(Compartment):
             'initial_ligand',
             self.defaults['initial_ligand'])
         self.external_key = self.config.get(
-            'external_key',
-            self.defaults['external_key'])
+            'external_path',
+            self.defaults['external_path'])
 
     def generate_processes(self, config):
         receptor_parameters = {

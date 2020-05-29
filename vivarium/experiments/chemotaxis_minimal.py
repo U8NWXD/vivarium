@@ -8,7 +8,8 @@ from vivarium.core.tree import (
     Experiment)
 from vivarium.core.composition import (
     make_agents,
-    simulate_experiment
+    simulate_experiment,
+    plot_agent_data
 )
 
 # compartments
@@ -66,8 +67,8 @@ def get_chemotaxis_experiment_config():
 
     ## minimal chemotaxis agent
     chemotaxis_config = {
-        'agents_path': ('..', '..', 'agents'),
-        'global_path': ('global',)}
+        'external_path': ('global',),
+        'agents_path': ('..', '..', 'agents')}
 
     ## environment
     # multibody
@@ -120,7 +121,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
     plot_agent_data(data, plot_settings, out_dir)
 
     # snapshot plot
-    multibody_config = mm_config['environment']['multibody']
+    multibody_config = chemotaxis_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
     data = {
