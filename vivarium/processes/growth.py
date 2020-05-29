@@ -36,9 +36,9 @@ class Growth(Process):
     >>> # growth rate chosen so mass doubles each timestep
     >>> configuration = {'growth_rate': math.log(2.0)}
     >>> growth_process = Growth(configuration)
-    >>> state = growth_process.default_settings()['state']
+    >>> state = growth_process.default_state()
     >>> state
-    {'global': {'mass': 1339}}
+    {'global': {'mass': 1339, 'divide': False}}
     >>> update = growth_process.next_update(TIMESTEP, state)
     >>> update
     {'global': {'mass': 2678.0}}
@@ -72,6 +72,7 @@ class Growth(Process):
             'global': {
                 'mass': {
                     '_emit': True,
+                    '_default': 1339,
                     '_updater': 'set',
                     '_divider': 'split'},
                 'volume': {
