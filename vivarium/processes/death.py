@@ -41,8 +41,9 @@ import os
 
 from vivarium.core.composition import (
     plot_simulation_output,
-    simulate_compartment,
-    load_compartment)
+    simulate_compartment_in_experiment
+)
+from vivarium.core.tree import Compartment
 from vivarium.core.process import (
     Process,
     initialize_state,
@@ -182,21 +183,37 @@ class DeathFreezeState(Process):
             ports[port] = list(keys)
         super(DeathFreezeState, self).__init__(ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'state': {
-                'internal': {},
-                'global': {
-                    'dead': 0,
-                },
-            },
-            'emitter_keys': {'global': ['dead']},
-            'updaters': {
-                'compartment': {'processes': 'set'},
-                'global': {'dead': 'set'},
-            },
-        }
-        return default_settings
+    def ports_schema(self):
+        emit_keys = {
+            'global': ['dead']}
+        set_update = {
+            'compartment': {'processes': 'set'},
+            'global': {'dead': 'set'}}
+        set_ports_zero = [
+            'internal',
+            'global']
+
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state_id in states:
+                schema[port][state_id] = {}
+
+                if port in set_ports_zero:
+                    schema[port][state_id][
+                        '_default'] = 0
+
+                if port in set_update:
+                    if state_id in set_update[port]:
+                        schema[port][state_id][
+                            '_updater'] = set_update[port][state_id]
+
+                if port in emit_keys:
+                    if state_id in emit_keys[port]:
+                        schema[port][state_id][
+                            '_emit'] = True
+
+        return schema
 
     def next_update(self, timestep, states):
         '''If any detector triggers death, kill the cell
@@ -234,85 +251,80 @@ class ToyAntibioticInjector(Process):
         ports = {'internal': [self.antibiotic_name]}
         super(ToyAntibioticInjector, self).__init__(ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'state': {
-                'internal': {
-                    self.antibiotic_name: 0.0
-                }
-            },
-            'emitter_keys': {'internal': [self.antibiotic_name]},
-        }
-        return default_settings
+    def ports_schema(self):
+        return {
+            'internal': {
+                self.antibiotic_name: {
+                    '_default': 0.0,
+                    '_emit': True}}}
 
     def next_update(self, timestep, states):
         delta = timestep * self.injection_rate
         return {'internal': {self.antibiotic_name: delta}}
 
 
-def compose_toy_death(config):
-    death_parameters = {
-        'detectors': {
-            'antibiotic': {
-                'antibiotic_threshold': TOY_ANTIBIOTIC_THRESHOLD,
-            }
-        },
-        'enduring_processes': ['enduring_injector'],
-    }
-    death_process = DeathFreezeState(death_parameters)
-    injector_parameters = {
-        'injection_rate': TOY_INJECTION_RATE,
-    }
-    injector_process = ToyAntibioticInjector(injector_parameters)
-    enduring_parameters = {
-        'injection_rate': TOY_INJECTION_RATE,
-        'antibiotic_name': 'enduring_antibiotic'
-    }
-    enduring_process = ToyAntibioticInjector(enduring_parameters)
-    processes = {
-        'death': death_process,
-        'injector': injector_process,
-        'enduring_injector': enduring_process,
-    }
-    topology = {
-        'death': {
-            'internal': 'cell',
-            'compartment': COMPARTMENT_STATE,
-            'global': 'global',
-        },
-        'injector': {
-            'internal': 'cell',
-        },
-        'enduring_injector': {
-            'internal': 'cell',
-        },
-    }
-    init_state = {
-        'cell': {
-            'antibiotic': 0.0,
-            'enduring_antibiotic': 0.0,
-        },
-        'global': {
-            'dead': 0,
-        },
-    }
-    states = initialize_state(processes, topology, init_state)
-    options = {
-        'topology': topology,
-    }
-    return {
-        'processes': processes,
-        'states': states,
-        'options': options,
-    }
+class ToyDeath(Compartment):
+
+    def generate_processes(self, config):
+        death_parameters = {
+            'detectors': {
+                'antibiotic': {
+                    'antibiotic_threshold': TOY_ANTIBIOTIC_THRESHOLD,
+                }
+            },
+            'enduring_processes': ['enduring_injector'],
+        }
+        death_process = DeathFreezeState(death_parameters)
+        injector_parameters = {
+            'injection_rate': TOY_INJECTION_RATE,
+        }
+        injector_process = ToyAntibioticInjector(injector_parameters)
+        enduring_parameters = {
+            'injection_rate': TOY_INJECTION_RATE,
+            'antibiotic_name': 'enduring_antibiotic'
+        }
+        enduring_process = ToyAntibioticInjector(enduring_parameters)
+
+        return {
+            'death': death_process,
+            'injector': injector_process,
+            'enduring_injector': enduring_process,
+        }
+
+    def generate_topology(self, config):
+        return {
+            'death': {
+                'internal': ('cell',),
+                'compartment': COMPARTMENT_STATE,
+                'global': ('global',),
+            },
+            'injector': {
+                'internal': ('cell',),
+            },
+            'enduring_injector': {
+                'internal': ('cell',),
+            },
+        }
+
 
 
 def test_death_freeze_state(end_time=10, asserts=True):
-    compartment = load_compartment(compose_toy_death)
+    toy_death_compartment = ToyDeath({})
+
+    init_state = {
+        'cell': {
+            'antibiotic': 0.0,
+            'enduring_antibiotic': 0.0},
+        'global': {
+            'dead': 0}}
+
     settings = {
-        'timeline': [(end_time, {})],
-    }
-    saved_states = simulate_compartment(compartment, settings)
+        'total_time': end_time,
+        'initial_state': init_state}
+    saved_states = simulate_compartment_in_experiment(
+        toy_death_compartment,
+        settings)
+
     if asserts:
         # Add 1 because dies when antibiotic strictly above threshold
         expected_death = 1 + TOY_ANTIBIOTIC_THRESHOLD // TOY_INJECTION_RATE
