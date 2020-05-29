@@ -131,10 +131,9 @@ class DeathFreezeState(Process):
         '''Model Death by Removing Processes
 
         This process class models death by, with a few exceptions,
-        frezing the internal state of the cell. We implement this by
+        freezing the internal state of the cell. We implement this by
         removing from this process's :term:`compartment` all processes,
-        except those specified with the ``enduring_processes``
-        configuration.
+        specified with the ``targets`` configuration.
 
         Configuration:
 
@@ -142,8 +141,8 @@ class DeathFreezeState(Process):
           to include. Death will be triggered if any one of these
           triggers death. Names are specified in
           :py:const:`DETECTOR_CLASSES`.
-        * **``enduring_processes``: A list of the names of the processes
-          that will not be removed when the cell dies. The names are
+        * **``targets``: A list of the names of the processes
+          that will be removed when the cell dies. The names are
           specified in the compartment's :term:`topology`.
 
         :term:`Ports`:
@@ -160,12 +159,12 @@ class DeathFreezeState(Process):
                 'detectors', {}).items()
         ]
         # List of names of processes that will remain after death
-        self.enduring_processes = initial_parameters.get(
-            'enduring_processes', {})
+        self.targets = initial_parameters.get('targets', [])
+
         ports = {
             'internal': set(),
-            'global': ['dead'],
-        }
+            'global': ['dead']}
+
         for detector in self.detectors:
             needed_keys = detector.needed_state_keys
             for port in needed_keys:
@@ -204,6 +203,10 @@ class DeathFreezeState(Process):
                         schema[port][state_id][
                             '_emit'] = True
 
+        schema['global'].update({
+            target: {
+                '_default': None}
+            for target in self.targets})
         return schema
 
     def next_update(self, timestep, states):
@@ -215,14 +218,13 @@ class DeathFreezeState(Process):
         '''
         for detector in self.detectors:
             if not detector.check_can_survive(states):
-
-                import ipdb; ipdb.set_trace()
-                # TODO -- delete non-enduring processes
-                self.enduring_processes
-
+                # kill the cell
                 return {
-                    '_delete': [(agent_id,)],
-                    'global': {'dead': 1}}
+                    'global': {
+                        '_delete': [
+                            (target,)
+                            for target in self.targets]},
+                        'dead': 1}
         return {}
 
 
@@ -259,7 +261,7 @@ class ToyDeath(Compartment):
                     'antibiotic_threshold': TOY_ANTIBIOTIC_THRESHOLD,
                 }
             },
-            'enduring_processes': ['enduring_injector'],
+            'targets': ['injector', 'death'],
         }
         death_process = DeathFreezeState(death_parameters)
         injector_parameters = {
@@ -282,7 +284,7 @@ class ToyDeath(Compartment):
         return {
             'death': {
                 'internal': ('cell',),
-                'global': ('global',),
+                'global': tuple(),
             },
             'injector': {
                 'internal': ('cell',),

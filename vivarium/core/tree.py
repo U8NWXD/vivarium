@@ -1029,8 +1029,6 @@ def test_recursive_store():
     state.apply_update({})
     state.state_for(['environment'], ['temperature'])
 
-    import ipdb; ipdb.set_trace()
-
 def test_in():
     blank = {}
     path = ['where', 'are', 'we']
