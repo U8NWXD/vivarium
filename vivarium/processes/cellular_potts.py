@@ -9,9 +9,7 @@ matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
-from vivarium.core.composition import (
-    process_in_compartment,
-    simulate_with_environment)
+from vivarium.core.composition import simulate_process
 
 
 
@@ -46,11 +44,7 @@ class CellularPotts(Process):
             self.animate_frame()
 
         # make ports
-        ports = {
-            agent_id: [
-                'area',
-                'area_target']
-                for agent_id in self.cpm.agent_ids}
+        ports = {'agents': ['*']}
 
         # parameters
         parameters = {}
@@ -58,14 +52,25 @@ class CellularPotts(Process):
 
         super(CellularPotts, self).__init__(ports, parameters)
 
-    def default_settings(self):
-        initial_state = {agent_id: {
-            'area': area,
-            'area_target': self.init_target_area}  # TODO -- configure this
+    def ports_schema(self):
+        default_state = {
+            agent_id: {
+                'area': {'_default': area},
+                'area_target': {'_default': self.init_target_area}}
             for agent_id, area in self.cpm.get_agents_areas(self.cpm.grid).items()}
 
-        return {
-            'state': initial_state}
+        glob_schema = {
+            '*': {
+                'area': {
+                    # '_default': self.init_target_area,
+                    '_updater': 'set'
+                },
+                'area_target': {
+                    # '_default': self.init_target_area,
+                    '_updater': 'set'}}}
+        schema = {'agents': glob_schema}
+        schema['agents'].update(default_state)
+        return schema
 
     def animate_frame(self):
         if self.animate:
@@ -74,9 +79,10 @@ class CellularPotts(Process):
             plt.pause(0.0001)
 
     def next_update(self, timestep, states):
+        agents = states['agents']
 
         area_target = {
-            agent_id: states[agent_id]['area_target']
+            agent_id: agents[agent_id]['area_target']
             for agent_id in self.cpm.agent_ids}  # TODO -- get target areas from state
         self.cpm.update_target_areas(area_target)
         self.cpm.update()
@@ -270,16 +276,12 @@ def get_cpm_minimum_config():
 
 def run_CPM(cpm_config = get_cpm_minimum_config(), time=5):
     # load process
-    expression = CellularPotts(cpm_config)
-
+    CPM = CellularPotts(cpm_config)
     settings = {
-        'total_time': time,
-        # 'exchange_port': 'exchange',
-        'environment_port': 'external',
-        'environment_area': 1e-12}
-
-    compartment = process_in_compartment(expression)
-    return simulate_with_environment(compartment, settings)
+        'return_raw_data': True,
+        'total_time': 10,
+        'timestep': 1}
+    return simulate_process(CPM, settings)
 
 
 if __name__ == '__main__':
@@ -289,4 +291,3 @@ if __name__ == '__main__':
 
     cpm_config = get_cpm_config()
     saved_data = run_CPM(cpm_config, 30)
-

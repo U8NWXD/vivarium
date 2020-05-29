@@ -110,7 +110,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
 
     # simulate
     settings = {
-        'timestep': 1,
+        'timestep': 0.1,
         'total_time': time,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
@@ -140,4 +140,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(10, out_dir)
+    run_chemotaxis_experiment(30, out_dir)

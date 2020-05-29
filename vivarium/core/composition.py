@@ -306,8 +306,6 @@ def simulate_experiment(experiment, settings={}):
 
 
 
-
-
 # TODO -- remove the following functions!
 def load_compartment(composite, boot_config={}):
     '''
@@ -329,50 +327,6 @@ def load_compartment(composite, boot_config={}):
     options['emitter'] = boot_config.get('emitter', 'timeseries')
 
     return Compartment(processes, derivers, states, options)
-
-def process_in_compartment(process, settings={}):
-    ''' put a process in a compartment, with all derivers added '''
-    process_settings = process.default_settings()
-    compartment_state_port = settings.get('compartment_state_port')
-    emitter = settings.get('emitter', 'timeseries')
-    deriver_config = settings.get('deriver_config', {})
-
-    processes = {'process': process}
-    topology = {
-        'process': {
-            port: port for port in process.ports
-            if (not compartment_state_port
-                or port != compartment_state_port)
-        }
-    }
-
-    if compartment_state_port:
-        topology['process'][compartment_state_port] = COMPARTMENT_STATE
-
-    # add derivers
-    derivers = get_derivers(processes, topology, deriver_config)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = processes.copy()
-    all_processes.update(deriver_processes)
-    topology.update(derivers['deriver_topology'])
-
-    # make the state
-    state_dict = process_settings['state']
-    states = initialize_state(
-        all_processes,
-        topology,
-        state_dict)
-
-    options = {
-        'topology': topology,
-        'emitter': emitter}
-
-    return Compartment(processes, deriver_processes, states, options)
-
-def simulate_process_with_environment(process, settings={}):
-    ''' simulate a process in a compartment with an environment '''
-    compartment = process_in_compartment(process, settings)
-    return simulate_with_environment(compartment, settings)
 
 def simulate_with_environment(compartment, settings={}):
     '''
@@ -466,7 +420,6 @@ def simulate_compartment(compartment, settings={}):
         return compartment.emitter.get_data()
     else:
         return compartment.emitter.get_timeseries()
-
 
 
 # plotting functions
