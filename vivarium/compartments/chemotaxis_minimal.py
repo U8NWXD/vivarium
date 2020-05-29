@@ -6,7 +6,6 @@ import random
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     compartment_in_experiment,
-    simulate_with_environment,
     plot_simulation_output)
 
 # processes

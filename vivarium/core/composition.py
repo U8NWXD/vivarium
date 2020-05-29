@@ -20,11 +20,10 @@ from vivarium.utils.dict_utils import (
     flatten_timeseries,
 )
 from vivarium.core.process import (
-    initialize_state,
     Compartment,
-    COMPARTMENT_STATE,
     Process,
-    Store)
+    Deriver,
+)
 from vivarium.utils.units import units
 
 # processes
@@ -34,121 +33,6 @@ from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
-
-
-
-def get_derivers(processes, topology, config={}):
-    '''
-    get the derivers for a list of processes
-
-    requires:
-        - processes: (dict) with configured processes
-        - topology: (dict) with topology of the processes connected to compartment ports
-        - config: (dict) with deriver configurations, which are used to make deriver processes
-
-    returns: (dict) with:
-        {'deriver_processes': processes,
-        'deriver_topology': topology}
-    '''
-
-    # get deriver configuration from processes
-    process_derivers = get_deriver_config_from_proceses(processes, topology)
-    deriver_configs = process_derivers['deriver_configs']
-    deriver_topology = process_derivers['deriver_topology']
-
-    # update deriver_configs
-    deriver_configs = deep_merge(deriver_configs, config)
-
-    # update topology based on deriver_configs
-    for process_id, deriver_config in deriver_configs.items():
-        if process_id not in deriver_topology:
-            try:
-                ports = deriver_config['ports']
-                deriver_topology[process_id] = ports
-            except:
-                print('{} deriver requires topology in deriver_config'.format(process_id))
-                raise
-
-    # configure the deriver processes
-    deriver_processes = {}
-    for deriver_type, deriver_config in deriver_configs.items():
-        deriver_processes[deriver_type] = deriver_library[deriver_type](deriver_config)
-
-    return {
-        'deriver_processes': deriver_processes,
-        'deriver_topology': deriver_topology}
-
-def get_deriver_config_from_proceses(processes, topology):
-    ''' get the deriver configuration from processes' deriver_settings'''
-
-    deriver_configs = {}
-    full_deriver_topology = {}
-
-    for process_id, process in processes.items():
-        process_settings = process.default_settings()
-        deriver_setting = process_settings.get('deriver_setting', [])
-        try:
-            port_map = topology[process_id]
-        except:
-            print('{} topology port mismatch'.format(process_id))
-            raise
-
-        for setting in deriver_setting:
-            deriver_type = setting['type']
-            keys = setting['keys']
-            source_port = setting['source_port']
-            target_port = setting['derived_port']
-            try:
-                source_compartment_port = port_map[source_port]
-                target_compartment_port = port_map[target_port]
-            except:
-                print('source/target port mismatch for process "{}"'.format(process_id))
-                raise
-
-            # make deriver_topology, add to full_deriver_topology
-            deriver_topology = {
-                deriver_type: {
-                    source_port: source_compartment_port,
-                    target_port: target_compartment_port,
-                    'global': 'global'}}
-            deep_merge(full_deriver_topology, deriver_topology)
-
-            # TODO -- what if multiple different source/targets?
-            # TODO -- merge overwrites them. need list extend
-            ports_config = {
-                'source_ports': {source_port: keys},
-                'target_ports': {target_port: keys}}
-
-            # ports for configuration
-            deriver_config = {deriver_type: ports_config}
-            deep_merge(deriver_configs, deriver_config)
-
-    return {
-        'deriver_configs': deriver_configs,
-        'deriver_topology': full_deriver_topology}
-
-def get_schema(process_list, topology):
-    schema = {}
-    for level in process_list:
-        for process_id, process in level.items():
-            process_settings = process.default_settings()
-            process_schema = process_settings.get('schema', {})
-            try:
-                port_map = topology[process_id]
-            except:
-                print('{} topology port mismatch'.format(process_id))
-                raise
-
-            # go through each port, and get the schema
-            for process_port, settings in process_schema.items():
-                compartment_port = port_map[process_port]
-                compartment_schema = {
-                    compartment_port: settings}
-
-                ## TODO -- check for mismatch
-                deep_merge_check(schema, compartment_schema)
-
-    return schema
 
 
 # loading functions
@@ -976,178 +860,150 @@ class TestSimulateProcess:
         masses = timeseries['global']['mass']
         assert masses == expected_masses
 
-def toy_composite(config):
-    '''
-    a toy composite function for testing
-    returns a dictionary with 'processes', 'states', and 'options'
 
-    '''
+# toy processes
+class ToyMetabolism(Process):
+    def __init__(self, initial_parameters={}):
+        ports = {'pool': ['GLC', 'MASS']}
+        parameters = {'mass_conversion_rate': 1}
+        parameters.update(initial_parameters)
 
-    # toy processes
-    class ToyMetabolism(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {'pool': ['GLC', 'MASS']}
-            parameters = {'mass_conversion_rate': 1}
-            parameters.update(initial_parameters)
+        super(ToyMetabolism, self).__init__(ports, parameters)
 
-            super(ToyMetabolism, self).__init__(ports, parameters)
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()
+        }
 
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            update = {}
-            glucose_required = timestep / self.parameters['mass_conversion_rate']
-            if states['pool']['GLC'] >= glucose_required:
-                update = {
-                    'pool': {
-                        'GLC': -2,
-                        'MASS': 1}}
-
-            return update
-
-    class ToyTransport(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'external': ['GLC'],
-                'internal': ['GLC']}
-            parameters = {'intake_rate': 2}
-            parameters.update(initial_parameters)
-
-            super(ToyTransport, self).__init__(ports, parameters)
-
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            update = {}
-            intake = timestep * self.parameters['intake_rate']
-            if states['external']['GLC'] >= intake:
-                update = {
-                    'external': {'GLC': -2, 'MASS': 1},
-                    'internal': {'GLC': 2}}
-
-            return update
-
-    class ToyDeriveVolume(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'compartment': ['MASS', 'DENSITY', 'VOLUME']}
-            parameters = {}
-
-            super(ToyDeriveVolume, self).__init__(ports, parameters)
-
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
+    def next_update(self, timestep, states):
+        update = {}
+        glucose_required = timestep / self.parameters['mass_conversion_rate']
+        if states['pool']['GLC'] >= glucose_required:
             update = {
-                'compartment': {'VOLUME': volume}}
+                'pool': {
+                    'GLC': -2,
+                    'MASS': 1}}
 
-            return update
+        return update
 
-    class ToyDeath(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'compartment': ['VOLUME'],
-                'global': ['processes']}
-            super(ToyDeath, self).__init__(ports, {})
+class ToyTransport(Process):
+    def __init__(self, initial_parameters={}):
+        ports = {
+            'external': ['GLC'],
+            'internal': ['GLC']}
+        parameters = {'intake_rate': 2}
+        parameters.update(initial_parameters)
 
-        def next_update(self, timestep, states):
-            volume = states['compartment']['VOLUME']
-            update = {}
+        super(ToyTransport, self).__init__(ports, parameters)
 
-            if volume > 1.0:
-                # kill the cell
-                update = {
-                    'global': {
-                        'processes': {}}}
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()
+        }
 
-            return update
+    def next_update(self, timestep, states):
+        update = {}
+        intake = timestep * self.parameters['intake_rate']
+        if states['external']['GLC'] >= intake:
+            update = {
+                'external': {'GLC': -2, 'MASS': 1},
+                'internal': {'GLC': 2}}
+
+        return update
+
+class ToyDeriveVolume(Deriver):
+    def __init__(self, initial_parameters={}):
+        ports = {
+            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
+        parameters = {}
+
+        super(ToyDeriveVolume, self).__init__(ports, parameters)
+
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()
+        }
+
+    def next_update(self, timestep, states):
+        volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
+        update = {
+            'compartment': {'VOLUME': volume}}
+
+        return update
+
+class ToyDeath(Process):
+    def __init__(self, initial_parameters={}):
+        ports = {
+            'compartment': ['VOLUME']}
+        super(ToyDeath, self).__init__(ports, {})
+
+    def next_update(self, timestep, states):
+        volume = states['compartment']['VOLUME']
+        update = {}
+
+        if volume > 1.0:
+
+            import ipdb; ipdb.set_trace()
+            # TODO -- remove all processes
+
+            # kill the cell
+            update = {
+                'global': {
+                    'processes': {}}}
+
+        return update
+
+class ToyCompartment(Compartment):
+    '''
+    a toy compartment for testing
+
+    '''
+    def __init__(self, config):
+        self.config = config
+
+    def generate_processes(self, config):
+        return {
+            'metabolism': ToyMetabolism(
+                {'mass_conversion_rate': 0.5}), # example of overriding default parameters
+            'transport': ToyTransport(),
+            'death': ToyDeath(),
+            'external_volume': ToyDeriveVolume(),
+            'internal_volume': ToyDeriveVolume()
+        }
+
+    def generate_topology(self, config):
+        return{
+            'metabolism': {
+                'pool': ('cytoplasm',)},
+            'transport': {
+                'external': ('periplasm',),
+                'internal': ('cytoplasm',)},
+            'death': {
+                'compartment': ('cytoplasm',)},
+            'external_volume': {
+                'compartment': ('periplasm',)},
+            'internal_volume': {
+                'compartment': ('cytoplasm',)}}
 
 
-    processes = {
-        'metabolism': ToyMetabolism(
-            {'mass_conversion_rate': 0.5}), # example of overriding default parameters
-        'transport': ToyTransport(),
-        'death': ToyDeath()}
-
-    # deriver processes
-    derivers_processes = {
-        'external_volume': ToyDeriveVolume(),
-        'internal_volume': ToyDeriveVolume()}
-
-    # declare the states
-    states = {
-        'periplasm': Store(
-            initial_state={'GLC': 20, 'MASS': 100, 'DENSITY': 10, 'VOLUME': 100/10},
-            schema={
-                'VOLUME': {
-                    'updater': 'set'}}),
-        'cytoplasm': Store(
-            initial_state={'MASS': 3, 'DENSITY': 10, 'VOLUME': 3/10},
-            schema={
-                'VOLUME': {
-                    'updater': 'set'}})}
-
-    # hook up the ports in each process to compartment states
-    topology = {
-        'metabolism': {
-            'pool': 'cytoplasm'},
-        'transport': {
-            'external': 'periplasm',
-            'internal': 'cytoplasm'},
-        'death': {
-            'compartment': 'cytoplasm',
-            'global': COMPARTMENT_STATE},
-        'external_volume': {
-            'compartment': 'periplasm'},
-        'internal_volume': {
-            'compartment': 'cytoplasm'}}
-
-    # emitter that prints to the terminal
-    emitter = emit.get_emitter({
-        'type': 'print',
-        'keys': {
-            'periplasm': ['GLC', 'MASS'],
-            'cytoplasm': ['MASS']}})
-
-    # schema for states
-    schema = {}
-
-    options = {
-        # 'environment_port': 'environment',
-        # 'exchange_port': 'exchange',
-        'schema': schema,
-        'emitter': emitter,
-        'topology': topology,
-        'initial_time': 0.0}
-
-    return {
-        'processes': processes,
-        'derivers': derivers_processes,
-        'states': states,
-        'options': options}
-
-def test_compartment(composite=toy_composite):
-    compartment = load_compartment(composite)
+def test_compartment():
+    toy_compartment = ToyCompartment({})
     settings = {
         'timestep': 1,
-        'total_time': 20,
-        'emit_timeseries': True,}
-
-    return simulate_compartment(compartment, settings)
-
+        'total_time': 10}
+    data = simulate_compartment_in_experiment(toy_compartment, settings)
 
 if __name__ == '__main__':
     timeseries = test_compartment()

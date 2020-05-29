@@ -10,8 +10,6 @@ from vivarium.core.tree import (
 from vivarium.core.composition import (
     make_agents,
     simulate_compartment,
-    load_compartment,
-    get_derivers
 )
 
 from vivarium.processes.multibody_physics import plot_snapshots
