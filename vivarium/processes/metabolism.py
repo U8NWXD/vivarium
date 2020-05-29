@@ -626,9 +626,9 @@ def test_toy_metabolism():
 
     # simulate toy model
     timeline = [
-        (20, {('external', 'A'): 1}),
-        (40, {('external', 'F'): 0}),
-        (60, {})]
+        (5, {('external', 'A'): 1}),
+        (10, {('external', 'F'): 0}),
+        (15, {})]
 
     settings = {
         'environment': {
@@ -636,7 +636,7 @@ def test_toy_metabolism():
             'states': toy_metabolism.ports['external'],
             'environment_port': 'external',
             'exchange_port': 'exchange'},
-        'timestep': 0.1,
+        'timestep': 1.0,
         'timeline': timeline}
     return simulate_process_in_experiment(toy_metabolism, settings)
 
