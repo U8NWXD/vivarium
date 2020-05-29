@@ -90,15 +90,6 @@ class Growth(Process):
                 'config': {
                     'width': 1.0}}}
 
-    # def default_settings(self):
-    #     # default state
-    #     mass = 1339  # (wet mass in fg)
-    #     internal = {'mass': mass}
-    #     default_state = {'global': internal}
-    #
-    #     return {
-    #         'state': default_state}
-
     def next_update(self, timestep, states):
         mass = states['global']['mass']
         new_mass = mass * np.exp(self.parameters['growth_rate'] * timestep)
