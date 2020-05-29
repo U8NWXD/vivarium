@@ -44,11 +44,7 @@ from vivarium.core.composition import (
     simulate_compartment_in_experiment
 )
 from vivarium.core.tree import Compartment
-from vivarium.core.process import (
-    Process,
-    initialize_state,
-    COMPARTMENT_STATE,
-)
+from vivarium.core.process import Process
 
 
 TOY_ANTIBIOTIC_THRESHOLD = 5.0
@@ -153,9 +149,6 @@ class DeathFreezeState(Process):
         :term:`Ports`:
 
         * **``internal``**: The internal state of the cell.
-        * **``compartment``**: The compartment within which this process
-          is embedded. In the topology, the store name should be
-          :py:const:`vivarium.core.process.COMPARTMENT_STATE`.
         * **``global``**: Should be linked to the ``global``
           :term:`store`.
         '''
@@ -171,7 +164,6 @@ class DeathFreezeState(Process):
             'enduring_processes', {})
         ports = {
             'internal': set(),
-            'compartment': ['processes'],
             'global': ['dead'],
         }
         for detector in self.detectors:
@@ -187,7 +179,6 @@ class DeathFreezeState(Process):
         emit_keys = {
             'global': ['dead']}
         set_update = {
-            'compartment': {'processes': 'set'},
             'global': {'dead': 'set'}}
         set_ports_zero = [
             'internal',
@@ -224,18 +215,14 @@ class DeathFreezeState(Process):
         '''
         for detector in self.detectors:
             if not detector.check_can_survive(states):
-                cur_processes = states['compartment']['processes']
+
+                import ipdb; ipdb.set_trace()
+                # TODO -- delete non-enduring processes
+                self.enduring_processes
+
                 return {
-                    'compartment': {
-                        'processes': {
-                            process_name: cur_processes[process_name]
-                            for process_name in self.enduring_processes
-                        }
-                    },
-                    'global': {
-                        'dead': 1,
-                    },
-                }
+                    '_delete': [(agent_id,)],
+                    'global': {'dead': 1}}
         return {}
 
 
@@ -295,7 +282,6 @@ class ToyDeath(Compartment):
         return {
             'death': {
                 'internal': ('cell',),
-                'compartment': COMPARTMENT_STATE,
                 'global': ('global',),
             },
             'injector': {
