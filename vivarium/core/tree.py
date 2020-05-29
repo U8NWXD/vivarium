@@ -836,6 +836,12 @@ class Experiment(object):
             update = self.process_update(path, deriver, 0)
             self.apply_update(update)
 
+    # def emit_paths(self, paths):
+    #     emit_config = {
+    #         'table': 'history',
+    #         'data': data}
+    #     self.emitter_emit(emit_config)
+
     def emit_data(self):
         data = self.state.emit_data()
         data.update({
@@ -917,14 +923,18 @@ class Experiment(object):
                 future = time + full_step
 
                 updates = []
+                paths = []
                 for path, advance in front.items():
                     if advance['time'] <= future:
                         new_update = advance['update']
                         new_update['_path'] = path
                         updates.append(new_update)
                         advance['update'] = {}
+                        paths.append(path)
 
                 self.send_updates(updates, derivers)
+                # self.emit_paths(paths)
+                self.emit_data()
 
                 time = future
 
@@ -935,7 +945,7 @@ class Experiment(object):
         self.local_time += timestep
 
         # run emitters
-        self.emit_data()
+        # self.emit_data()
 
     def update_interval(self, time, interval):
         while self.local_time < time:
