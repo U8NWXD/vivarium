@@ -813,7 +813,7 @@ class Experiment(object):
             if topology is not None:
                 state_path = path[:-1] + topology
                 normal_path = normalize_path(state_path)
-                assoc_path(absolute, normal_path, update)
+                absolute = assoc_in(absolute, normal_path, update)
         return absolute
 
     def process_update(self, path, state, interval):

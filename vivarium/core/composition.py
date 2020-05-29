@@ -13,6 +13,7 @@ from vivarium.core.tree import (
     generate_derivers,
     deriver_library
 )
+from vivarium.core.tree import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
 from vivarium.utils.dict_utils import (
     deep_merge,
@@ -874,10 +875,10 @@ class ToyMetabolism(Process):
         return {
             port_id: {
                 key: {
+                    '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()
-        }
+            for port_id, keys in self.ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -904,10 +905,10 @@ class ToyTransport(Process):
         return {
             port_id: {
                 key: {
+                    '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()
-        }
+            for port_id, keys in self.ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -931,10 +932,11 @@ class ToyDeriveVolume(Deriver):
         return {
             port_id: {
                 key: {
+                    '_updater': 'set' if key == 'VOLUME' else 'accumulate',
+                    '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()
-        }
+            for port_id, keys in self.ports.items()}
 
     def next_update(self, timestep, states):
         volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
@@ -945,9 +947,22 @@ class ToyDeriveVolume(Deriver):
 
 class ToyDeath(Process):
     def __init__(self, initial_parameters={}):
+        self.targets = initial_parameters.get('targets', [])
         ports = {
-            'compartment': ['VOLUME']}
+            'compartment': ['VOLUME'],
+            'global': self.targets}
         super(ToyDeath, self).__init__(ports, {})
+
+    def ports_schema(self):
+        return {
+            'compartment': {
+                'VOLUME': {
+                    '_default': 0.0,
+                    '_emit': True}},
+            'global': {
+                target: {
+                    '_default': None}
+                for target in self.targets}}
 
     def next_update(self, timestep, states):
         volume = states['compartment']['VOLUME']
@@ -961,11 +976,13 @@ class ToyDeath(Process):
             # kill the cell
             update = {
                 'global': {
-                    'processes': {}}}
+                    '_delete': [
+                        (target,)
+                        for target in self.targets]}}
 
         return update
 
-class ToyCompartment(Compartment):
+class ToyCompartment(TreeCompartment):
     '''
     a toy compartment for testing
 
@@ -978,7 +995,9 @@ class ToyCompartment(Compartment):
             'metabolism': ToyMetabolism(
                 {'mass_conversion_rate': 0.5}), # example of overriding default parameters
             'transport': ToyTransport(),
-            'death': ToyDeath(),
+            'death': ToyDeath({'targets': [
+                'metabolism',
+                'transport']}),
             'external_volume': ToyDeriveVolume(),
             'internal_volume': ToyDeriveVolume()
         }
@@ -991,6 +1010,7 @@ class ToyCompartment(Compartment):
                 'external': ('periplasm',),
                 'internal': ('cytoplasm',)},
             'death': {
+                'global': tuple(),
                 'compartment': ('cytoplasm',)},
             'external_volume': {
                 'compartment': ('periplasm',)},
@@ -1002,7 +1022,16 @@ def test_compartment():
     toy_compartment = ToyCompartment({})
     settings = {
         'timestep': 1,
-        'total_time': 10}
+        'total_time': 10,
+        'initial_state': {
+            'periplasm': {
+                'GLC': 20,
+                'MASS': 100,
+                'DENSITY': 10},
+            'cytoplasm': {
+                'GLC': 0,
+                'MASS': 3,
+                'DENSITY': 10}}}
     data = simulate_compartment_in_experiment(toy_compartment, settings)
 
 if __name__ == '__main__':
