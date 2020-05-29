@@ -594,6 +594,8 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     # limit number of rows to max_rows by adding new columns
     columns = []
     for n_states in n_data:
+        if n_states == 0:
+            continue
         new_cols = n_states / max_rows
         if new_cols > 1:
             for col in range(int(new_cols)):
