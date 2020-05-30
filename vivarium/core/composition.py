@@ -39,6 +39,7 @@ REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
 PROCESS_OUT_DIR = os.path.join('out', 'processes')
 COMPARTMENT_OUT_DIR = os.path.join('out', 'compartments')
+EXPERIMENT_OUT_DIR = os.path.join('out', 'experiments')
 
 
 # loading functions
@@ -403,6 +404,31 @@ def set_axes(ax, show_xaxis=False):
         ax.spines['bottom'].set_visible(False)
         ax.tick_params(bottom=False, labelbottom=False)
 
+def get_plot_columns(ports, settings={}):
+    top_ports = settings.get('top_ports', [])
+    max_rows = settings.get('max_rows', 30)
+
+    n_data = [len(ports[key]) for key in ports if key not in top_ports]
+    if 0 in n_data:
+        n_data.remove(0)
+
+    # limit number of rows to max_rows by adding new columns
+    columns = []
+    for n_states in n_data:
+        if n_states == 0:
+            continue
+        new_cols = n_states / max_rows
+        if new_cols > 1:
+            for col in range(int(new_cols)):
+                columns.append(max_rows)
+            mod_states = n_states % max_rows
+            if mod_states > 0:
+                columns.append(mod_states)
+        else:
+            columns.append(n_states)
+
+    return columns
+
 def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename='simulation'):
     '''
     plot simulation output, with rows organized into separate columns.
@@ -436,8 +462,17 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     top_ports = list(overlay.values())
     bottom_ports = list(overlay.keys())
 
-    ports = [port for port in timeseries.keys() if port not in skip_keys + skip_ports]
     time_vec = timeseries['time']
+
+    ports = {}
+    for port_id, states in timeseries.items():
+        if port_id in skip_keys + skip_ports:
+            continue
+        if port_id not in ports:
+            ports[port_id] = []
+        for state_id in list(states.keys()):
+            if state_id not in ports[port_id]:
+                ports[port_id].append(state_id)
 
     # remove selected states
     removed_states = []
@@ -463,30 +498,15 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     for (port, state_id) in removed_states:
         del timeseries[port][state_id]
 
-    # get the number of states in each port
-    n_data = [len(timeseries[key]) for key in ports if key not in top_ports]
-    if 0 in n_data:
-        n_data.remove(0)
-
     # limit number of rows to max_rows by adding new columns
-    columns = []
-    for n_states in n_data:
-        if n_states == 0:
-            continue
-        new_cols = n_states / max_rows
-        if new_cols > 1:
-            for col in range(int(new_cols)):
-                columns.append(max_rows)
-
-            mod_states = n_states % max_rows
-            if mod_states > 0:
-                columns.append(mod_states)
-        else:
-            columns.append(n_states)
-    n_cols = len(columns)
-    n_rows = max(columns)
+    column_settings = {
+        'top_ports': top_ports,
+        'max_rows': max_rows}
+    columns = get_plot_columns(timeseries, column_settings)
 
     # make figure and plot
+    n_cols = len(columns)
+    n_rows = max(columns)
     fig = plt.figure(figsize=(n_cols * 6, n_rows * 1.5))
     grid = plt.GridSpec(n_rows, n_cols)
 
@@ -545,50 +565,70 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     plt.savefig(fig_path, bbox_inches='tight')
 
 def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
+    '''
+    Make a plot of all agent data
+    TODO -- add agent color
+    '''
+
     agents_key = settings.get('agents_key', 'cells')
 
     time_vec = list(data.keys())
     agents_timeseries = agent_timeseries_from_data(data, agents_key)
 
+    # assume the initial agents have the same port schema as all subsequent agents
     initial_agents = data[time_vec[0]][agents_key]
-    state_ids = []
+    ports = {}
     for agent_id, state_data in initial_agents.items():
         for port_id, states in state_data.items():
+            if port_id not in ports:
+                ports[port_id] = []
             for state_id in states.keys():
-                if state_id not in state_ids:
-                    state_ids.append(state_id)
+                if state_id not in ports[port_id]:
+                    ports[port_id].append(state_id)
+
+    # get the column sizes
+    columns = get_plot_columns(ports)
 
     # make figure
-    n_rows = len(state_ids)
-    fig = plt.figure(figsize=(8, n_rows * 3))
-    grid = plt.GridSpec(n_rows + 1, 1, wspace=0.4, hspace=1.5)
+    n_rows = max(columns)
+    n_cols = len(columns)
+    fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
+    grid = plt.GridSpec(n_rows, n_cols, wspace=0.4, hspace=1.5)
 
-    col_idx = 0  # TODO -- make a different col_idx for each port
     # set up the axes
-    state_axes = {state_id: fig.add_subplot(grid[row_idx, col_idx]) for row_idx, state_id in enumerate(state_ids)}
-    for state_id, ax in state_axes.items():
-        ax.title.set_text(str(state_id))
-        ax.title.set_fontsize(16)
+    port_axes = {}
+    for port_idx, (port_id, states) in enumerate(ports.items()):
+        n_states = columns[port_idx]
+        for state_idx, state_id in enumerate(states):
+            ax = fig.add_subplot(grid[state_idx, port_idx])
+            ax.title.set_text(str(port_id) + ': ' + str(state_id))
+            ax.title.set_fontsize(16)
+            if state_idx is not n_states-1:
+                set_axes(ax)
+            else:
+                # if last state in this port, add time ticks
+                set_axes(ax, True)
+                ax.set_xlabel('time (s)')
+
+            # save axis
+            port_axes[(port_id, state_id)] = ax
 
     # plot the agents
     plotted_agents = []
     for time_idx, (time, time_data) in enumerate(data.items()):
         agents = time_data[agents_key]
-
         for agent_id, agent_data in agents.items():
             if agent_id not in plotted_agents:
                 plotted_agents.append(agent_id)
                 agent_ts = agents_timeseries[agent_id]
-
                 for port_id, state_ts in agent_ts.items():
                     for state_id, state in state_ts.items():
                         if not isinstance(state[0], (float, int)):
                             continue
-
                         n_times = len(state)
                         plot_times = time_vec[time_idx:time_idx+n_times]
-                        ax = state_axes[state_id]
-                        ax.plot(plot_times, state)  # TODO -- add agent color
+                        ax = port_axes[(port_id, state_id)]
+                        ax.plot(plot_times, state)
 
     # save figure
     fig_path = os.path.join(out_dir, filename)

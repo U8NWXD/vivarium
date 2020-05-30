@@ -9,7 +9,8 @@ from vivarium.core.tree import (
 from vivarium.core.composition import (
     make_agents,
     simulate_experiment,
-    plot_agent_data
+    plot_agent_data,
+    EXPERIMENT_OUT_DIR,
 )
 
 # compartments
@@ -136,7 +137,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'experiments', 'minimal_chemotaxis')
+    out_dir = os.path.join(EXPERIMENT_OUT_DIR, 'minimal_chemotaxis')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
