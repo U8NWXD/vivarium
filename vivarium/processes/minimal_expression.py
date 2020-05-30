@@ -8,9 +8,12 @@ from vivarium.utils.dict_utils import tuplify_port_dicts
 from vivarium.utils.regulation_logic import build_rule
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
+
+NAME = 'minimal_expression'
 
 
 class MinimalExpression(Process):
@@ -123,7 +126,7 @@ def test_expression(end_time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'minimal_expression')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

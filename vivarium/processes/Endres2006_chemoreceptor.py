@@ -7,10 +7,15 @@ import random
 
 import matplotlib.pyplot as plt
 
-from vivarium.core.composition import simulate_process_in_experiment
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR
+)
 from vivarium.core.process import Process
 from vivarium.utils.units import units
 
+
+NAME = 'Endres2006_chemoreceptor'
 
 STEADY_STATE_DELTA = 1e-6
 
@@ -292,7 +297,7 @@ def plot_output(output, out_dir='out', filename='response'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Endres2006_chemoreceptor')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

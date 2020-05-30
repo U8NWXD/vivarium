@@ -13,7 +13,8 @@ from vivarium.core.process import Process
 from vivarium.utils.dict_utils import deep_merge, tuplify_port_dicts
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 from vivarium.utils.regulation_logic import build_rule
 from vivarium.utils.units import units
@@ -379,7 +380,7 @@ def test_expression(config=get_lacy_config(), timeline=[(100, {})]):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'ode_expression_process')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'ode_expression_process')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

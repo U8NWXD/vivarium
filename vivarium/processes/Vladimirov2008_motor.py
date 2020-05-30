@@ -9,7 +9,10 @@ from numpy import linspace
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
-from vivarium.core.composition import simulate_process_in_experiment
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR,
+)
 
 
 
@@ -332,7 +335,7 @@ def plot_variable_receptor(output, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Vladimirov2008_motor')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'Vladimirov2008_motor')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

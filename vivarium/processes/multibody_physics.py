@@ -33,12 +33,12 @@ from pygame.color import *
 # vivarium imports
 from vivarium.utils.units import units
 from vivarium.core.emitter import timeseries_from_data
-from vivarium.core.process import (
-    Process,
-    COMPARTMENT_STATE)
+from vivarium.core.process import Process, COMPARTMENT_STATE
 from vivarium.core.composition import (
     process_in_experiment,
-    simulate_experiment)
+    simulate_experiment,
+    PROCESS_OUT_DIR,
+)
 from vivarium.processes.Vladimirov2008_motor import run, tumble
 from vivarium.processes.derive_globals import volume_from_length
 
@@ -1116,7 +1116,7 @@ def init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'processes', 'multibody')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'multibody')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

@@ -27,7 +27,7 @@ from vivarium.core.composition import (
     load_timeseries,
     assert_timeseries_close,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     plot_simulation_output
 )
 from vivarium.utils.make_network import (
@@ -43,7 +43,7 @@ from vivarium.utils.regulation_logic import build_rule
 from vivarium.processes.derive_globals import AVOGADRO
 
 
-NAME = 'metabolism_process'
+NAME = 'metabolism'
 GLOBALS = ['volume', 'mass', 'mmol_to_counts']
 
 
@@ -660,7 +660,7 @@ def test_metabolism_similar_to_reference():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

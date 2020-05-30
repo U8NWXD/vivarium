@@ -10,10 +10,15 @@ from scipy.ndimage import convolve
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
-from vivarium.core.composition import simulate_process
+from vivarium.core.composition import (
+    simulate_process,
+    PROCESS_OUT_DIR
+)
 
 from vivarium.processes.multibody_physics import plot_snapshots
 
+
+NAME = 'diffusion_field'
 
 # laplacian kernel for diffusion
 LAPLACIAN_2D = np.array([[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]])
@@ -440,7 +445,7 @@ def plot_fields(data, config, out_dir='out', filename='fields'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'processes', 'diffusion_field')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

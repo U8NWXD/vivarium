@@ -39,7 +39,7 @@ from vivarium.core.composition import (
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
 from vivarium.utils.kinetic_rate_laws import KineticFluxModel
@@ -485,7 +485,7 @@ def test_convenience_kinetics_correlated_to_reference():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

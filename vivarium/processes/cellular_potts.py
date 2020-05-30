@@ -285,9 +285,5 @@ def run_CPM(cpm_config = get_cpm_minimum_config(), time=5):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'cellular_potts')
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
     cpm_config = get_cpm_config()
     saved_data = run_CPM(cpm_config, 30)

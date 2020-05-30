@@ -41,7 +41,8 @@ import os
 
 from vivarium.core.composition import (
     plot_simulation_output,
-    simulate_compartment_in_experiment
+    simulate_compartment_in_experiment,
+    PROCESS_OUT_DIR,
 )
 from vivarium.core.tree import Compartment
 from vivarium.core.process import Process
@@ -350,7 +351,7 @@ def test_death_freeze_state(end_time=10, asserts=True):
 
 
 def plot_death_freeze_state_test():
-    out_dir = os.path.join('out', 'tests', 'death_freeze_state')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'death_freeze_state')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     timeseries = test_death_freeze_state(asserts=False)

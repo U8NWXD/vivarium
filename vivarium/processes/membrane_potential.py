@@ -10,8 +10,12 @@ from vivarium.core.process import Process
 from vivarium.utils.dict_utils import deep_merge
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
+
+
+NAME = 'membrane_potential'
 
 # PMF ~170mV at pH 7. ~140mV at pH 7.7 (Berg)
 # Ecoli internal pH in range 7.6-7.8 (Berg)
@@ -188,7 +192,7 @@ def test_mem_potential():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'membrane_potential')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

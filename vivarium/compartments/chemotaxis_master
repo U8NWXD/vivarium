@@ -6,7 +6,9 @@ from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
-    plot_compartment_topology)
+    plot_compartment_topology,
+    COMPARTMENT_OUT_DIR
+)
 from vivarium.compartments.gene_expression import plot_gene_expression_output
 from vivarium.compartments.flagella_expression import get_flagella_expression_config
 
@@ -31,6 +33,8 @@ from vivarium.processes.Endres2006_chemoreceptor import ReceptorCluster
 from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
 from vivarium.processes.membrane_potential import MembranePotential
 
+
+NAME = 'chemotaxis_master'
 
 
 class ChemotaxisMaster(Compartment):
@@ -215,7 +219,7 @@ def test_chemotaxis_master():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'chemotaxis_master')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

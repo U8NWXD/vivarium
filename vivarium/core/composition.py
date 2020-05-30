@@ -37,6 +37,8 @@ from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
+PROCESS_OUT_DIR = os.path.join('out', 'processes')
+COMPARTMENT_OUT_DIR = os.path.join('out', 'compartments')
 
 
 # loading functions

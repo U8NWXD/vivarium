@@ -7,7 +7,8 @@ import numpy as np
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
 
@@ -100,7 +101,7 @@ class Growth(Process):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'growth')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'growth')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

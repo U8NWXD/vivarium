@@ -14,8 +14,13 @@ from matplotlib.patches import Patch
 
 from vivarium.utils.dict_utils import deep_merge
 from vivarium.core.process import Process
-from vivarium.core.composition import simulate_process_in_experiment
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR
+)
 
+
+NAME = 'Mears2014_flagella_activity'
 
 DEFAULT_PARAMETERS = {
     # parameters from Mears, Koirala, Rao, Golding, Chemla (2014)
@@ -517,7 +522,7 @@ def run_variable_flagella(out_dir):
     plot_activity(output3, out_dir, 'variable_flagella')
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Mears2014_flagella_activity')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
