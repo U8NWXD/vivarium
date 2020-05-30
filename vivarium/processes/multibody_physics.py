@@ -214,7 +214,7 @@ class Multibody(Process):
                         '_updater': 'set'},
                     'mass': {
                         '_units': units.fg,
-                        '_default': 1400 * units.fg,
+                        '_default': 1 * units.fg,
                         '_updater': 'set'},
                     'motile_force': {
                         '_default': [0.0, 0.0],
@@ -281,7 +281,7 @@ class Multibody(Process):
             for body in self.space.bodies:
                 self.apply_jitter_force(body)
                 self.apply_motile_force(body)
-                # self.apply_viscous_force(body)
+                self.apply_viscous_force(body)
 
             # run for a physics timestep
             self.space.step(self.physics_dt)
@@ -527,7 +527,7 @@ def random_agent_config(bounds):
         'volume': volume,
         'length': length,
         'width': width,
-        'mass': 1400 * units.fg,
+        'mass': 1 * units.fg,  #1400 * units.fg,
         'forces': [0, 0]}}
 
 def random_body_config(config):
