@@ -5,7 +5,8 @@ import random
 
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    compartment_in_experiment,
+    add_compartment_timeline,
+    simulate_compartment_in_experiment,
     plot_simulation_output)
 
 # processes
@@ -33,7 +34,7 @@ class ChemotaxisMinimal(Compartment):
         self.initial_ligand = config.get(
             'initial_ligand',
             self.defaults['initial_ligand'])
-        self.external_key = self.config.get(
+        self.external_path = self.config.get(
             'external_path',
             self.defaults['external_path'])
 
@@ -53,10 +54,10 @@ class ChemotaxisMinimal(Compartment):
     def generate_topology(self, config):
         return {
             'receptor': {
-                'external': self.external_key,
+                'external': self.external_path,
                 'internal': ('cell',)},
             'motor': {
-                'external': self.external_key,
+                'external': self.external_path,
                 'internal': ('cell',)}}
 
 
@@ -65,53 +66,52 @@ class ChemotaxisMinimal(Compartment):
 def get_chemotaxis_config(config={}):
     ligand_id = config.get('ligand_id', 'MeAsp')
     initial_ligand = config.get('initial_ligand', 5.0)
-    external_key = config.get('external_key', 'external')
+    external_path = config.get('external_path', 'external')
     # configure the compartment
     return {
-        'external_key': (external_key,),
+        'external_path': (external_path,),
         'ligand_id': ligand_id,
         'initial_ligand': initial_ligand}  # set initial_ligand from timeline
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'chemotaxis_minimal')
+    out_dir = os.path.join('out', 'compartments', 'chemotaxis_minimal')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    ligand_id = 'MeAsp'
     environment_port = 'external'
+    ligand_id = 'MeAsp'
+    initial_conc = 0
+    total_time = 60
 
+    # configure timeline
     exponential_random_config = {
         'ligand': ligand_id,
         'environment_port': environment_port,
-        'time': 60,
+        'time': total_time,
         'timestep': 1,
+        'initial_conc': initial_conc,
         'base': 1+4e-4,
         'speed': 14}
-    timeline = get_exponential_random_timeline(exponential_random_config)
-    end_time = timeline[-1][0]
+    timeline_config = {
+        'timeline': get_exponential_random_timeline(exponential_random_config),
+        'path': {'external': ('external',)}}
 
-
+    # make the compartment
     config = {
         'ligand_id': ligand_id,
-        'initial_ligand': timeline[0][1][(environment_port, ligand_id)],
-        'external_key': environment_port}
+        'initial_ligand': initial_conc,
+        'external_path': environment_port}
     compartment = ChemotaxisMinimal(get_chemotaxis_config(config))
 
-    # configure experiment
-    experiment_settings = {
-        'timeline': timeline,
-        'timeline_port_mapping': {
-            environment_port: (environment_port,)}}
-    experiment = compartment_in_experiment(compartment, experiment_settings)
+    # add the timeline
+    compartment = add_compartment_timeline(compartment, timeline_config)
 
     # run experiment
-    timestep = 1
-    time = 0
-    while time < end_time:
-        experiment.update(timestep)
-        time += timestep
-    timeseries = experiment.emitter.get_timeseries()
+    experiment_settings = {
+        'timestep': 1,
+        'total_time': 100}
+    timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
 
     # plot settings for the simulations
     plot_settings = {

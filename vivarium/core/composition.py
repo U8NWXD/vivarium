@@ -29,7 +29,7 @@ from vivarium.utils.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.processes.timeline import Timeline
+from vivarium.processes.timeline import TimelineCompartment
 from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
@@ -97,7 +97,6 @@ def process_in_experiment(process, settings={}):
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
-    timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
 
@@ -105,27 +104,8 @@ def compartment_in_experiment(compartment, settings={}):
     processes = network['processes']
     topology = network['topology']
 
-    if timeline:
-        timeline_port_mapping = settings['timeline_port_mapping']
-        timeline_port_mapping.update({'global': ('global',)})  # timeline requires a global port
-        timeline_process = Timeline({'timeline': timeline})
-
-        update_in(
-            processes,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'timeline': timeline_process}))
-
-        update_in(
-            topology,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'timeline': {
-                    port: (port,) for port in timeline_process.ports}}))
-
     if environment:
+        # TODO -- make a compartment_in_environment
         environment_process = HomogeneousEnvironment(environment)
 
         update_in(
@@ -188,6 +168,21 @@ def simulate_experiment(experiment, settings={}):
     else:
         return experiment.emitter.get_timeseries()
 
+def add_compartment_timeline(compartment, settings={}):
+    timeline = settings['timeline']
+    path = settings['path']
+
+    # get compartment
+    network = compartment.generate()
+    processes = network['processes']
+    topology = network['topology']
+
+    # make the timeline compartment
+    return TimelineCompartment({
+        'timeline': timeline,
+        'processes': processes,
+        'topology': topology,
+        'path': path})
 
 
 
