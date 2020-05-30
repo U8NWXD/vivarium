@@ -11,6 +11,7 @@ from vivarium.utils.rate_law_utilities import get_reactions_from_exchange
 from vivarium.utils.rate_law_utilities import get_molecules_from_reactions
 from vivarium.data.spreadsheets import load_tsv
 from vivarium.utils.units import units
+from vivarium.core.composition import simulate_process_in_experiment
 
 
 EXTERNAL_MOLECULES_FILE = os.path.join('vivarium', 'data', 'flat', 'wcEcoli_environment_molecules.tsv')
@@ -64,13 +65,13 @@ class TransportLookup(Process):
         # external_molecule_ids declares which molecules' exchange will be applied
         self.transport_reaction_ids = get_reactions_from_exchange(self.all_transport_reactions, external_molecule_ids_p)
         all_molecule_ids = get_molecules_from_reactions(self.transport_reaction_ids, self.all_transport_reactions)
-        internal_molecule_ids = [mol_id for mol_id in all_molecule_ids if mol_id not in external_molecule_ids_p]
+        self.internal_molecule_ids = [mol_id for mol_id in all_molecule_ids if mol_id not in external_molecule_ids_p]
 
         # make look up object
         self.look_up = LookUp()
 
         ports = {
-            'internal': internal_molecule_ids,
+            'internal': self.internal_molecule_ids,
             'external': self.external_molecule_ids,
             'exchange': self.external_molecule_ids,
             'global': ['volume']}
@@ -79,37 +80,32 @@ class TransportLookup(Process):
 
         super(TransportLookup, self).__init__(ports, parameters)
 
-
-    def default_settings(self):
-
-        # default state
+    def ports_schema(self):
         media_id = 'minimal_plus_amino_acids'
         make_media = Media()
         media = make_media.get_saved_media(media_id)
-        default_state = {
-            'global': {'volume': 1},
-            'external': media,
-            'exchange': {state_id: 0.0 for state_id in self.external_molecule_ids}}
-
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': [],
-            'external': self.external_molecule_ids,
-            'exchange': []}
-
-        # schema
         schema = {
+            'global': {
+                'volume': {
+                    '_default': 1}},
+            'external': {
+                state_id: {
+                    '_default': value,
+                    '_emit': True}
+                for state_id, value in media.items()},
+            'internal': {
+                state_id: {
+                    '_default': 0.0}
+                for state_id in self.internal_molecule_ids},
             'exchange': {
-                mol_id : {
-                    'updater': 'accumulate'}
-                for mol_id in self.external_molecule_ids}}
+                state_id: {
+                    '_default': 0.0,
+                    '_emit': True}
+                for state_id in self.external_molecule_ids},
+        }
 
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
+        return schema
 
-        return default_settings
 
     def next_update(self, timestep, states):
         external = states['external'] # TODO -- use external state? if concentrations near 0, cut off flux?
@@ -191,3 +187,17 @@ class TransportLookup(Process):
             location = row['exchange molecule location']
             self.molecule_to_external_map[molecule_id + location] = molecule_id
             self.external_to_molecule_map[molecule_id] = molecule_id + location
+
+
+if __name__ == '__main__':
+
+    process = TransportLookup({})
+    settings = {
+        'environment': {
+            'volume': 5e-14,
+            'states': process.external_molecule_ids,
+            'environment_port': 'external',
+            'exchange_port': 'exchange'},
+        'timestep': 1,
+        'total_time': 60}
+    timeseries =  simulate_process_in_experiment(process, settings)
