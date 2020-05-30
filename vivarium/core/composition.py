@@ -29,7 +29,10 @@ from vivarium.utils.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.processes.timeline import TimelineCompartment
+from vivarium.processes.timeline import (
+    TimelineCompartment,
+    TimelineProcess
+)
 from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
@@ -70,7 +73,7 @@ def process_in_experiment(process, settings={}):
             port: (port,) for port in process.ports_schema().keys()}}
 
     if timeline:
-        timeline_process = Timeline({'timeline': timeline})
+        timeline_process = TimelineProcess({'timeline': timeline})
         processes.update({'timeline_process': timeline_process})
         topology.update({
             'timeline_process': {
@@ -168,20 +171,12 @@ def simulate_experiment(experiment, settings={}):
     else:
         return experiment.emitter.get_timeseries()
 
-def add_compartment_timeline(compartment, settings={}):
+def add_timeline_to_compartment(compartment, settings={}):
     timeline = settings['timeline']
     path = settings['path']
-
-    # get compartment
-    network = compartment.generate()
-    processes = network['processes']
-    topology = network['topology']
-
-    # make the timeline compartment
     return TimelineCompartment({
         'timeline': timeline,
-        'processes': processes,
-        'topology': topology,
+        'compartment': compartment,
         'path': path})
 
 

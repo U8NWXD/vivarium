@@ -7,7 +7,7 @@ from vivarium.core.process import Process
 from vivarium.core.tree import Compartment
 
 
-class Timeline(Process):
+class TimelineProcess(Process):
 
     def __init__(self, initial_parameters={}):
         self.timeline = copy.deepcopy(initial_parameters['timeline'])
@@ -21,7 +21,7 @@ class Timeline(Process):
         parameters = {
             'timeline': self.timeline}
 
-        super(Timeline, self).__init__(ports, parameters)
+        super(TimelineProcess, self).__init__(ports, parameters)
 
     def ports_schema(self):
         return {
@@ -51,14 +51,14 @@ class TimelineCompartment(Compartment):
 
     def __init__(self, config):
         self.timeline = config['timeline']
-        self.processes = config['processes']
-        self.topology = config['topology']
+        self.compartment = config['compartment']
+        self.topology = self.compartment.generate_topology({})
         self.path = config['path']
 
     def generate_processes(self, config):
-        processes = {
-            'timeline': Timeline({'timeline': self.timeline})}
-        processes.update(self.processes)
+        processes = self.compartment.generate_processes({})
+        processes.update({
+            'timeline': TimelineProcess({'timeline': self.timeline})})
         return processes
 
     def generate_topology(self, config):

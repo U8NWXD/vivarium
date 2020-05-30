@@ -5,7 +5,7 @@ import random
 
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    add_compartment_timeline,
+    add_timeline_to_compartment,
     simulate_compartment_in_experiment,
     plot_simulation_output)
 
@@ -61,17 +61,14 @@ class ChemotaxisMinimal(Compartment):
                 'internal': ('cell',)}}
 
 
-
-
 def get_chemotaxis_config(config={}):
     ligand_id = config.get('ligand_id', 'MeAsp')
     initial_ligand = config.get('initial_ligand', 5.0)
     external_path = config.get('external_path', 'external')
-    # configure the compartment
     return {
         'external_path': (external_path,),
         'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand}  # set initial_ligand from timeline
+        'initial_ligand': initial_ligand}
 
 
 if __name__ == '__main__':
@@ -105,7 +102,7 @@ if __name__ == '__main__':
     compartment = ChemotaxisMinimal(get_chemotaxis_config(config))
 
     # add the timeline
-    compartment = add_compartment_timeline(compartment, timeline_config)
+    compartment = add_timeline_to_compartment(compartment, timeline_config)
 
     # run experiment
     experiment_settings = {
