@@ -61,7 +61,7 @@ class Operon(Datum):
         'genes': []}
 
     def __init__(self, config):
-        super(Operon, self).__init__(config, self.defaults)
+        super(Operon, self).__init__(config)
 
 class Domain(Datum):
     defaults = {
@@ -71,7 +71,7 @@ class Domain(Datum):
         'children': []}
 
     def __init__(self, config):
-        super(Domain, self).__init__(config, self.defaults)
+        super(Domain, self).__init__(config)
 
     def contains(self, position):
         if position < 0:
@@ -128,7 +128,7 @@ class Rnap(Polymerase):
         'position': 0}
 
     def __init__(self, config):
-        super(Rnap, self).__init__(config, self.defaults)
+        super(Rnap, self).__init__(config)
 
 class Chromosome(Datum):
     schema = {
@@ -367,8 +367,8 @@ class Chromosome(Datum):
         return [Chromosome(fork) for fork in divided]
 
     def __init__(self, config):
-        super(Chromosome, self).__init__(config, self.defaults)
-        if not self.promoter_order:
+        super(Chromosome, self).__init__(config)
+        if self.promoter_order:
             self.promoter_order = list(self.promoters.keys())
 
 

@@ -43,8 +43,8 @@ class Polymerase(Datum):
         'template_index': 0,
         'terminator': 0}
 
-    def __init__(self, config, defaults=defaults):
-        super(Polymerase, self).__init__(config, self.defaults)
+    def __init__(self, config):
+        super(Polymerase, self).__init__(config)
 
     def bind(self):
         self.state = 'bound'
@@ -82,7 +82,7 @@ class BindingSite(Datum):
         'thresholds': {}} # (factor, threshold)
 
     def __init__(self, config):
-        super(BindingSite, self).__init__(config, self.defaults)
+        super(BindingSite, self).__init__(config)
 
     def state_when(self, levels):
         '''
@@ -102,8 +102,8 @@ class Terminator(Datum):
         'strength': 0,
         'products': []}
 
-    def __init__(self, config, defaults=defaults):
-        super(Terminator, self).__init__(config, self.defaults)
+    def __init__(self, config):
+        super(Terminator, self).__init__(config)
 
     def between(self, before, after):
         return before < self.position < after or after < self.position < before
@@ -120,8 +120,8 @@ class Template(Datum):
         'sites': [],
         'terminators': []}
 
-    def __init__(self, config, defaults=defaults):
-        super(Template, self).__init__(config, self.defaults)
+    def __init__(self, config):
+        super(Template, self).__init__(config)
 
         self.terminator_strength = 0
         for terminator in self.terminators:
