@@ -18,9 +18,6 @@ DEFAULT_TIMESTEP = 1.0
 INFINITY = float('inf')
 VERBOSE = False
 
-class topologyError(Exception):
-    pass
-
 def npize(d):
     ''' Turn a dict into an ordered set of keys and values. '''
 
@@ -242,23 +239,6 @@ class Process(object):
 
     def pull_data(self):
         return {}
-
-    def schema_properties(self, states, schema_type):
-        '''
-        Requires:
-            - states (dict)
-            - schema_type (str)
-
-        Returns a dictionary with {store_id: {key: schema_value}}
-        for all store_ids and list of keys in states,
-        with schema_value specified by schema_type
-        '''
-
-        schema = {}
-        for store_id, keys in states.items():
-            schema[store_id] = self.states[store_id].schema_properties(keys, schema_type)
-
-        return schema
 
     def assign_ports(self, states):
         '''
