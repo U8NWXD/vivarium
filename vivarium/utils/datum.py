@@ -42,36 +42,8 @@ class Datum(dict):
     def to_dict(self):
         return self
 
-    # def __init__(self, config, default):
-    #     self.keys = list(set(list(config.keys()) + list(default.keys()))) # a dance
-
-    #     for key in self.keys:
-    #         value = config.get(key, default[key])
-    #         if value and key in self.schema:
-    #             realize = self.schema[key]
-    #             if isinstance(value, list):
-    #                 value = [realize(item) for item in value]
-    #             elif isinstance(value, dict):
-    #                 value = {inner: realize(item) for inner, item in value.items()}
-    #             else:
-    #                 value = realize(item)
-    #         setattr(self, key, value)
-
     def fields(self):
         return list(self.defaults.keys())
-
-    # def to_dict(self):
-    #     to = {}
-    #     for key in self.keys:
-    #         value = getattr(self, key)
-    #         if isinstance(value, Datum):
-    #             value = value.to_dict()
-    #         elif value and isinstance(value, list) and isinstance(first(value), Datum):
-    #             value = [datum.to_dict() for datum in value]
-    #         elif value and isinstance(value, dict) and isinstance(first_value(value), Datum):
-    #             value = {inner: datum.to_dict() for inner, datum in value.items()}
-    #         to[key] = value
-    #     return to
 
     def __repr__(self):
         return str(type(self)) + ': ' + str({
