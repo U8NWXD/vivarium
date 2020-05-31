@@ -20,19 +20,6 @@ from vivarium.processes.complexation import Complexation
 
 
 
-#
-def compose_master(config):
-    master = Master(config)
-    network = master.generate(config)
-    processes = network['processes']
-
-    # TODO -- have parameters use the Master compartment instead
-    return {
-        'processes': processes,
-        # 'derivers': deriver_processes,
-        # 'states': states,
-        # 'options': options
-    }
 
 def default_metabolism_config():
     metabolism_config = get_iAF1260b_config()

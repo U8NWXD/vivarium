@@ -723,6 +723,12 @@ class Compartment(object):
             'processes': assoc_in({}, path, processes),
             'topology': assoc_in({}, path, topology)}
 
+    def get_parameters(self):
+        processes = self.generate_processes({})
+        return {
+            process_id: process.parameters
+            for process_id, process in processes.items()}
+
 
 def generate_state(processes, topology, initial_state):
     state = Store({})

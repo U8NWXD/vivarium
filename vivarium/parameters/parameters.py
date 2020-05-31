@@ -14,7 +14,7 @@ from vivarium.core.composition import (
     simulate_with_environment)
 
 # composites
-from vivarium.compartments.master import compose_master
+from vivarium.compartments.master import Master
 
 
 
@@ -55,7 +55,7 @@ def get_parameters_logspace(min, max, number):
     range = np.logspace(np.log10(min), np.log10(max), number, endpoint=True)
     return list(range)
 
-def run_sim_get_output(new_compartment, output_values, settings, total_time, simulate_environment=False):
+def run_sim_get_output(new_compartment, metrics, settings, total_time, simulate_environment=False):
     if simulate_environment:
         sim_out = simulate_with_environment(new_compartment, settings)
     else:
@@ -64,7 +64,7 @@ def run_sim_get_output(new_compartment, output_values, settings, total_time, sim
     last_state = sim_out[total_time]
 
     output = []
-    for output_value in output_values:
+    for output_value in metrics:
         output.append(get_nested(last_state, output_value))
 
     return output
@@ -74,7 +74,7 @@ def parameter_scan(config):
     Pass in a config (dict) with:
         - composite (function) -- a function for the composite compartment
         - scan_parameters (dict) -- each parameter location (tuple) mapped to a list of values
-        - output_values (list) -- a list of output values (tuple) with the (port, key)
+        - metrics (list) -- a list of output values (tuple) with the (port, key)
         - conditions (list) -- a list of state values (dict) with {port: {variable: value}}
             for the default state the condition is and empty dict, [{}]
         - options (dict)
@@ -82,7 +82,7 @@ def parameter_scan(config):
     Returns a list of all parameter combinations, and a dictionary with output values for those parameters
     '''
 
-    composite = config['composite']
+    compartment = config['compartment']
     scan_params = config['scan_parameters']
     metrics = config['metrics']
     options = config.get('options', {})
@@ -96,8 +96,7 @@ def parameter_scan(config):
     print('parameter scan size: {}'.format(n_combinations))
 
     # get default parameters from compartment
-    compartment = load_compartment(composite)
-    default_params = compartment.current_parameters()
+    default_params = compartment.get_parameters()
 
     # make all parameter sets for scan
     param_keys = list(scan_params.keys())
@@ -133,7 +132,10 @@ def parameter_scan(config):
                 n_conditions))
 
             # make the compartment
-            new_compartment = load_compartment(composite, parameters)
+            import ipdb; ipdb.set_trace()
+            # TODO -- load parameters into compartment
+            new_compartment = compartment(parameters)
+            # new_compartment = load_compartment(composite, parameters)
 
             # update the states
             for store, values in condition_state.items():
@@ -260,19 +262,20 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     plt.savefig(fig_path, bbox_inches='tight')
 
 def scan_master():
-    composite = compose_master
+    config = {}
+    compartment = Master(config)
 
     # define scanned parameters, to replace defaults
     scan_params = {
         ('transport',
          'kinetic_parameters',
          'EX_glc__D_e',
-         ('internal','PTSG'),
+         ('internal', 'EIIglc'),
          'kcat_f'):
             get_parameters_logspace(1e-3, 1e0, 6)
     }
 
-    output_values = [
+    metrics = [
         ('reactions', 'EX_glc__D_e'),
         ('reactions', 'GLCptspp'),
         ('global', 'growth_rate')]
@@ -290,9 +293,9 @@ def scan_master():
         'simulation_settings': sim_settings}
 
     scan_config = {
-        'composite': composite,
+        'compartment': compartment,
         'scan_parameters': scan_params,
-        'output_values': output_values,
+        'metrics': metrics,
         'options': scan_options}
     results = parameter_scan(scan_config)
 
