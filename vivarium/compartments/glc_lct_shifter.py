@@ -4,7 +4,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-from vivarium.core.composition import set_axes, load_compartment
+from vivarium.core.composition import set_axes
 from vivarium.core.composition import (
     simulate_with_environment,
     plot_simulation_output
@@ -147,10 +147,10 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment = load_compartment(compose_glc_lct_shifter)
-
-    # settings for simulation and plot
-    options = compartment.configuration
+    # TODO -- load compartment in simulation
+    # compartment = load_compartment(compose_glc_lct_shifter)
+    # # settings for simulation and plot
+    # options = compartment.configuration
 
     # define timeline
     end_time = 7500

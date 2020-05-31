@@ -14,10 +14,6 @@ from vivarium.core.composition import (
     TEST_OUT_DIR,
     assert_timeseries_close,
 )
-from vivarium.core.process import (
-    initialize_state,
-    COMPARTMENT_STATE,
-)
 from vivarium.processes.antibiotic_transport import AntibioticTransport
 from vivarium.processes.antibiotic_transport import (
     DEFAULT_INITIAL_STATE as ANTIBIOTIC_DEFAULT_INITIAL_STATE,

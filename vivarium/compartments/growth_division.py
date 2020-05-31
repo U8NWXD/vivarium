@@ -2,9 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.process import (
-    initialize_state)
-
 from vivarium.core.tree import (
     Compartment,
 )

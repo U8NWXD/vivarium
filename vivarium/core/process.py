@@ -350,17 +350,6 @@ def connect_topology(processes, derivers, states, topology):
         except:
             print('{} mismatched ports'.format(name))
 
-def get_minimum_timestep(processes):
-    # get the minimum time_step from all processes
-    minimum_step = 10
-
-    for process_id, process_object in processes.items():
-        settings = process_object.default_settings()
-        time_step = settings.get('time_step', DEFAULT_TIMESTEP)
-        minimum_step = min(time_step, minimum_step)
-
-    return minimum_step
-
 def get_maximum_timestep(processes):
     # get the minimum time_step from all processes
     maximum_step = 0.0
@@ -372,68 +361,6 @@ def get_maximum_timestep(processes):
 
     return maximum_step
 
-def get_schema(processes, topology):
-    schema = {}
-    for process_id, process in processes.items():
-        process_settings = process.default_settings()
-        process_schema = process_settings.get('schema', {})
-        try:
-            port_map = topology[process_id]
-        except:
-            print('{} topology port mismatch'.format(process_id))
-            raise
-
-        # go through each port, and get the schema
-        for process_port, settings in process_schema.items():
-            compartment_port = port_map[process_port]
-            compartment_schema = {
-                compartment_port: settings}
-
-            ## TODO -- check for mismatch
-            deep_merge_check(schema, compartment_schema)
-    return schema
-
-def initialize_state(processes, topology, initial_state):
-    schema = get_schema(processes, topology)
-
-    # make a dict with the compartment's default states {ports: states}
-    compartment_states = {}
-    for process_id, ports_map in topology.items():
-        process_ports = processes[process_id].ports
-        default_process_states = processes[process_id].default_state()
-
-        for process_port, states in process_ports.items():
-            try:
-                compartment_port = topology[process_id][process_port]
-            except:
-                raise topologyError(
-                    'no "{}" port assigned to "{}" process in topology'.format(process_port, process_id))
-
-            # initialize the default states
-            default_states = default_process_states.get(process_port, {})
-
-            # update the states
-            # TODO -- make this a deep_merge_check, requires better handling of initial state conflicts
-            c_states = deep_merge(default_states, compartment_states.get(compartment_port, {}))
-            compartment_states[compartment_port] = c_states
-
-    # initialize state for each compartment port
-    initialized_state = {}
-    for compartment_port, states in compartment_states.items():
-        state_schema = schema.get(compartment_port, {})
-
-        make_state = Store(
-            initial_state=deep_merge(states, dict(initial_state.get(compartment_port, {}))),
-            schema=state_schema)
-        initialized_state[compartment_port] = make_state
-
-    return initialized_state
-
-def flatten_process_layers(process_layers):
-    processes = {}
-    for layer in process_layers:
-        processes.update(layer)
-    return processes
 
 class Compartment(Store):
     ''' Track a set of processes and states and the connections between them. '''

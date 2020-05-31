@@ -9,7 +9,7 @@ from vivarium.core.composition import simulate_compartment_in_experiment
 from vivarium.core.composition import (
     simulate_with_environment,
     plot_simulation_output,
-    load_compartment)
+)
 from vivarium.parameters.parameters import (
     parameter_scan,
     get_parameters_logspace,
