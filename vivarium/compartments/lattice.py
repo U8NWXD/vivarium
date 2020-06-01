@@ -3,7 +3,10 @@ from __future__ import absolute_import, division, print_function
 import os
 
 from vivarium.core.tree import Compartment
-from vivarium.core.composition import compartment_in_experiment
+from vivarium.core.composition import (
+    compartment_in_experiment,
+    COMPARTMENT_OUT_DIR,
+)
 
 # processes
 from vivarium.processes.multibody_physics import (
@@ -17,6 +20,8 @@ from vivarium.processes.diffusion_field import (
     exchange_agent_config,
 )
 
+
+NAME = 'lattice'
 
 
 class Lattice(Compartment):
@@ -121,7 +126,7 @@ def test_lattice(config=get_lattice_config(), end_time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'compartments', 'lattice')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

@@ -12,7 +12,7 @@ from vivarium.core.composition import (
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
 from vivarium.processes.convenience_kinetics import ConvenienceKinetics
@@ -149,7 +149,7 @@ def test_antibiotic_transport():
 
 
 def main():
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     timeseries = run_antibiotic_transport()

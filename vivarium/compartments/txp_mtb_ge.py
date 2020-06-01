@@ -28,8 +28,8 @@ from vivarium.processes.ode_expression import (
     ODE_expression,
     get_lacy_config)
 
-NAME = 'txp_mtb_ge'
 
+NAME = 'txp_mtb_ge'
 
 def default_metabolism_config():
     config = get_iAF1260b_config()

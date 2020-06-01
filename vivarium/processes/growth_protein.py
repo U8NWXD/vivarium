@@ -8,9 +8,12 @@ from vivarium.utils.units import units
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
+
+NAME = 'growth_protein'
 
 class GrowthProtein(Process):
  
@@ -97,7 +100,7 @@ class GrowthProtein(Process):
                 'divide': divide}}
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'processes', 'growth_protein')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

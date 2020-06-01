@@ -5,7 +5,8 @@ import os
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
-    plot_agent_data
+    plot_agent_data,
+    COMPARTMENT_OUT_DIR,
 )
 
 # processes
@@ -14,6 +15,9 @@ from vivarium.processes.meta_division import MetaDivision
 
 from vivarium.utils.dict_utils import deep_merge
 
+
+
+NAME = 'growth_division_minimal'
 
 class GrowthDivisionMinimal(Compartment):
 
@@ -63,7 +67,7 @@ class GrowthDivisionMinimal(Compartment):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'compartments', 'growth_division_minimal')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

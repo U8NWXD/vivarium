@@ -7,8 +7,9 @@ from vivarium.core.tree import (
 )
 
 from vivarium.core.composition import (
+    COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
 )
 
 # processes
@@ -27,6 +28,8 @@ from vivarium.processes.tree_mass import TreeMass
 
 from vivarium.utils.dict_utils import deep_merge
 
+
+NAME = 'growth_division'
 
 class GrowthDivision(Compartment):
 
@@ -116,7 +119,7 @@ class GrowthDivision(Compartment):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'growth_division')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

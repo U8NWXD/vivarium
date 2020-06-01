@@ -11,7 +11,7 @@ from vivarium.core.composition import (
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    COMPARTMENT_OUT_DIR,
     assert_timeseries_close,
 )
 from vivarium.processes.antibiotic_transport import AntibioticTransport
@@ -150,7 +150,7 @@ def test_antibiotics_composite_similar_to_reference():
 
 
 def main():
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

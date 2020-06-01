@@ -15,6 +15,7 @@ from vivarium.core.composition import (
 )
 
 
+NAME = 'Vladimirov2008_motor'
 
 class MotorActivity(Process):
     '''
@@ -335,7 +336,7 @@ def plot_variable_receptor(output, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(PROCESS_OUT_DIR, 'Vladimirov2008_motor')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

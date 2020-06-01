@@ -9,9 +9,12 @@ from vivarium.utils.dict_utils import deep_merge
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output)
+    plot_simulation_output,
+    PROCESS_OUT_DIR
+)
 
 
+NAME = 'diffusion_network'
 
 def field_from_locations_series(locations_series, molecule_ids, n_bins, times):
     n_times = len(times)
@@ -369,7 +372,7 @@ def plot_diffusion_field_output(data, config, out_dir='out', filename='field'):
     plt.close(fig)
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'diffusion_network')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

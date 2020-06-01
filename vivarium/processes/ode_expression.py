@@ -21,6 +21,8 @@ from vivarium.utils.units import units
 from vivarium.processes.derive_globals import AVOGADRO
 
 
+NAME = 'ode_expression'
+
 class ODE_expression(Process):
 
     defaults = {
@@ -380,7 +382,7 @@ def test_expression(config=get_lacy_config(), timeline=[(100, {})]):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(PROCESS_OUT_DIR, 'ode_expression_process')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

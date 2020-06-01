@@ -44,6 +44,8 @@ from vivarium.processes.derive_globals import volume_from_length
 
 
 
+NAME = 'multibody'
+
 DEBUG_SIZE = 600  # size of the pygame debug screen
 DEFAULT_BOUNDS = [10, 10]
 
@@ -1116,7 +1118,7 @@ def init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(PROCESS_OUT_DIR, 'multibody')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

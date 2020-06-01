@@ -12,6 +12,9 @@ from vivarium.core.composition import (
 )
 
 
+NAME = 'growth'
+
+
 class Growth(Process):
     """The Growth :term:`process class` models exponential cell growth.
 
@@ -101,7 +104,7 @@ class Growth(Process):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(PROCESS_OUT_DIR, 'growth')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

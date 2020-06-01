@@ -12,6 +12,7 @@ from vivarium.core.composition import (
 )
 
 
+NAME = 'toxin_antitoxin'
 
 class ToxinAntitoxin(Process):
     mazF = 4
@@ -185,7 +186,7 @@ def test_toxin_antitoxin(time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(PROCESS_OUT_DIR, 'toxin_antitoxin')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

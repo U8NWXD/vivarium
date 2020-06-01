@@ -6,10 +6,14 @@ import copy
 from vivarium.core.process import Process, keys_list
 from vivarium.core.composition import (
     simulate_process,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 from vivarium.data.nucleotides import nucleotides
 from vivarium.utils.units import units
+
+
+NAME = 'degradation'
 
 def all_subkeys(d):
     subkeys = set([])
@@ -171,7 +175,7 @@ def test_rna_degradation(end_time=100):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'degradation')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

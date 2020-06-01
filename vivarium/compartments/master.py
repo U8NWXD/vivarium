@@ -5,7 +5,8 @@ import os
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    COMPARTMENT_OUT_DIR
 )
 from vivarium.compartments.gene_expression import plot_gene_expression_output
 
@@ -19,7 +20,7 @@ from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
 
 
-
+NAME = 'master'
 
 def default_metabolism_config():
     metabolism_config = get_iAF1260b_config()
@@ -175,7 +176,7 @@ def test_master():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'master_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

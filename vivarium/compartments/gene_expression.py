@@ -8,7 +8,8 @@ import networkx as nx
 
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
-    simulate_compartment_in_experiment
+    COMPARTMENT_OUT_DIR,
+    simulate_compartment_in_experiment,
 )
 from vivarium.utils.make_network import save_network
 
@@ -22,6 +23,8 @@ from vivarium.data.amino_acids import amino_acids
 from vivarium.data.nucleotides import nucleotides
 
 
+
+NAME = 'gene_expression'
 
 class GeneExpression(Compartment):
 
@@ -474,7 +477,7 @@ def test_gene_expression():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'gene_expression_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
