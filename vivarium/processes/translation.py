@@ -271,59 +271,7 @@ class Translation(Process):
         ... )
         >>> update = translation.next_update(1, states)
         >>> print(update) # print(format_dict(update))
-        {
-            "molecules": {
-                "Alanine": 0,
-                "Arginine": 0,
-                "Asparagine": -2,
-                "Aspartate": 0,
-                "Cysteine": 0,
-                "Glutamate": -6,
-                "Glutamine": 0,
-                "Glycine": -4,
-                "Histidine": 0,
-                "Isoleucine": 0,
-                "Leucine": -2,
-                "Lysine": 0,
-                "Methionine": 0,
-                "Phenylalanine": 0,
-                "Proline": 0,
-                "Serine": 0,
-                "Threonine": 0,
-                "Tryptophan": 0,
-                "Tyrosine": -2,
-                "Valine": -2
-            },
-            "proteins": {
-                "Ribosome": -2,
-                "eA": 0,
-                "eZ": 0
-            },
-            "ribosomes": {
-                1: {
-                    "id": 1,
-                    "position": 9,
-                    "state": "occluding",
-                    "template": [
-                        "oAZ",
-                        "eZ"
-                    ],
-                    "template_index": 0,
-                    "terminator": 0
-                },
-                2: {
-                    "id": 2,
-                    "position": 9,
-                    "state": "occluding",
-                    "template": [
-                        "oAZ",
-                        "eZ"
-                    ],
-                    "template_index": 0,
-                    "terminator": 0
-                }
-            }
-        }
+        {'ribosomes': {1: <class 'vivarium.processes.translation.Ribosome'>: {'id': 1, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, 2: <class 'vivarium.processes.translation.Ribosome'>: {'id': 2, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, '_delete': []}, 'molecules': {'Alanine': 0, 'Arginine': 0, 'Asparagine': -2, 'Aspartate': 0, 'Cysteine': 0, 'Glutamate': -6, 'Glutamine': 0, 'Glycine': -4, 'Histidine': 0, 'Isoleucine': 0, 'Leucine': -2, 'Lysine': 0, 'Methionine': 0, 'Phenylalanine': 0, 'Proline': 0, 'Serine': 0, 'Threonine': 0, 'Tryptophan': 0, 'Tyrosine': -2, 'Valine': -2}, 'proteins': {'Ribosome': -2, 'eZ': 0, 'eA': 0}}
         '''
         self.monomer_symbols = list(amino_acids.keys())
         self.monomer_ids = list(amino_acids.values())
