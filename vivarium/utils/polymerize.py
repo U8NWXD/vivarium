@@ -218,7 +218,7 @@ def polymerize_step(
         for monomer in monomer_limits.keys()}
     terminated = 0
 
-    for polymerase in polymerases:
+    for polymerase in polymerases.values():
         if polymerase.is_polymerizing():
             template = templates[polymerase.template]
             projection = polymerase.position + 1
@@ -251,10 +251,10 @@ def polymerize_step(
                     else:
                         polymerase.terminator += 1
 
-    polymerases = [
-        polymerase
-        for polymerase in polymerases
-        if not polymerase.is_complete()]
+    polymerases = {
+        id: polymerase
+        for id, polymerase in polymerases.items()
+        if not polymerase.is_complete()}
 
     return monomers, monomer_limits, terminated, complete_polymers, polymerases
     
