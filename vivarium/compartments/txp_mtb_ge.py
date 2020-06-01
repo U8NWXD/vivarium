@@ -40,6 +40,20 @@ def default_metabolism_config():
     config.update(metabolism_config)
     return config
 
+def default_expression_config():
+    # glc lct config from ode_expression
+    config = get_lacy_config()
+
+    # redo regulation with BiGG id for glucose
+    regulators = [('external', 'glc__D_e')]
+    regulation = {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
+    reg_config = {
+        'regulators': regulators,
+        'regulation': regulation}
+
+    config.update(reg_config)
+
+    return config
 
 class TransportMetabolismExpression(Compartment):
     """
@@ -53,7 +67,7 @@ class TransportMetabolismExpression(Compartment):
         'daughter_path': tuple(),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
-        'expression': get_lacy_config(),
+        'expression': default_expression_config(),
         'division': {}}
 
     def __init__(self, config):
@@ -105,7 +119,8 @@ class TransportMetabolismExpression(Compartment):
             'transport': transport,
             'metabolism': metabolism,
             'expression': expression,
-            'division': division}
+            'division': division
+        }
 
     def generate_topology(self, config):
         external_path = config.get('external_path', self.external_path)

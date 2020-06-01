@@ -227,7 +227,7 @@ class Metabolism(Process):
                         schema[port][state_id]['_default'] = self.initial_state[port][state_id]
                 if port in set_mass:
                     if state_id in set_mass[port]:
-                        schema[port][state_id]['_properties'] = {'mass': set_mass[port][state_id]}
+                        schema[port][state_id]['_properties'] = {'mw': set_mass[port][state_id] * units.g / units.mol}
         return schema
 
     def derivers(self):
