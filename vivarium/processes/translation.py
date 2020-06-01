@@ -255,7 +255,7 @@ class Translation(Process):
         >>> translation = Translation(configurations)  # doctest:+ELLIPSIS
         translation parameters: ...
         >>> states = {
-        ...     'ribosomes': {'ribosomes': []},
+        ...     'ribosomes': {},
         ...     'molecules': {},
         ...     'proteins': {UNBOUND_RIBOSOME_KEY: 2},
         ...     'transcripts': {
@@ -270,7 +270,7 @@ class Translation(Process):
         ...     }
         ... )
         >>> update = translation.next_update(1, states)
-        >>> print(format_dict(update))
+        >>> print(update) # print(format_dict(update))
         {
             "molecules": {
                 "Alanine": 0,
@@ -300,30 +300,28 @@ class Translation(Process):
                 "eZ": 0
             },
             "ribosomes": {
-                "ribosomes": [
-                    {
-                        "id": 1,
-                        "position": 9,
-                        "state": "occluding",
-                        "template": [
-                            "oAZ",
-                            "eZ"
-                        ],
-                        "template_index": 0,
-                        "terminator": 0
-                    },
-                    {
-                        "id": 2,
-                        "position": 9,
-                        "state": "occluding",
-                        "template": [
-                            "oAZ",
-                            "eZ"
-                        ],
-                        "template_index": 0,
-                        "terminator": 0
-                    }
-                ]
+                1: {
+                    "id": 1,
+                    "position": 9,
+                    "state": "occluding",
+                    "template": [
+                        "oAZ",
+                        "eZ"
+                    ],
+                    "template_index": 0,
+                    "terminator": 0
+                },
+                2: {
+                    "id": 2,
+                    "position": 9,
+                    "state": "occluding",
+                    "template": [
+                        "oAZ",
+                        "eZ"
+                    ],
+                    "template_index": 0,
+                    "terminator": 0
+                }
             }
         }
         '''
@@ -493,6 +491,8 @@ class Translation(Process):
                         '_default': 0,
                         '_updater': 'set',
                         '_emit': True}}},
+
+            'global': {},
 
             'molecules': {
                 molecule: add_mass({

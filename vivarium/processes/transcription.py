@@ -237,7 +237,7 @@ class Transcription(Process):
                     ]
                 }
             },
-            "rnaps": [],
+            "rnaps": {},
             "sequence": "ATACGGCACGTGACCGTCAACTTA"
         }
         >>> monomer_ids = list(nucleotides.values())
@@ -285,8 +285,8 @@ class Transcription(Process):
                     }
                 },
                 "rnap_id": 4,
-                "rnaps": [
-                    {
+                "rnaps": {
+                    2: {
                         "domain": 0,
                         "id": 2,
                         "position": 7,
@@ -295,7 +295,7 @@ class Transcription(Process):
                         "template_index": 0,
                         "terminator": 1
                     },
-                    {
+                    3: {
                         "domain": 0,
                         "id": 3,
                         "position": 3,
@@ -304,7 +304,7 @@ class Transcription(Process):
                         "template_index": 1,
                         "terminator": 0
                     },
-                    {
+                    4: {
                         "domain": 0,
                         "id": 4,
                         "position": 0,
@@ -312,8 +312,7 @@ class Transcription(Process):
                         "template": "pA",
                         "template_index": 0,
                         "terminator": 0
-                    }
-                ],
+                    }},
                 "root_domain": 0
             },
             "molecules": {

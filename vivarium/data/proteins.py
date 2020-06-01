@@ -5,8 +5,8 @@ class Protein(Datum):
         'id': '',
         'sequence': ''}
 
-    def __init__(self, config, defaults=defaults):
-        super(Protein, self).__init__(config, self.defaults)
+    def __init__(self, config):
+        super(Protein, self).__init__(config)
 
 GFP = Protein({
     'id': 'GFP',
