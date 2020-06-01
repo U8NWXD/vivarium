@@ -263,8 +263,7 @@ class Transcription(Process):
         >>> transcription_process = Transcription(configuration)
         >>> # Now we need to initialize the simulation stores
         >>> state = {
-        ...     'chromosome': Chromosome(
-        ...         toy_chromosome_config).to_dict(),
+        ...     'chromosome': toy_chromosome_config,
         ...     'molecules': {
         ...         nucleotide: 10
         ...         for nucleotide in monomer_ids
@@ -273,65 +272,8 @@ class Transcription(Process):
         ...     'factors': {'tfA': 0.2, 'tfB': 0.7},
         ... }
         >>> update = transcription_process.next_update(1.0, state)
-        >>> print(format_dict(update))
-        {
-            "chromosome": {
-                "domains": {
-                    "0": {
-                        "children": [],
-                        "id": 0,
-                        "lag": 0,
-                        "lead": 0
-                    }
-                },
-                "rnap_id": 4,
-                "rnaps": {
-                    2: {
-                        "domain": 0,
-                        "id": 2,
-                        "position": 7,
-                        "state": "polymerizing",
-                        "template": "pA",
-                        "template_index": 0,
-                        "terminator": 1
-                    },
-                    3: {
-                        "domain": 0,
-                        "id": 3,
-                        "position": 3,
-                        "state": "occluding",
-                        "template": "pB",
-                        "template_index": 1,
-                        "terminator": 0
-                    },
-                    4: {
-                        "domain": 0,
-                        "id": 4,
-                        "position": 0,
-                        "state": "occluding",
-                        "template": "pA",
-                        "template_index": 0,
-                        "terminator": 0
-                    }},
-                "root_domain": 0
-            },
-            "molecules": {
-                "rATP": -3,
-                "rCTP": -4,
-                "rGTP": -8,
-                "rUTP": -4
-            },
-            "proteins": {
-                "RNA Polymerase": -3
-            },
-            "transcripts": {
-                "oA": 0,
-                "oAZ": 0,
-                "oB": 0,
-                "oBY": 1
-            }
-        }
-
+        >>> print(update['chromosome'])
+        {'rnaps': {2: <class 'vivarium.states.chromosome.Rnap'>: {'id': 2, 'template': 'pA', 'template_index': 0, 'terminator': 1, 'domain': 0, 'state': 'polymerizing', 'position': 7}, 3: <class 'vivarium.states.chromosome.Rnap'>: {'id': 3, 'template': 'pB', 'template_index': 1, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 3}, 4: <class 'vivarium.states.chromosome.Rnap'>: {'id': 4, 'template': 'pA', 'template_index': 0, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 0}, '_delete': []}, 'rnap_id': 4, 'domains': {0: <class 'vivarium.states.chromosome.Domain'>: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'root_domain': 0}
         '''
 
         log.debug('inital_parameters: {}'.format(initial_parameters))

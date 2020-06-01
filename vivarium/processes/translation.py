@@ -391,68 +391,6 @@ class Translation(Process):
 
         super(Translation, self).__init__(self.ports, self.parameters)
 
-    # def default_settings(self):
-    #     default_state = {
-    #         'ribosomes': {
-    #             'ribosomes': []},
-    #         'molecules': {},
-    #         'transcripts': {
-    #             transcript_id: 1
-    #             for transcript_id in self.operons.keys()},
-    #         'proteins': dict({
-    #             UNBOUND_RIBOSOME_KEY: 10})}
-
-    #     default_state['proteins'].update({
-    #         protein_id: 0
-    #         for protein_id in self.protein_ids})
-
-    #     default_state['molecules'].update({
-    #         monomer_id: 200
-    #         for monomer_id in self.monomer_ids})
-
-    #     default_state = deep_merge(
-    #         default_state,
-    #         self.parameters.get('initial_state', {}))
-
-    #     operons = list(default_state['transcripts'].keys())
-    #     default_emitter_keys = {
-    #         'ribosomes': ['ribosomes'],
-    #         'molecules': self.monomer_ids,
-    #         'transcripts': operons,
-    #         'proteins': self.protein_ids + [UNBOUND_RIBOSOME_KEY]}
-
-    #     # schema
-    #     mols_with_mass = [
-    #         mol_id for mol_id in self.ports['proteins']
-    #         if mol_id in molecular_weight]
-    #     schema = {
-    #         'ribosomes': {
-    #             'ribosomes': {'updater': 'set'}},
-    #         'proteins': {
-    #             mol_id: {
-    #                 'mass': molecular_weight.get(mol_id)}
-    #             for mol_id in mols_with_mass}}
-
-    #     # deriver_settings
-    #     deriver_setting = [{
-    #         'type': 'mass',
-    #         'source_port': 'proteins',
-    #         'derived_port': 'global',
-    #         'keys': mols_with_mass},
-    #         {
-    #         'type': 'counts_to_mmol',
-    #         'source_port': 'proteins',
-    #         'derived_port': 'concentrations',
-    #         'keys': self.protein_ids + self.concentration_keys
-    #         }]
-
-    #     return {
-    #         'state': default_state,
-    #         'emitter_keys': default_emitter_keys,
-    #         'schema': schema,
-    #         'deriver_setting': deriver_setting,
-    #         'parameters': self.parameters}
-
     def ports_schema(self):
         self.ports = {
             'ribosomes': ['ribosomes'],
