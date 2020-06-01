@@ -227,9 +227,9 @@ class ODE_expression(Process):
         schema = {}
         for port, states in self.ports.items():
             schema[port] = {state: {} for state in states}
-            if port in set_mmol:
-                for state_id in set_mmol[port]:
-                    schema[port][state_id]['_units'] = units.mmol
+            # if port in set_mmol:
+            #     for state_id in set_mmol[port]:
+            #         schema[port][state_id]['_units'] = units.mmol
             if port in self.initial_state:
                 for state_id, value in self.initial_state[port].items():
                     schema[port][state_id]['_default'] = value

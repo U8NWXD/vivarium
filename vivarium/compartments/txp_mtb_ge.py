@@ -3,10 +3,13 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 
+import matplotlib.pyplot as plt
+
 from vivarium.core.tree import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
+    set_axes,
     COMPARTMENT_OUT_DIR)
 from vivarium.parameters.parameters import (
     parameter_scan,
@@ -174,14 +177,25 @@ def test_txp_mtb_ge(total_time=10):
 
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
     # run simulation
-    timeseries = test_txp_mtb_ge(100)  # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeseries = test_txp_mtb_ge(20)  # 2520 sec (42 min) is the expected doubling time in minimal media
     volume_ts = timeseries['global']['volume']
     try:
         print('growth: {}'.format(volume_ts[-1] / volume_ts[0]))
     except:
         print('no volume!')
 
-    # plot
+    ## plot
+    # diauxic plot
+    settings = {
+        'internal_port': 'cytoplasm',
+        'external_port': 'external',
+        'exchange_port': 'exchange',
+        'environment_volume': 1e-13,  # L
+        # 'timeline': timeline
+    }
+    plot_diauxic_shift(timeseries, settings, out_dir)
+
+    # simulation plot
     plot_settings = {
         'max_rows': 30,
         'remove_zeros': True,
@@ -193,6 +207,84 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
             ('reactions', 'EX_lcts_e')]}
     plot_simulation_output(timeseries, plot_settings, out_dir)
 
+# plots
+def plot_diauxic_shift(timeseries, settings={}, out_dir='out'):
+    external_port = settings.get('external_port', 'environment')
+    internal_port = settings.get('internal_port', 'cytoplasm')
+    internal_counts_port = settings.get('internal_counts_port', 'cytoplasm_counts')
+    reactions_port = settings.get('reactions_port', 'reactions')
+    global_port = settings.get('global_port', 'global')
+
+    time = [t/60 for t in timeseries['time']]  # convert to minutes
+    environment = timeseries[external_port]
+    cell = timeseries[internal_port]
+    cell_counts = timeseries[internal_counts_port]
+    reactions = timeseries[reactions_port]
+    globals = timeseries[global_port]
+
+    # environment
+    lactose = environment['lcts_e']
+    glucose = environment['glc__D_e']
+
+    # internal
+    LacY = cell['LacY']
+    lacy_RNA = cell['lacy_RNA']
+    LacY_counts = cell_counts['LacY']
+    lacy_RNA_counts = cell_counts['lacy_RNA']
+
+    # reactions
+    glc_exchange = reactions['EX_glc__D_e']
+    lac_exchange = reactions['EX_lcts_e']
+
+    # global
+    mass = globals['mass']
+
+    # settings
+    environment_volume = settings.get('environment_volume')
+
+    n_cols = 2
+    n_rows = 4
+
+    # make figure and plot
+    fig = plt.figure(figsize=(n_cols * 6, n_rows * 1.5))
+    grid = plt.GridSpec(n_rows, n_cols)
+
+    ax1 = fig.add_subplot(grid[0, 0])  # grid is (row, column)
+    ax1.plot(time, glucose, label='glucose')
+    ax1.plot(time, lactose, label='lactose')
+    set_axes(ax1)
+    ax1.title.set_text('environment, volume = {} L'.format(environment_volume))
+    ax1.set_ylabel('(mM)')
+    ax1.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+    ax2 = fig.add_subplot(grid[1, 0])  # grid is (row, column)
+    ax2.plot(time, lacy_RNA, label='lacy_RNA')
+    ax2.plot(time, LacY, label='LacY')
+    set_axes(ax2)
+    ax2.title.set_text('internal')
+    ax2.set_ylabel('(mM)')
+    ax2.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+    ax3 = fig.add_subplot(grid[2, 0])  # grid is (row, column)
+    ax3.plot(time, mass, label='mass')
+    set_axes(ax3, True)
+    ax3.title.set_text('global')
+    ax3.set_ylabel('(fg)')
+    ax3.set_xlabel('time (min)')
+    ax3.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+    ax4 = fig.add_subplot(grid[0, 1])  # grid is (row, column)
+    ax4.plot(time, glc_exchange, label='glucose exchange')
+    ax4.plot(time, lac_exchange, label='lactose exchange')
+    set_axes(ax4, True)
+    ax4.title.set_text('flux'.format(environment_volume))
+    ax4.set_xlabel('time (min)')
+    ax4.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+
+    # save figure
+    fig_path = os.path.join(out_dir, 'diauxic_shift')
+    plt.subplots_adjust(wspace=0.6, hspace=0.5)
+    plt.savefig(fig_path, bbox_inches='tight')
 
 # parameters
 def scan_txp_mtb_ge():
