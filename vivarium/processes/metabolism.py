@@ -674,7 +674,7 @@ if __name__ == '__main__':
         metabolism = Metabolism(config)
 
         # simulation settings
-        timeline = [(100, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
+        timeline = [(2520, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
         sim_settings = {
             'environment_volume': 1e-5,  # L
             'timestep': 1,

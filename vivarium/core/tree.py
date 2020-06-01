@@ -174,7 +174,7 @@ class Store(object):
         self.default = None
         self.updater = None
         self.value = None
-        # self.units = None
+        self.units = None
         self.divider = None
         self.emit = False
         self.sources = {}
@@ -211,7 +211,7 @@ class Store(object):
             config = self.apply_subschema_config(config, '_subschema')
 
         if self.schema_keys & config.keys():
-            # self.units = config.get('_units', self.units)
+            self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
             if '_value' in config:
@@ -274,8 +274,8 @@ class Store(object):
                 config['_updater'] = self.updater
             if self.divider:
                 config['_divider'] = self.divider
-            # if self.units:
-            #     config['_units'] = self.units
+            if self.units:
+                config['_units'] = self.units
             if self.emit:
                 config['_emit'] = self.emit
 
@@ -372,7 +372,10 @@ class Store(object):
                 if isinstance(self.value, Process):
                     return self.value.pull_data()
                 else:
-                    return self.value
+                    if self.units:
+                        return self.value.to(self.units).magnitude
+                    else:
+                        return self.value
 
     def delete_path(self, path):
         if not path:
