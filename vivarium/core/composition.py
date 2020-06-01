@@ -449,6 +449,10 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     TODO -- some molecules have 'inf' concentrations for practical reasons. How should these be plotted?
     '''
 
+    plot_fontsize = 8
+    plt.rc('font', size=plot_fontsize)
+    plt.rc('axes', titlesize=plot_fontsize)
+
     skip_keys = ['time']
 
     # get settings
@@ -507,7 +511,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     # make figure and plot
     n_cols = len(columns)
     n_rows = max(columns)
-    fig = plt.figure(figsize=(n_cols * 6, n_rows * 1.5))
+    fig = plt.figure(figsize=(n_cols * 3, n_rows * 1))
     grid = plt.GridSpec(n_rows, n_cols)
 
     row_idx = 0
@@ -529,7 +533,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             # check if series is a list of ints or floats
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
                 ax.title.set_text(str(port) + ': ' + str(state_id) + ' (non numeric)')
-                ax.title.set_fontsize(16)
             else:
                 # plot line at zero if series crosses the zero line
                 if any(x == 0.0 for x in series) or (any(x < 0.0 for x in series) and any(x > 0.0 for x in series)):
@@ -545,9 +548,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                 if state_id in top_timeseries.keys():
                     ax.plot(time_vec, top_timeseries[state_id], 'm', label=top_port)
                     ax.legend()
-
                 ax.title.set_text(str(port) + ': ' + str(state_id))
-                ax.title.set_fontsize(16)
 
             if row_idx == columns[col_idx]-1:
                 # if last row of column
@@ -561,7 +562,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
 
     # save figure
     fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)
+    plt.subplots_adjust(wspace=0.8, hspace=0.8)
     plt.savefig(fig_path, bbox_inches='tight')
 
 def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
