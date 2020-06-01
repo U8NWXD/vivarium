@@ -6,7 +6,7 @@ def first_value(d):
     if d:
         return d[list(d.keys())[0]]
 
-class Datum(object):
+class Datum(dict):
     '''
     The Datum class enables functions to be defined on dicts of a certain schema. 
     It provides two class level variables:
@@ -23,37 +23,29 @@ class Datum(object):
     schema = {}
     defaults = {}
 
-    def __init__(self, config, default):
-        self.keys = list(set(list(config.keys()) + list(default.keys()))) # a dance
+    def __init__(self, config):
+        self.update(self.defaults)
+        self.update(config)
+        self.__dict__ = self
 
-        for key in self.keys:
-            value = config.get(key, default[key])
-            if value and key in self.schema:
-                realize = self.schema[key]
+        for schema, realize in self.schema.items():
+            if schema in self:
+                value = self[schema]
                 if isinstance(value, list):
                     value = [realize(item) for item in value]
                 elif isinstance(value, dict):
                     value = {inner: realize(item) for inner, item in value.items()}
                 else:
                     value = realize(item)
-            setattr(self, key, value)
+                self[schema] = value
+
+    def to_dict(self):
+        return self
 
     def fields(self):
         return list(self.defaults.keys())
 
-    def to_dict(self):
-        to = {}
-        for key in self.keys:
-            value = getattr(self, key)
-            if isinstance(value, Datum):
-                value = value.to_dict()
-            elif value and isinstance(value, list) and isinstance(first(value), Datum):
-                value = [datum.to_dict() for datum in value]
-            elif value and isinstance(value, dict) and isinstance(first_value(value), Datum):
-                value = {inner: datum.to_dict() for inner, datum in value.items()}
-            to[key] = value
-        return to
-
     def __repr__(self):
-        return str(type(self)) + ': ' + str(self.to_dict())
+        return str(type(self)) + ': ' + str({
+            key: value for key, value in self.items()})
 

@@ -254,7 +254,7 @@ class FlagellaChromosome(object):
                     'lead': 0,
                     'lag': 0,
                     'children': []}},
-            'rnaps': []}
+            'rnaps': {}}
 
         # build chromosome and apply thresholds
         self.chromosome = Chromosome(self.chromosome_config)

@@ -255,7 +255,7 @@ class Translation(Process):
         >>> translation = Translation(configurations)  # doctest:+ELLIPSIS
         translation parameters: ...
         >>> states = {
-        ...     'ribosomes': {'ribosomes': []},
+        ...     'ribosomes': {},
         ...     'molecules': {},
         ...     'proteins': {UNBOUND_RIBOSOME_KEY: 2},
         ...     'transcripts': {
@@ -270,7 +270,7 @@ class Translation(Process):
         ...     }
         ... )
         >>> update = translation.next_update(1, states)
-        >>> print(format_dict(update))
+        >>> print(update) # print(format_dict(update))
         {
             "molecules": {
                 "Alanine": 0,
@@ -300,30 +300,28 @@ class Translation(Process):
                 "eZ": 0
             },
             "ribosomes": {
-                "ribosomes": [
-                    {
-                        "id": 1,
-                        "position": 9,
-                        "state": "occluding",
-                        "template": [
-                            "oAZ",
-                            "eZ"
-                        ],
-                        "template_index": 0,
-                        "terminator": 0
-                    },
-                    {
-                        "id": 2,
-                        "position": 9,
-                        "state": "occluding",
-                        "template": [
-                            "oAZ",
-                            "eZ"
-                        ],
-                        "template_index": 0,
-                        "terminator": 0
-                    }
-                ]
+                1: {
+                    "id": 1,
+                    "position": 9,
+                    "state": "occluding",
+                    "template": [
+                        "oAZ",
+                        "eZ"
+                    ],
+                    "template_index": 0,
+                    "terminator": 0
+                },
+                2: {
+                    "id": 2,
+                    "position": 9,
+                    "state": "occluding",
+                    "template": [
+                        "oAZ",
+                        "eZ"
+                    ],
+                    "template_index": 0,
+                    "terminator": 0
+                }
             }
         }
         '''
@@ -382,8 +380,7 @@ class Translation(Process):
             'molecules': self.molecule_ids,
             'transcripts': list(self.operons.keys()),
             'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys,
-            'global': []}
+            'concentrations': self.protein_keys}
 
         self.mass_deriver_key = self.or_default(initial_parameters, 'mass_deriver_key')
         self.concentrations_deriver_key = self.or_default(
@@ -394,67 +391,67 @@ class Translation(Process):
 
         super(Translation, self).__init__(self.ports, self.parameters)
 
-    def default_settings(self):
-        default_state = {
-            'ribosomes': {
-                'ribosomes': []},
-            'molecules': {},
-            'transcripts': {
-                transcript_id: 1
-                for transcript_id in self.operons.keys()},
-            'proteins': dict({
-                UNBOUND_RIBOSOME_KEY: 10})}
+    # def default_settings(self):
+    #     default_state = {
+    #         'ribosomes': {
+    #             'ribosomes': []},
+    #         'molecules': {},
+    #         'transcripts': {
+    #             transcript_id: 1
+    #             for transcript_id in self.operons.keys()},
+    #         'proteins': dict({
+    #             UNBOUND_RIBOSOME_KEY: 10})}
 
-        default_state['proteins'].update({
-            protein_id: 0
-            for protein_id in self.protein_ids})
+    #     default_state['proteins'].update({
+    #         protein_id: 0
+    #         for protein_id in self.protein_ids})
 
-        default_state['molecules'].update({
-            monomer_id: 200
-            for monomer_id in self.monomer_ids})
+    #     default_state['molecules'].update({
+    #         monomer_id: 200
+    #         for monomer_id in self.monomer_ids})
 
-        default_state = deep_merge(
-            default_state,
-            self.parameters.get('initial_state', {}))
+    #     default_state = deep_merge(
+    #         default_state,
+    #         self.parameters.get('initial_state', {}))
 
-        operons = list(default_state['transcripts'].keys())
-        default_emitter_keys = {
-            'ribosomes': ['ribosomes'],
-            'molecules': self.monomer_ids,
-            'transcripts': operons,
-            'proteins': self.protein_ids + [UNBOUND_RIBOSOME_KEY]}
+    #     operons = list(default_state['transcripts'].keys())
+    #     default_emitter_keys = {
+    #         'ribosomes': ['ribosomes'],
+    #         'molecules': self.monomer_ids,
+    #         'transcripts': operons,
+    #         'proteins': self.protein_ids + [UNBOUND_RIBOSOME_KEY]}
 
-        # schema
-        mols_with_mass = [
-            mol_id for mol_id in self.ports['proteins']
-            if mol_id in molecular_weight]
-        schema = {
-            'ribosomes': {
-                'ribosomes': {'updater': 'set'}},
-            'proteins': {
-                mol_id: {
-                    'mass': molecular_weight.get(mol_id)}
-                for mol_id in mols_with_mass}}
+    #     # schema
+    #     mols_with_mass = [
+    #         mol_id for mol_id in self.ports['proteins']
+    #         if mol_id in molecular_weight]
+    #     schema = {
+    #         'ribosomes': {
+    #             'ribosomes': {'updater': 'set'}},
+    #         'proteins': {
+    #             mol_id: {
+    #                 'mass': molecular_weight.get(mol_id)}
+    #             for mol_id in mols_with_mass}}
 
-        # deriver_settings
-        deriver_setting = [{
-            'type': 'mass',
-            'source_port': 'proteins',
-            'derived_port': 'global',
-            'keys': mols_with_mass},
-            {
-            'type': 'counts_to_mmol',
-            'source_port': 'proteins',
-            'derived_port': 'concentrations',
-            'keys': self.protein_ids + self.concentration_keys
-            }]
+    #     # deriver_settings
+    #     deriver_setting = [{
+    #         'type': 'mass',
+    #         'source_port': 'proteins',
+    #         'derived_port': 'global',
+    #         'keys': mols_with_mass},
+    #         {
+    #         'type': 'counts_to_mmol',
+    #         'source_port': 'proteins',
+    #         'derived_port': 'concentrations',
+    #         'keys': self.protein_ids + self.concentration_keys
+    #         }]
 
-        return {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
-            'parameters': self.parameters}
+    #     return {
+    #         'state': default_state,
+    #         'emitter_keys': default_emitter_keys,
+    #         'schema': schema,
+    #         'deriver_setting': deriver_setting,
+    #         'parameters': self.parameters}
 
     def ports_schema(self):
         self.ports = {
@@ -462,8 +459,7 @@ class Translation(Process):
             'molecules': self.molecule_ids,
             'transcripts': list(self.operons.keys()),
             'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys,
-            'global': []}
+            'concentrations': self.protein_keys}
 
         def add_mass(schema, masses, key):
             if key in masses:
@@ -472,27 +468,52 @@ class Translation(Process):
 
         return {
             'ribosomes': {
-                'ribosomes': {
-                    '_updater': 'set',
-                    '_default': []}},
+                '*': {
+                    'id': {
+                        '_default': -1,
+                        '_updater': 'set'},
+                    'domain': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'state': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'position': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template_index': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True}}},
+
+            'global': {},
+
             'molecules': {
                 molecule: add_mass({
                     '_default': 0}, molecular_weight, molecule)
                 for molecule in self.molecule_ids},
+
             'transcripts': {
                 transcript: add_mass({
                     '_default': 0}, molecular_weight, transcript)
                 for transcript in list(self.operons.keys())},
+
             'proteins': {
                 protein: add_mass({
                     '_default': 0}, molecular_weight, protein)
                 for protein in self.all_protein_keys},
+
             'concentrations': {
                 molecule: add_mass({
                     '_default': 0.0,
                     '_updater': 'set'}, molecular_weight, molecule)
-                for molecule in self.protein_keys},
-            'global': {}}
+                for molecule in self.protein_keys}}
 
     def derivers(self):
         return {
@@ -513,7 +534,11 @@ class Translation(Process):
         molecules = states['molecules']
         transcripts = states['transcripts']
         proteins = states['proteins']
-        ribosomes = list(map(Ribosome, states['ribosomes']['ribosomes']))
+        ribosomes = {
+            id: Ribosome(ribosome)
+            for id, ribosome in states['ribosomes'].items()}
+
+        original_ribosome_keys = ribosomes.keys()
 
         gene_counts = np.array(
             list(transcripts_to_gene_counts(transcripts, self.operons).values()),
@@ -525,7 +550,7 @@ class Translation(Process):
         ribosomes_by_transcript = {
             transcript_key: []
             for transcript_key in self.transcript_order}
-        for ribosome in ribosomes:
+        for ribosome in ribosomes.values():
             ribosomes_by_transcript[ribosome.template].append(ribosome)
         for index, transcript in enumerate(self.transcript_order):
             bound_transcripts[index] = len([
@@ -603,13 +628,13 @@ class Translation(Process):
                     'position': 0})
                 new_ribosome.bind()
                 new_ribosome.start_polymerizing()
-                ribosomes.append(new_ribosome)
+                ribosomes[new_ribosome.id] = new_ribosome
 
                 ribosome_bindings += 1
                 unbound_ribosomes -= 1
 
             # deal with occluding rnap
-            for ribosome in ribosomes:
+            for ribosome in ribosomes.values():
                 if ribosome.is_unoccluding(self.polymerase_occlusion):
                     bound_transcripts[ribosome.template_index] -= 1
                     ribosome.unocclude()
@@ -627,9 +652,17 @@ class Translation(Process):
             key: count * -1
             for key, count in elongation.monomers.items()}
 
+        completed_ribosomes = original_ribosome_keys - ribosomes.keys()
+        ribosome_updates = {
+            id: ribosome
+            for id, ribosome in ribosomes.items()
+            if id not in completed_ribosomes}
+        ribosome_updates['_delete'] = [
+            (completed,)
+            for completed in completed_ribosomes]
+
         update = {
-            'ribosomes': {
-                'ribosomes': [ribosome.to_dict() for ribosome in ribosomes]},
+            'ribosomes': ribosome_updates,
             'molecules': molecules,
             'proteins': proteins}
 
@@ -641,7 +674,7 @@ def test_translation():
     translation = Translation(parameters)
 
     states = {
-        'ribosomes': {'ribosomes': []},
+        'ribosomes': {},
         'molecules': {},
         'proteins': {UNBOUND_RIBOSOME_KEY: 10},
         'transcripts': {

@@ -237,7 +237,7 @@ class Transcription(Process):
                     ]
                 }
             },
-            "rnaps": [],
+            "rnaps": {},
             "sequence": "ATACGGCACGTGACCGTCAACTTA"
         }
         >>> monomer_ids = list(nucleotides.values())
@@ -285,8 +285,8 @@ class Transcription(Process):
                     }
                 },
                 "rnap_id": 4,
-                "rnaps": [
-                    {
+                "rnaps": {
+                    2: {
                         "domain": 0,
                         "id": 2,
                         "position": 7,
@@ -295,7 +295,7 @@ class Transcription(Process):
                         "template_index": 0,
                         "terminator": 1
                     },
-                    {
+                    3: {
                         "domain": 0,
                         "id": 3,
                         "position": 3,
@@ -304,7 +304,7 @@ class Transcription(Process):
                         "template_index": 1,
                         "terminator": 0
                     },
-                    {
+                    4: {
                         "domain": 0,
                         "id": 4,
                         "position": 0,
@@ -312,8 +312,7 @@ class Transcription(Process):
                         "template": "pA",
                         "template_index": 0,
                         "terminator": 0
-                    }
-                ],
+                    }},
                 "root_domain": 0
             },
             "molecules": {
@@ -480,9 +479,9 @@ class Transcription(Process):
 
     def next_update(self, timestep, states):
         chromosome_state = states['chromosome']
-        chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
+        # chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
         original_rnap_keys = [
-            rnap['id'] for rnap in chromosome_state['rnaps']]
+            rnap['id'] for rnap in chromosome_state['rnaps'].values()]
         chromosome = Chromosome(
             self.chromosome_config(chromosome_state))
 
@@ -595,7 +594,7 @@ class Transcription(Process):
                 unbound_rnaps -= 1
 
             # deal with occluding rnap
-            for rnap in chromosome.rnaps:
+            for rnap in chromosome.rnaps.values():
                 if rnap.is_unoccluding(self.polymerase_occlusion):
                     log.debug('RNAP unoccluding: {}'.format(rnap))
 
@@ -620,9 +619,10 @@ class Transcription(Process):
             for key, count in elongation.monomers.items()}
 
         chromosome_dict = chromosome.to_dict()
-        rnaps = {
-            rnap['id']: rnap
-            for rnap in chromosome_dict['rnaps']}
+        rnaps = chromosome_dict['rnaps']
+        # rnaps = {
+        #     rnap['id']: rnap
+        #     for rnap in chromosome_dict['rnaps']}
 
         completed_rnaps = original_rnap_keys - rnaps.keys()
         rnap_updates = {
@@ -664,7 +664,7 @@ def test_transcription():
 
     experiment = process_in_experiment(transcription, {
         'initial_state': {
-            'chromosome': unflatten_rnaps(chromosome.to_dict()),
+            'chromosome': chromosome.to_dict(), # unflatten_rnaps(chromosome.to_dict()),
             'molecules': {
                 nucleotide: 10
                 for nucleotide in transcription.monomer_ids},

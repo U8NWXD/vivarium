@@ -47,4 +47,4 @@ toy_chromosome_config = {
             'lead': 0,
             'lag': 0,
             'children': []}},
-    'rnaps': []}
+    'rnaps': {}}
