@@ -51,26 +51,6 @@ def get_emitter(config):
 
     return emitter
 
-def get_emitter_keys(processes, topology):
-    emitter_keys = {}
-
-    for process_id, process_object in processes.items():
-        process_ports = topology[process_id]
-
-        default_settings = process_object.default_settings()
-        process_keys = default_settings.get('emitter_keys', {})
-        for port, keys in process_keys.items():
-            compartment_name = process_ports[port]
-            if compartment_name in emitter_keys.keys():
-                emitter_keys[compartment_name].extend(keys)
-            else:
-                emitter_keys[compartment_name] = keys
-    # remove redundant keys
-    for compartment_name, keys in emitter_keys.items():
-        emitter_keys[compartment_name] = list(set(keys))
-
-    return emitter_keys
-
 def configure_emitter(config, processes, topology):
     emitter_config = config.get('emitter', {})
     emitter_config['keys'] = get_emitter_keys(processes, topology)

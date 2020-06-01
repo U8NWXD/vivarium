@@ -1057,6 +1057,12 @@ def test_timescales():
             self.ports = {
                 'state': ['base']}
 
+        def ports_schema(self):
+            return {
+                'state': {
+                    'base': {
+                        '_default': 1.0}}}
+
         def local_timestep(self):
             return self.timestep
 
@@ -1072,6 +1078,14 @@ def test_timescales():
             self.timestep = 0.1
             self.ports = {
                 'state': ['base', 'motion']}
+
+        def ports_schema(self):
+            return {
+                'state': {
+                    'base': {
+                        '_default': 1.0},
+                    'motion': {
+                        '_default': 0.0}}}
 
         def local_timestep(self):
             return self.timestep

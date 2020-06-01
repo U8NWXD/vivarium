@@ -228,9 +228,6 @@ class Process(object):
                     state[port][key] = value['_default']
         return state
 
-    def default_settings(self):
-        return {}
-
     def is_deriver(self):
         return False
 
@@ -251,28 +248,7 @@ class Process(object):
             state.declare_state(self.ports[port])
 
     def ports_schema(self):
-        defaults = self.default_settings()
-        schema = defaults.get('schema', {})
-        state = defaults.get('state', {})
-        emitter = defaults.get('emitter_keys', {})
-        
-        for port, targets in self.ports.items():
-            port_state = state.get(port, {})
-            port_emitter = emitter.get(port, [])
-            if not port in schema:
-                schema[port] = {}
-            for target in targets:
-                if not target in schema[port]:
-                    schema[port][target] = {}
-                if not 'default' in schema[port][target]:
-                    schema[port][target]['default'] = port_state.get(target)
-                if target in port_emitter:
-                    schema[port][target]['emit'] = True
-                # TODO: underscore_keys should not be necessary, start
-                #   with special keys for schema properties
-                schema[port][target] = underscore_keys(schema[port][target])
-
-        return schema
+        return {}
 
     def update_for(self, timestep):
         ''' Called each timestep to find the next state for this process. '''

@@ -138,7 +138,6 @@ class Complexation(Process):
 
 def test_complexation():
     complexation = Complexation()
-    settings = complexation.default_settings()
     state = {
         'monomers': {
             monomer: 1000
