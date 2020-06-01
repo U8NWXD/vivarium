@@ -4,12 +4,10 @@ import os
 import argparse
 
 from vivarium.core.tree import Compartment
-from vivarium.core.composition import simulate_compartment_in_experiment
-
 from vivarium.core.composition import (
-    simulate_with_environment,
+    simulate_compartment_in_experiment,
     plot_simulation_output,
-)
+    COMPARTMENT_OUT_DIR)
 from vivarium.parameters.parameters import (
     parameter_scan,
     get_parameters_logspace,
@@ -26,6 +24,8 @@ from vivarium.processes.convenience_kinetics import (
 from vivarium.processes.ode_expression import (
     ODE_expression,
     get_lacy_config)
+
+NAME = 'txp_mtb_ge'
 
 
 def default_metabolism_config():
@@ -48,6 +48,7 @@ class TransportMetabolismExpression(Compartment):
 
     defaults = {
         'global_path': ('..', 'global'),
+        'agents_path': ('..', '..', 'agents',),
         'external_path': ('..', 'external'),
         'daughter_path': tuple(),
         'transport': get_glc_lct_config(),
@@ -57,9 +58,10 @@ class TransportMetabolismExpression(Compartment):
 
     def __init__(self, config):
         self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.agents_path = config.get('agents_path', self.defaults['agents_path'])
         self.external_path = config.get('external_path', self.defaults['external_path'])
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
-        
+
         self.transport_config = config.get('transport', self.defaults['transport'])
         self.metabolism_config = config.get('metabolism', self.defaults['metabolism'])
         self.expression_config = config.get('expression', self.defaults['expression'])
@@ -108,6 +110,7 @@ class TransportMetabolismExpression(Compartment):
     def generate_topology(self, config):
         external_path = config.get('external_path', self.external_path)
         global_path = config.get('global_path', self.global_path)
+        agents_path = config.get('agents_path', self.agents_path)
 
         return {
             'transport': {
@@ -128,10 +131,12 @@ class TransportMetabolismExpression(Compartment):
             'expression': {
                 'counts': ('cytoplasm_counts',),
                 'internal': ('cytoplasm',),
-                'external': external_path
+                'external': external_path,
+                'global': global_path,
             },
             'division': {
                 'global': global_path,
+                'cells': agents_path,
             }
         }
 
@@ -143,7 +148,7 @@ def test_txp_mtb_ge(total_time=10):
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
+        'agents_path': ('agents',)}
     compartment = TransportMetabolismExpression(compartment_config)
 
     # simulate
@@ -153,11 +158,13 @@ def test_txp_mtb_ge(total_time=10):
     return simulate_compartment_in_experiment(compartment, settings)
 
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
-
     # run simulation
-    timeseries = test_txp_mtb_ge(2520) # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeseries = test_txp_mtb_ge(100)  # 2520 sec (42 min) is the expected doubling time in minimal media
     volume_ts = timeseries['global']['volume']
-    print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
+    try:
+        print('growth: {}'.format(volume_ts[-1] / volume_ts[0]))
+    except:
+        print('no volume!')
 
     # plot
     plot_settings = {
@@ -165,8 +172,7 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
         'remove_zeros': True,
         'overlay': {
             'reactions': 'flux_bounds'},
-        'skip_ports': [
-            'prior_state', 'null'],
+        'skip_ports': ['null', 'exchange'],
         'show_state': [
             ('reactions', 'EX_glc__D_e'),
             ('reactions', 'EX_lcts_e')]}
@@ -202,19 +208,18 @@ def scan_txp_mtb_ge():
 
     # define conditions
     conditions = [
-        # {}, # default
         {
         'environment': {
             'glc__D_e': 12.0,
             'lcts_e': 10.0},
-        'cytoplasm':{
+        'cytoplasm': {
             'LacY': 0.0}
         },
         {
         'environment': {
             'glc__D_e': 0.0,
             'lcts_e': 10.0},
-        'cytoplasm':{
+        'cytoplasm': {
             'LacY': 1.0e-6}
         },
     ]
@@ -248,13 +253,13 @@ def scan_txp_mtb_ge():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'txp_mtb_ge_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     # run scan with python vivarium/compartments/txp_mtb_ge.py --scan
     parser = argparse.ArgumentParser(description='transport metabolism composite')
-    parser.add_argument('--scan', '-s', action='store_true', default=False,)
+    parser.add_argument('--scan', '-s', action='store_true', default=False, )
     parser.add_argument('--run', '-r', action='store_true', default=False, )
     args = parser.parse_args()
 

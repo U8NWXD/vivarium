@@ -264,6 +264,8 @@ class ConvenienceKinetics(Process):
                 if port in self.initial_state:
                     if state_id in self.initial_state[port]:
                         schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+                else:
+                    schema[port][state_id]['_default'] = 0.0
             if port in set_ports:
                 for state_id in states:
                     schema[port][state_id]['_updater'] = 'set'

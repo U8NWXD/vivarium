@@ -629,6 +629,8 @@ class Store(object):
                     '_updater': 'set'}, outer=self)
                 self.inner[key] = process_state
                 for port, targets in subprocess.ports_schema().items():
+                    if port not in subtopology:
+                        raise Exception('topology conflict: {} process does not have {} port'.format(key, port))
                     path = subtopology[port]
                     if path:
                         initial = get_in(initial_state, path)
@@ -793,8 +795,8 @@ class Experiment(object):
         print('\nTOPOLOGY:')
         pp(self.topology)
 
-        print('\nSTATE:')
-        pp(self.state.get_value())
+        # print('\nSTATE:')
+        # pp(self.state.get_value())
 
         # print('\nCONFIG:')
         # pp(self.state.get_config())
