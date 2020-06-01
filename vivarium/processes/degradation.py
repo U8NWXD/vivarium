@@ -22,24 +22,6 @@ def kinetics(E, S, kcat, km):
 
 DEFAULT_TRANSCRIPT_DEGRADATION_KM = 1e-23
 
-default_degradation_parameters = {
-    'sequences': {
-        'oA': 'GCC',
-        'oAZ': 'GCCGUGCAC',
-        'oB': 'AGUUGA',
-        'oBY': 'AGUUGACGG'},
-
-    'catalysis_rates': {
-        'endoRNAse': 0.1},
-
-    'degradation_rates': {
-        'transcripts': {
-            'endoRNAse': {
-                'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM}}}}
-
 class RnaDegradation(Process):
     defaults = {
         'sequences': {
@@ -62,7 +44,7 @@ class RnaDegradation(Process):
     }
 
     def __init__(self, initial_parameters={}):
-        self.default_parameters = default_degradation_parameters
+        self.default_parameters = self.defaults
 
         self.derive_defaults(initial_parameters, 'sequences', 'transcript_order', keys_list)
         self.derive_defaults(initial_parameters, 'catalysis_rates', 'protein_order', keys_list)
@@ -178,7 +160,10 @@ class RnaDegradation(Process):
 
 
 def test_rna_degradation(end_time=100):
-    rna_degradation = RnaDegradation({})
+    parameters = {
+        'catalysis_rates': {
+            'endoRNAse': 0.1}}
+    rna_degradation = RnaDegradation(parameters)
     settings = {
         'timestep': 1,
         'total_time': end_time}
