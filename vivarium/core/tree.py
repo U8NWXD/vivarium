@@ -16,6 +16,7 @@ def pp(x):
 from vivarium.core.process import (
     Process,
     divider_library)
+from vivarium.utils.units import Quantity
 from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
 from vivarium.core.emitter import get_emitter
 
@@ -211,11 +212,13 @@ class Store(object):
             config = self.apply_subschema_config(config, '_subschema')
 
         if self.schema_keys & config.keys():
-            self.units = config.get('_units', self.units)
+            # self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
+                if isinstance(self.value, Quantity):
+                    self.units = self.value.units
 
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):

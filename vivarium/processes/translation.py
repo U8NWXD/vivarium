@@ -232,6 +232,8 @@ class Translation(Process):
         >>> from vivarium.utils.pretty import format_dict
         >>> from vivarium.data.amino_acids import amino_acids
         >>> from vivarium.utils.polymerize import generate_template
+        >>> random.seed(0)  # Needed because process is stochastic
+        >>> np.random.seed(0)
         >>> configurations = {
         ...     'sequences': {
         ...         ('oA', 'eA'): 'AWDPT',
@@ -270,8 +272,8 @@ class Translation(Process):
         ...     }
         ... )
         >>> update = translation.next_update(1, states)
-        >>> print(update) # print(format_dict(update))
-        {'ribosomes': {1: <class 'vivarium.processes.translation.Ribosome'>: {'id': 1, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, 2: <class 'vivarium.processes.translation.Ribosome'>: {'id': 2, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, '_delete': []}, 'molecules': {'Alanine': 0, 'Arginine': 0, 'Asparagine': -2, 'Aspartate': 0, 'Cysteine': 0, 'Glutamate': -6, 'Glutamine': 0, 'Glycine': -4, 'Histidine': 0, 'Isoleucine': 0, 'Leucine': -2, 'Lysine': 0, 'Methionine': 0, 'Phenylalanine': 0, 'Proline': 0, 'Serine': 0, 'Threonine': 0, 'Tryptophan': 0, 'Tyrosine': -2, 'Valine': -2}, 'proteins': {'Ribosome': -2, 'eZ': 0, 'eA': 0}}
+        >>> print(update['ribosomes'])
+        {1: <class 'vivarium.processes.translation.Ribosome'>: {'id': 1, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, 2: <class 'vivarium.processes.translation.Ribosome'>: {'id': 2, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, '_delete': []}
         '''
         self.monomer_symbols = list(amino_acids.keys())
         self.monomer_ids = list(amino_acids.values())
@@ -322,7 +324,7 @@ class Translation(Process):
         self.ribosome_id = 0
 
         self.protein_keys = self.concentration_keys + self.protein_ids
-        self.all_protein_keys = self.protein_keys + [UNBOUND_RIBOSOME_KEY],
+        self.all_protein_keys = self.protein_keys + [UNBOUND_RIBOSOME_KEY]
         self.ports = {
             'ribosomes': ['ribosomes'],
             'molecules': self.molecule_ids,
@@ -341,7 +343,7 @@ class Translation(Process):
 
     def ports_schema(self):
         self.ports = {
-            'ribosomes': ['ribosomes'],
+            'ribosomes': {},
             'molecules': self.molecule_ids,
             'transcripts': list(self.operons.keys()),
             'proteins': self.all_protein_keys,
@@ -420,6 +422,7 @@ class Translation(Process):
         molecules = states['molecules']
         transcripts = states['transcripts']
         proteins = states['proteins']
+
         ribosomes = {
             id: Ribosome(ribosome)
             for id, ribosome in states['ribosomes'].items()}

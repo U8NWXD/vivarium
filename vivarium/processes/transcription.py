@@ -44,6 +44,12 @@ default_transcription_parameters = {
     'polymerase_occlusion': 5,
     'symbol_to_monomer': nucleotides,
     'monomer_ids': monomer_ids,
+    'initial_domains': {
+        0: {
+            'id': 0,
+            'lead': 0,
+            'lag': 0,
+            'children': []}},
     'molecule_ids': monomer_ids}
 
 class Transcription(Process):
@@ -314,6 +320,8 @@ class Transcription(Process):
 
         self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
 
+        self.initial_domains = self.parameters.get('initial_domains', self.default_parameters['initial_domains'])
+
         self.ports = {
             'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
             'molecules': self.molecule_ids,
@@ -395,6 +403,23 @@ class Transcription(Process):
                         '_default': 0,
                         '_updater': 'set',
                         '_emit': True}}}}
+
+        initial_domains = {
+            id: {
+                'id': {
+                    '_default': id,
+                    '_updater': 'set'},
+                'lead': {
+                    '_default': 0,
+                    '_updater': 'set'},
+                'lag': {
+                    '_default': 0,
+                    '_updater': 'set'},
+                'children': {
+                    '_default': [],
+                    '_updater': 'set'}}
+            for id, domain in self.initial_domains.items()}
+        schema['chromosome']['domains'].update(initial_domains)
 
         schema['molecules'] = {
             molecule: {
