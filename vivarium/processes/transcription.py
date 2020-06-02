@@ -18,8 +18,6 @@ from vivarium.states.chromosome import Chromosome, Rnap, Promoter, frequencies, 
 from vivarium.utils.polymerize import Elongation, build_stoichiometry, template_products
 from vivarium.data.nucleotides import nucleotides
 
-log.basicConfig(level=os.environ.get("LOGLEVEL", log.INFO))
-
 def choose_element(elements):
     if elements:
         choice = np.random.choice(len(elements), 1)

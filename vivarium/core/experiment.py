@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import os
 import copy
 import uuid
 import random
@@ -12,6 +13,9 @@ import pprint
 pretty=pprint.PrettyPrinter(indent=2)
 def pp(x):
     pretty.pprint(x)
+
+def pf(x):
+    pretty.pformat(x)
 
 from vivarium.utils.units import Quantity
 from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -26,6 +30,7 @@ from vivarium.core.library import (
 INFINITY = float('inf')
 VERBOSE = False
 
+log.basicConfig(level=os.environ.get("LOGLEVEL", log.WARNING))
 
 # Store
 def key_for_value(d, looking):
@@ -712,8 +717,6 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
 
-        import ipdb; ipdb.set_trace()
-
         self.state = generate_state(
             self.processes,
             self.topology,
@@ -732,19 +735,19 @@ class Experiment(object):
         self.emit_configuration()
         self.emit_data()
 
-        print('experiment {}'.format(self.experiment_id))
+        log.info('experiment {}'.format(self.experiment_id))
 
-        print('\nPROCESSES:')
-        pp(self.processes)
+        log.info('\nPROCESSES:')
+        log.info(pf(self.processes))
 
-        print('\nTOPOLOGY:')
-        pp(self.topology)
+        log.info('\nTOPOLOGY:')
+        log.info(pf(self.topology))
 
-        # print('\nSTATE:')
-        # pp(self.state.get_value())
+        log.info('\nSTATE:')
+        log.info(pf(self.state.get_value()))
 
-        # print('\nCONFIG:')
-        # pp(self.state.get_config())
+        log.info('\nCONFIG:')
+        log.info(pf(self.state.get_config()))
 
     def emit_configuration(self):
         data = {

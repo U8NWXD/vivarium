@@ -68,6 +68,8 @@ def timeseries_from_data(data):
 
     for time, all_states in data.items():
         for port, states in all_states.items():
+            if port not in timeseries:
+                timeseries[port] = {}
             for state_id, state in states.items():
                 if state_id not in timeseries[port]:
                     timeseries[port][state_id] = []  # TODO -- record appearance of new states
