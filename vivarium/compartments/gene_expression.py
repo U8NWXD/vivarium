@@ -41,10 +41,10 @@ class GeneExpression(Compartment):
         self.initial_mass = config.get('initial_mass', self.defaults['initial_mass'])
 
     def generate_processes(self, config):
-        transcription = Transcription(config.get('transcription', {}))
-        translation = Translation(config.get('translation', {}))
-        degradation = RnaDegradation(config.get('degradation', {}))
-        complexation = Complexation(config.get('complexation', {}))
+        transcription = Transcription(config.get('transcription', self.config.get('transcription')))
+        translation = Translation(config.get('translation', self.config.get('translation')))
+        degradation = RnaDegradation(config.get('degradation', self.config.get('degradation')))
+        complexation = Complexation(config.get('complexation', self.config.get('complexation')))
         mass_deriver = TreeMass(config.get('mass_deriver', {
             'initial_mass': config.get('initial_mass', self.initial_mass)}))
         division = DivisionVolume(config)

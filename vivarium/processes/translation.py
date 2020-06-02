@@ -350,6 +350,8 @@ class Translation(Process):
             'concentrations': self.protein_keys}
 
         def add_mass(schema, masses, key):
+            if '_properties' not in schema:
+                schema['_properties'] = {}
             if key in masses:
                 schema['_properties']['mw'] = masses[key]
             return schema

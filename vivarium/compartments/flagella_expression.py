@@ -94,13 +94,9 @@ def get_flagella_expression_config(config):
 
     return config
 
-
-def generate_flagella_experiment(config):
+def get_flagella_compartment(config):
     flagella_expression_config = get_flagella_expression_config(config)
-    gene_expression = GeneExpression(flagella_expression_config)
-    compartment = gene_expression.generate({})
-    return Experiment(compartment)
-
+    return GeneExpression(flagella_expression_config)
 
 def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
     ''' make a timeseries heatmap for each port specified in config['plot_ports'] '''
@@ -167,13 +163,12 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
         fig_path = os.path.join(out_dir, figname)
         plt.savefig(fig_path, bbox_inches='tight')
 
-
 def make_flagella_network(out_dir='out'):
     # load the compartment
-    flagella_expression_experiment = generate_flagella_experiment({})
+    flagella_compartment = get_flagella_compartment({})
 
     # make expression network plot
-    flagella_expression_processes = flagella_expression_experiment.processes
+    flagella_expression_processes = flagella_compartment.generate_processes({})
     operons = flagella_expression_processes['transcription'].genes
     promoters = flagella_expression_processes['transcription'].templates
     complexes = flagella_expression_processes['complexation'].stoichiometry
@@ -183,23 +178,30 @@ def make_flagella_network(out_dir='out'):
         'complexes': complexes}
     gene_network_plot(data, out_dir)
 
-
 def run_flagella_expression(out_dir='out'):
     # load the compartment
     flagella_data = FlagellaChromosome()
-    flagella_expression_compartment = load_compartment(generate_flagella_compartment)
+    flagella_compartment = get_flagella_compartment({})
 
     settings = {'show_ports': True}
     plot_compartment_topology(
-        flagella_expression_compartment,
+        flagella_compartment,
         settings,
         out_dir)
 
     # run simulation
     settings = {
-        'total_time': 960,  # 2400
-        'verbose': True}
-    timeseries = simulate_compartment(flagella_expression_compartment, settings)
+        'timestep': 1,
+        'total_time': 960,
+        'verbose': True,
+        'initial_state': {
+            'proteins': {
+                mol_id: 100
+                for mol_id in [UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
+            'molecules': {
+                aa: 1000
+                for aa in amino_acids.values()}}}
+    timeseries = simulate_compartment_in_experiment(flagella_compartment, settings)
 
     plot_config = {
         'name': 'flagella_expression',

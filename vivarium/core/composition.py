@@ -337,7 +337,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     timeseries = copy.deepcopy(timeseries_raw)
     max_rows = settings.get('max_rows', 25)
     remove_zeros = settings.get('remove_zeros', True)
-    remove_flat = settings.get('remove_flat', True)
+    remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
     overlay = settings.get('overlay', {})
     top_ports = list(overlay.values())

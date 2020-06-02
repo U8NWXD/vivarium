@@ -254,7 +254,7 @@ class ConvenienceKinetics(Process):
 
     def ports_schema(self):
         set_ports = ['fluxes']
-        emit_ports = ['internal', 'external']
+        emit_ports = ['internal', 'external', 'fluxes']
 
         schema = {}
         for port, states in self.ports.items():
@@ -469,7 +469,7 @@ def test_convenience_kinetics(end_time=2520):
 
     settings = {
         'environment': {
-            'volume': 5e-14,
+            'volume': 1e-14,
             'states': ['glc__D_e', 'lcts_e'],
             'environment_port': 'external',
             'exchange_port': 'exchange'},
