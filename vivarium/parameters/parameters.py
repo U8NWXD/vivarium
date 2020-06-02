@@ -45,11 +45,15 @@ def get_parameters_logspace(min, max, number):
     return list(range)
 
 def run_sim_get_output(new_compartment, condition, metrics, settings):
-    total_time = settings['total_time']
     settings['initial_state'] = condition
-    sim_out = simulate_compartment_in_experiment(new_compartment, settings)
-    last_state = sim_out[total_time]
+    settings['return_raw_data'] = True
 
+    # run the simulation and get the last state
+    sim_out = simulate_compartment_in_experiment(new_compartment, settings)
+    time_vec = list(sim_out.keys())
+    last_state = sim_out[time_vec[-1]]
+
+    # pull out metric values from last_state
     output = []
     for output_value in metrics:
         output.append(get_nested(last_state, output_value))
@@ -63,7 +67,7 @@ def parameter_scan(config):
         - metrics (list) -- a list of output values (tuple) with the (port, key)
         - conditions (list) -- a list of state values (dict) with {port: {variable: value}}
             for the default state the condition is and empty dict, [{}]
-        - options (dict)
+        - settings (dict) -- simulation settings for the experiments
 
     Returns a list of all parameter combinations, and a dictionary with output values for those parameters
     '''
@@ -71,7 +75,7 @@ def parameter_scan(config):
     compartment = config['compartment']
     scan_params = config['scan_parameters']
     metrics = config['metrics']
-    options = config.get('options', {})
+    settings = config.get('settings', {})
     conditions = config.get('conditions', [{}])
     n_conditions = len(conditions)
 
@@ -91,15 +95,6 @@ def parameter_scan(config):
     param_combinations = list(itertools.product(*param_values))  # a list of all parameter combinations
     param_sets = [dict(zip(param_keys, combo)) for combo in param_combinations]  # list of dicts with {param: value}
 
-    ## Simulation settings for scan
-    total_time = options.get('time', 10)
-    timestep = options.get('timestep', 1)
-    simulation_settings = options.get('simulation_settings', {})
-    settings = {
-        'timestep': timestep,
-        'total_time': total_time,
-        'return_raw_data': True}
-    settings.update(simulation_settings)
 
     # run all parameters, and save results
     results = []
@@ -233,8 +228,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
         ax.text(0, 0.9-text_idx*cond_text_row, condition)
     ax.axis('off')
 
-
-    ## save figure
+    ## save the figure
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
@@ -242,7 +236,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
 def scan_master():
     compartment = Master
 
-    # define scanned parameters, to replace defaults
+    # define scanned parameters, which replace defaults
     scan_params = {
         ('transport',
          'kinetic_parameters',
@@ -252,28 +246,23 @@ def scan_master():
             get_parameters_logspace(1e-3, 1e0, 6)
     }
 
+    # metrics to collect from scan output
     metrics = [
         ('reactions', 'EX_glc__D_e'),
         ('reactions', 'GLCptspp'),
-        ('global', 'growth_rate')]
+        ('global', 'volume')]
 
     # set up simulation settings and scan options
     timeline = [(30, {})]
-    sim_settings = {
-        'environment_port': 'environment',
-        'exchange_port': 'exchange',
-        'environment_volume': 1e-6,  # L
+    settings = {
+        # 'environment_volume': 1e-6,  # L
         'timeline': timeline}
-
-    scan_options = {
-        'simulate_with_environment': True,
-        'simulation_settings': sim_settings}
 
     scan_config = {
         'compartment': compartment,
         'scan_parameters': scan_params,
         'metrics': metrics,
-        'options': scan_options}
+        'settings': settings}
     results = parameter_scan(scan_config)
 
     return results
@@ -281,7 +270,7 @@ def scan_master():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'master_composite')
+    out_dir = os.path.join('out', 'parameters', 'master')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
