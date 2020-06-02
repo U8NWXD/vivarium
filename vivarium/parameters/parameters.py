@@ -8,9 +8,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from vivarium.core.composition import (
-    simulate_compartment,
-    simulate_with_environment)
+from vivarium.core.composition import simulate_compartment_in_experiment
 
 # composites
 from vivarium.compartments.master import Master

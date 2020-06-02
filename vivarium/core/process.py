@@ -1,91 +1,90 @@
-from __future__ import absolute_import, division, print_function
+class Process(object):
+    def __init__(self, ports, parameters=None):
+        ''' Declare what ports this process expects. '''
 
-import copy
-import random
+        self.ports = ports
+        self.parameters = parameters or {}
+        self.states = None
+        self.time_step = parameters.get('time_step', 1.0)
+
+    def local_timestep(self):
+        '''
+        Returns the favored timestep for this process.
+        Meant to be overridden in subclasses, unless 1.0 is a happy value.
+        '''
+        return self.time_step
+
+    def default_state(self):
+        schema = self.ports_schema()
+        state = {}
+        for port, states in schema.items():
+            for key, value in states.items():
+                if '_default' in value:
+                    if port not in state:
+                        state[port] = {}
+                    state[port][key] = value['_default']
+        return state
+
+    def is_deriver(self):
+        return False
+
+    def derivers(self):
+        return {}
+
+    def pull_data(self):
+        return {}
+
+    def assign_ports(self, states):
+        '''
+        Provide States for some or all of the ports this Process expects.
+
+        Roles and States must have the same keys. '''
+
+        self.states = states
+        for port, state in self.states.items():
+            state.declare_state(self.ports[port])
+
+    def ports_schema(self):
+        return {}
+
+    def update_for(self, timestep):
+        ''' Called each timestep to find the next state for this process. '''
+
+        states = {
+            port: self.states[port].state_for(values)
+            for port, values in self.ports.items()}
+
+        return self.next_update(timestep, states)
+
+    def or_default(self, parameters, key):
+        return parameters.get(key, self.defaults[key])
+
+    def parameters_for(self, parameters, key):
+        ''' Return key in parameters or from self.default_parameters if not present. '''
+
+        return parameters.get(key, self.default_parameters[key])
+
+    def derive_defaults(self, parameters, original_key, derived_key, f):
+        present = self.parameters_for(parameters, original_key)
+        self.default_parameters[derived_key] = f(present)
+        return self.default_parameters[derived_key]
+
+    def find_states(self, tree, topology):
+        return {
+            port: tree.state_for(topology[port], keys)
+            for port, keys in self.ports.items()}
+
+    def next_update(self, timestep, states):
+        '''
+        Find the next update given the current states this process cares about.
+
+        This is the main function a new process would override.'''
+
+        return {
+            port: {}
+            for port, values in self.ports.items()}
 
 
-from vivarium.utils.dict_utils import deep_merge
-from vivarium.utils.units import Quantity
-
-# deriver processes
-from vivarium.processes.derive_concentrations import DeriveConcentrations
-from vivarium.processes.derive_counts import DeriveCounts
-from vivarium.processes.derive_globals import DeriveGlobals
-from vivarium.processes.tree_mass import TreeMass
-
-
-## updater functions
-# these function take in a variable key, the entire store's dict,
-# the variable's current value, the variable's current update,
-# and returns a new value, and other updates
-
-def update_merge(current_value, new_value):
-    # merge dicts, with new_value replacing any shared keys with current_value
-    update = current_value.copy()
-    for k, v in current_value.items():
-        new = new_value.get(k)
-        if isinstance(new, dict):
-            update[k] = deep_merge(dict(v), new)
-        else:
-            update[k] = new
-    return update
-
-def update_set(current_value, new_value):
-    return new_value
-
-def update_accumulate(current_value, new_value):
-    return current_value + new_value
-
-updater_library = {
-    'accumulate': update_accumulate,
-    'set': update_set,
-    'merge': update_merge}
-
-## divider functions
-# these functions take in a value, are return two values for each daughter
-def default_divide_condition(compartment):
-    return False
-
-def divide_set(state):
-    return [state, state]
-
-def divide_split(state):
-    if isinstance(state, int):
-        remainder = state % 2
-        half = int(state / 2)
-        if random.choice([True, False]):
-            return [half + remainder, half]
-        else:
-            return [half, half + remainder]
-    elif state == float('inf') or state == 'Infinity':
-        # some concentrations are considered infinite in the environment
-        # an alternative option is to not divide the local environment state
-        return [state, state]
-    elif isinstance(state, (float, Quantity)):
-        half = state/2
-        return [half, half]
-    else:
-        raise Exception('can not divide state {} of type {}'.format(state, type(state)))
-
-def divide_zero(state):
-    return [0, 0]
-
-def divide_split_dict(state):
-    d1 = dict(list(state.items())[len(state) // 2:])
-    d2 = dict(list(state.items())[:len(state) // 2])
-    return [d1, d2]
-
-divider_library = {
-    'set': divide_set,
-    'split': divide_split,
-    'split_dict': divide_split_dict,
-    'zero': divide_zero}
-
-
-# Derivers
-deriver_library = {
-    'mmol_to_counts': DeriveCounts,
-    'counts_to_mmol': DeriveConcentrations,
-    'mass': TreeMass,
-    'globals': DeriveGlobals,
-}
+class Deriver(Process):
+    def is_deriver(self):
+        return True

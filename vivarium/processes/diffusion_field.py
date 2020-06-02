@@ -9,7 +9,7 @@ from scipy import constants
 from scipy.ndimage import convolve
 import matplotlib.pyplot as plt
 
-from vivarium.core.tree import Process
+from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process,
     PROCESS_OUT_DIR

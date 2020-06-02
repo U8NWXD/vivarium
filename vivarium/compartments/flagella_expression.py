@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vivarium.core.composition import (
-    load_compartment,
-    simulate_compartment,
+    simulate_compartment_in_experiment,
     plot_compartment_topology,
     plot_simulation_output
 )

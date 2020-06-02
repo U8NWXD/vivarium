@@ -33,8 +33,7 @@ from pygame.color import *
 # vivarium imports
 from vivarium.utils.units import units
 from vivarium.core.emitter import timeseries_from_data
-from vivarium.core.process import COMPARTMENT_STATE
-from vivarium.core.tree import Process
+from vivarium.core.process import Process
 from vivarium.core.composition import (
     process_in_experiment,
     simulate_experiment,
@@ -60,7 +59,7 @@ DEFAULT_SV = [100.0/100.0, 70.0/100.0]
 
 # agent port keys
 AGENT_KEYS = ['location', 'angle', 'volume', 'length', 'width', 'mass', 'forces']
-NON_AGENT_KEYS = ['fields', 'time', 'global', COMPARTMENT_STATE]
+NON_AGENT_KEYS = ['fields', 'time', 'global']
 
 
 

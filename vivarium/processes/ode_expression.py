@@ -9,7 +9,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 
-from vivarium.core.tree import Process
+from vivarium.core.process import Process
 from vivarium.utils.dict_utils import deep_merge, tuplify_port_dicts
 from vivarium.core.composition import (
     simulate_process_in_experiment,
