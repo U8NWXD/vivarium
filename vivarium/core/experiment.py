@@ -352,6 +352,7 @@ class Store(object):
 
     def reduce(self, reducer, initial=None):
         value = initial
+
         for path, node in self.depth():
             value = reducer(value, path, node)
         return value
@@ -661,8 +662,8 @@ class Compartment(object):
 
         # add derivers
         derivers = generate_derivers(processes, topology)
-        processes = deep_merge(processes, derivers['processes'])
-        topology = deep_merge(topology, derivers['topology'])
+        processes = deep_merge(derivers['processes'], processes)
+        topology = deep_merge(derivers['topology'], topology)
 
         return {
             'processes': assoc_in({}, path, processes),
@@ -721,6 +722,8 @@ class Experiment(object):
         self.emitter = get_emitter(emitter_config)
 
         self.local_time = 0.0
+
+        import ipdb; ipdb.set_trace()
 
         # run the derivers
         self.send_updates([])

@@ -12,8 +12,10 @@ from vivarium.core.composition import (
     simulate_compartment_in_experiment,
 )
 from vivarium.utils.make_network import save_network
-
+from vivarium.utils.units import units
 # processes
+from vivarium.data.amino_acids import amino_acids
+from vivarium.processes.tree_mass import TreeMass
 from vivarium.processes.transcription import Transcription, UNBOUND_RNAP_KEY
 from vivarium.processes.translation import Translation, UNBOUND_RIBOSOME_KEY
 from vivarium.processes.degradation import RnaDegradation
@@ -29,21 +31,25 @@ NAME = 'gene_expression'
 class GeneExpression(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global')
-    }
+        'global_path': ('..', 'global'),
+        'initial_mass': 1339.0 * units.fg}
 
     def __init__(self, config):
         self.config = config
         self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.initial_mass = config.get('initial_mass', self.defaults['initial_mass'])
 
     def generate_processes(self, config):
         transcription = Transcription(config.get('transcription', {}))
         translation = Translation(config.get('translation', {}))
         degradation = RnaDegradation(config.get('degradation', {}))
         complexation = Complexation(config.get('complexation', {}))
+        mass_deriver = TreeMass(config.get('mass_deriver', {
+            'initial_mass': config.get('initial_mass', self.initial_mass)}))
         division = DivisionVolume(config)
 
         return {
+            'mass_deriver': mass_deriver,
             'transcription': transcription,
             'translation': translation,
             'degradation': degradation,
@@ -54,6 +60,9 @@ class GeneExpression(Compartment):
         global_path = config.get('global_path', self.global_path)
 
         return {
+            'mass_deriver': {
+                'global': global_path},
+
             'transcription': {
                 'chromosome': ('chromosome',),
                 'molecules': ('molecules',),
@@ -471,7 +480,11 @@ def test_gene_expression():
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 10}
+        'total_time': 10,
+        'initial_state': {
+            'molecules': {
+                aa: 1000
+                for aa in amino_acids.values()}}}
     return simulate_compartment_in_experiment(compartment, settings)
 
 

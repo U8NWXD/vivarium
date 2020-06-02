@@ -1,6 +1,8 @@
 # Note: proteins are referred to by their gene names with lower case letter
 # molecular_weight is daltons (Da) from nucleotide sequence, taken from ecocyc
 
+from vivarium.utils.units import units
+
 molecular_weight = {
 
     # protein monomers
@@ -61,3 +63,7 @@ molecular_weight = {
     'flagellar motor': 2575900.0,  # from stoichiometry
     'flagellum': 8815743.0,  # from stoichiometry
 }
+
+molecular_weight = {
+    key: value * units.g / units.mol
+    for key, value in molecular_weight.items()}

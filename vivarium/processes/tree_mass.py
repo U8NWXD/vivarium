@@ -31,10 +31,11 @@ class TreeMass(Deriver):
 
     def __init__(self, initial_parameters={}):
         self.from_path = self.or_default(initial_parameters, 'from_path')
-        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
+        self.initial_mass = self.or_default(initial_parameters, 'initial_mass')
 
         ports = {
             'global': [
+                'initial_mass',
                 'mass']}
 
         super(TreeMass, self).__init__(ports, initial_parameters)
@@ -42,17 +43,21 @@ class TreeMass(Deriver):
     def ports_schema(self):
         return {
             'global': {
-                'mass': {
-                    '_units': units.fg,
+                'initial_mass': {
                     '_emit': True,
-                    # '_default': self.initial_mass,
+                    '_default': self.initial_mass,
+                    '_updater': 'set',
+                    '_divider': 'split'},
+                'mass': {
+                    '_emit': True,
                     '_updater': 'set'}}}
 
     def next_update(self, timestep, states):
+        initial_mass = states['global']['initial_mass']
         return {
             'global': {
                 'mass': {
                     '_reduce': {
                         'reducer': calculate_mass,
                         'from': self.from_path,
-                        'initial': 0.0 * units.fg}}}}
+                        'initial': initial_mass}}}}
