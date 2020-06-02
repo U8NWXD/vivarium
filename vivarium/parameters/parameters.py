@@ -9,14 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from vivarium.core.composition import simulate_compartment_in_experiment
-
-# composites
 from vivarium.compartments.master import Master
-
-
-
-null_emitter = {'emitter': 'null'}
-
 
 
 def get_nested(dict, keys):
@@ -29,7 +22,6 @@ def get_nested(dict, keys):
     except:
         value = None
         print('value not found for: {}'.format(keys))
-
     return value
 
 def set_nested(dict, keys, value, create_missing=True):
@@ -52,18 +44,15 @@ def get_parameters_logspace(min, max, number):
     range = np.logspace(np.log10(min), np.log10(max), number, endpoint=True)
     return list(range)
 
-def run_sim_get_output(new_compartment, metrics, settings, total_time, simulate_environment=False):
-    if simulate_environment:
-        sim_out = simulate_with_environment(new_compartment, settings)
-    else:
-        sim_out = simulate_compartment(new_compartment, settings)
-
+def run_sim_get_output(new_compartment, condition, metrics, settings):
+    total_time = settings['total_time']
+    settings['initial_state'] = condition
+    sim_out = simulate_compartment_in_experiment(new_compartment, settings)
     last_state = sim_out[total_time]
 
     output = []
     for output_value in metrics:
         output.append(get_nested(last_state, output_value))
-
     return output
 
 def parameter_scan(config):
@@ -93,7 +82,8 @@ def parameter_scan(config):
     print('parameter scan size: {}'.format(n_combinations))
 
     # get default parameters from compartment
-    default_params = compartment.get_parameters()
+    default_compartment = compartment({})
+    default_params = default_compartment.get_parameters()
 
     # make all parameter sets for scan
     param_keys = list(scan_params.keys())
@@ -104,7 +94,6 @@ def parameter_scan(config):
     ## Simulation settings for scan
     total_time = options.get('time', 10)
     timestep = options.get('timestep', 1)
-    simulate_environment = options.get('simulate_with_environment', False)
     simulation_settings = options.get('simulation_settings', {})
     settings = {
         'timestep': timestep,
@@ -128,24 +117,16 @@ def parameter_scan(config):
                 condition_index+1,
                 n_conditions))
 
-            # make the compartment
-            import ipdb; ipdb.set_trace()
-            # TODO -- load parameters into compartment
+            # make compartment with new parameters
             new_compartment = compartment(parameters)
-            # new_compartment = load_compartment(composite, parameters)
 
-            # update the states
-            for store, values in condition_state.items():
-                new_compartment.states[store].assign_values(values)
-
-            # run the sim with these parameters and condition
+            # run a sim with the new_compartment and condition
             try:
                 output = run_sim_get_output(
                     new_compartment,
+                    condition_state,
                     metrics,
-                    settings,
-                    total_time,
-                    simulate_environment)
+                    settings)
 
                 result = {
                     'parameter_index': params_index,
@@ -259,8 +240,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     plt.savefig(fig_path, bbox_inches='tight')
 
 def scan_master():
-    config = {}
-    compartment = Master(config)
+    compartment = Master
 
     # define scanned parameters, to replace defaults
     scan_params = {

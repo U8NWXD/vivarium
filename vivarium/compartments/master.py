@@ -36,8 +36,8 @@ def default_metabolism_config():
 class Master(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global'),
-        'external_path': ('..', 'external'),
+        'global_path': ('global',),
+        'external_path': ('external',),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
     }
