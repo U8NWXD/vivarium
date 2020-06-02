@@ -13,8 +13,8 @@ def get_default_state():
 
     return {
         'global': {
-            'volume': volume.magnitude,
-            'mmol_to_counts': mmol_to_counts.magnitude}}
+            'volume': volume.to('fL'),
+            'mmol_to_counts': mmol_to_counts}}
 
 
 class DeriveCounts(Deriver):
@@ -45,9 +45,9 @@ class DeriveCounts(Deriver):
         return {
             'global': {
                 'volume': {
-                    '_default': 0.0},
+                    '_default': 0.0 * units.fL},
                 'mmol_to_counts': {
-                    '_default': 0.0}},
+                    '_default': 0.0 * units.L / units.mmol}},
             'counts': {
                 molecule: {
                     '_divider': 'split',
@@ -55,7 +55,7 @@ class DeriveCounts(Deriver):
                 for molecule in self.concentration_keys}}
 
     def next_update(self, timestep, states):
-        mmol_to_counts = states['global']['mmol_to_counts']
+        mmol_to_counts = states['global']['mmol_to_counts'].to('L/mmol').magnitude
         concentrations = states['concentrations']
 
         counts = {}

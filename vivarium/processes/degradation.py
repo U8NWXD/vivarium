@@ -122,7 +122,7 @@ class RnaDegradation(Process):
         transcripts = states['transcripts']
         proteins = states['proteins']
         molecules = states['molecules']
-        mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
+        mmol_to_counts = states['global']['mmol_to_counts']
 
         delta_transcripts = {
             transcript: 0

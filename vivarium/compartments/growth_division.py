@@ -15,10 +15,6 @@ from vivarium.core.composition import (
 # processes
 from vivarium.processes.growth_protein import GrowthProtein
 from vivarium.processes.minimal_expression import MinimalExpression
-from vivarium.processes.division import (
-    Division,
-    divide_condition
-)
 from vivarium.processes.meta_division import MetaDivision
 from vivarium.processes.convenience_kinetics import (
     ConvenienceKinetics,

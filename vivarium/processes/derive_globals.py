@@ -95,9 +95,9 @@ class DeriveGlobals(Deriver):
         default_state = {
             'global': {
                 'mass': mass,
-                'volume': volume.to('fL').magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude,
-                'density': density.magnitude,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
+                'density': density,
                 'width': self.width,
                 'length': length,
                 'surface_area': surface_area}}
@@ -116,14 +116,10 @@ class DeriveGlobals(Deriver):
                 if state_id in default_state[port]:
                     schema[port][state_id]['_default'] = default_state[port][state_id]
 
-        # # declare initial values
-        # schema['global']['mass']['_value'] = self.initial_mass
-
         return schema
 
     def next_update(self, timestep, states):
-        # states
-        density = states['global']['density'] * units.g / units.L
+        density = states['global']['density']
         mass = states['global']['mass']
         width = states['global']['width']
 
@@ -135,8 +131,8 @@ class DeriveGlobals(Deriver):
 
         return {
             'global': {
-                'volume': volume.to('fL').magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
                 'length': length,
                 'surface_area': surface_area}}
 
