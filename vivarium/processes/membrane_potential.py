@@ -7,7 +7,7 @@ import scipy.constants as constants
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,

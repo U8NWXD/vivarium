@@ -3,7 +3,7 @@ import random
 import numpy as np
 import logging as log
 
-from vivarium.utils.datum import Datum
+from vivarium.library.datum import Datum
 
 INFINITY = float('inf')
 

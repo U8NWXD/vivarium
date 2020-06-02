@@ -1,4 +1,4 @@
-from vivarium.utils.path import open_relative
+from vivarium.library.path import open_relative
 
 def read_sequence(path):
     with open_relative(path, 'r') as fasta:

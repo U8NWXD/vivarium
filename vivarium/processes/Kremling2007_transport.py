@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 from vivarium.core.process import Process
-from vivarium.utils.flux_conversion import millimolar_to_counts, counts_to_millimolar
-from vivarium.utils.make_media import Media
+from vivarium.library.flux_conversion import millimolar_to_counts, counts_to_millimolar
+from vivarium.library.make_media import Media
 from vivarium.core.composition import PROCESS_OUT_DIR
 
 

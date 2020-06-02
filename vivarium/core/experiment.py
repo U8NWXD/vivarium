@@ -17,11 +17,11 @@ def pp(x):
 def pf(x):
     pretty.pformat(x)
 
-from vivarium.utils.units import Quantity
-from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
+from vivarium.library.units import Quantity
+from vivarium.library.dict_utils import merge_dicts, deep_merge, deep_merge_check
 from vivarium.core.emitter import get_emitter
 from vivarium.core.process import Process
-from vivarium.core.library import (
+from vivarium.core.repository import (
     divider_library,
     updater_library,
     deriver_library)

@@ -31,7 +31,7 @@ from pygame.locals import *
 from pygame.color import *
 
 # vivarium imports
-from vivarium.utils.units import units
+from vivarium.library.units import units
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.process import Process
 from vivarium.core.composition import (

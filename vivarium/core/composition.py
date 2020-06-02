@@ -15,12 +15,12 @@ from vivarium.core.experiment import (
 from vivarium.core.process import Process, Deriver
 from vivarium.core.experiment import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
-from vivarium.utils.dict_utils import (
+from vivarium.library.dict_utils import (
     deep_merge,
     deep_merge_check,
     flatten_timeseries,
 )
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO

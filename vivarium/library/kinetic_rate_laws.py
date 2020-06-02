@@ -15,7 +15,7 @@ import os
 
 import numpy as np
 
-from vivarium.utils.dict_utils import tuplify_port_dicts
+from vivarium.library.dict_utils import tuplify_port_dicts
 
 
 

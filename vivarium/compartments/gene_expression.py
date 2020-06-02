@@ -12,8 +12,8 @@ from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
 )
-from vivarium.utils.make_network import save_network
-from vivarium.utils.units import units
+from vivarium.library.make_network import save_network
+from vivarium.library.units import units
 # processes
 from vivarium.data.amino_acids import amino_acids
 from vivarium.processes.tree_mass import TreeMass

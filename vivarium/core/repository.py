@@ -4,8 +4,8 @@ import copy
 import random
 
 
-from vivarium.utils.dict_utils import deep_merge
-from vivarium.utils.units import Quantity
+from vivarium.library.dict_utils import deep_merge
+from vivarium.library.units import Quantity
 
 # deriver processes
 from vivarium.processes.derive_concentrations import DeriveConcentrations

@@ -30,16 +30,16 @@ from vivarium.core.composition import (
     PROCESS_OUT_DIR,
     plot_simulation_output
 )
-from vivarium.utils.make_network import (
+from vivarium.library.make_network import (
     get_reactions,
     make_network,
     save_network
 )
 from vivarium.data.synonyms import get_synonym
-from vivarium.utils.units import units
-from vivarium.utils.cobra_fba import CobraFBA
-from vivarium.utils.dict_utils import tuplify_port_dicts
-from vivarium.utils.regulation_logic import build_rule
+from vivarium.library.units import units
+from vivarium.library.cobra_fba import CobraFBA
+from vivarium.library.dict_utils import tuplify_port_dicts
+from vivarium.library.regulation_logic import build_rule
 from vivarium.processes.derive_globals import AVOGADRO
 
 

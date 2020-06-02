@@ -8,7 +8,7 @@ import uuid
 
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 # Raw data class
 from vivarium.data.knowledge_base import KnowledgeBase

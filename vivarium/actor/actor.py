@@ -7,7 +7,7 @@ import struct
 from confluent_kafka import Producer, Consumer, KafkaError
 
 import vivarium.actor.event as event
-from vivarium.utils.dict_utils import tuple_to_str_keys, str_to_tuple_keys
+from vivarium.library.dict_utils import tuple_to_str_keys, str_to_tuple_keys
 
 # Chunk header: type and size.
 # TODO(jerry): Move CHUNK_HEADER to a shared module.

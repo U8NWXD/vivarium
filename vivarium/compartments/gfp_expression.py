@@ -1,15 +1,15 @@
 import os
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 from vivarium.core.composition import simulate_compartment_in_experiment
 from vivarium.data.proteins import GFP
 from vivarium.data.chromosomes.gfp_chromosome import gfp_plasmid_config
 from vivarium.states.chromosome import Chromosome, rna_bases, sequence_monomers
-from vivarium.utils.polymerize import generate_template
+from vivarium.library.polymerize import generate_template
 from vivarium.compartments.gene_expression import GeneExpression, plot_gene_expression_output
 from vivarium.processes.transcription import UNBOUND_RNAP_KEY
 from vivarium.processes.translation import UNBOUND_RIBOSOME_KEY
-from vivarium.utils.make_media import Media
+from vivarium.library.make_media import Media
 
 from vivarium.processes.derive_globals import AVOGADRO
 

@@ -1,4 +1,4 @@
-from vivarium.utils.datum import Datum
+from vivarium.library.datum import Datum
 
 class Protein(Datum):
     defaults = {

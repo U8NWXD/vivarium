@@ -10,14 +10,14 @@ import os
 import argparse
 
 from vivarium.core.process import Process
-from vivarium.utils.dict_utils import deep_merge, tuplify_port_dicts
+from vivarium.library.dict_utils import deep_merge, tuplify_port_dicts
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,
     PROCESS_OUT_DIR,
 )
-from vivarium.utils.regulation_logic import build_rule
-from vivarium.utils.units import units
+from vivarium.library.regulation_logic import build_rule
+from vivarium.library.units import units
 from vivarium.processes.derive_globals import AVOGADRO
 
 

@@ -10,13 +10,13 @@ import numpy as np
 import logging as log
 from arrow import StochasticSystem
 
-from vivarium.utils.dict_utils import deep_merge, keys_list
-from vivarium.utils.units import units
+from vivarium.library.units import units
+from vivarium.library.dict_utils import deep_merge, keys_list
 from vivarium.core.experiment import pp
 from vivarium.core.process import Process
 from vivarium.core.composition import process_in_experiment
 from vivarium.states.chromosome import Chromosome, Rnap, Promoter, frequencies, add_merge, toy_chromosome_config
-from vivarium.utils.polymerize import Elongation, build_stoichiometry, template_products
+from vivarium.library.polymerize import Elongation, build_stoichiometry, template_products
 from vivarium.data.nucleotides import nucleotides
 
 def choose_element(elements):
@@ -135,7 +135,7 @@ class Transcription(Process):
                   generally be the same as *monomer_ids*.
 
         Example configuring the process (uses
-        :py:func:`vivarium.utils.pretty.format_dict`):
+        :py:func:`vivarium.library.pretty.format_dict`):
 
         >>> import random
         >>>
@@ -147,7 +147,7 @@ class Transcription(Process):
         ... )
         >>> from vivarium.data.nucleotides import nucleotides
         >>> # format_dict lets us print dictionaries prettily
-        >>> from vivarium.utils.pretty import format_dict
+        >>> from vivarium.library.pretty import format_dict
         >>>
         >>> random.seed(0)  # Needed because process is stochastic
         >>> np.random.seed(0)

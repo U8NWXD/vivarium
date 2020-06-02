@@ -4,8 +4,8 @@ import numpy as np
 
 from vivarium.data.chromosomes.toy_chromosome import toy_chromosome_config
 from vivarium.data.nucleotides import nucleotides
-from vivarium.utils.datum import Datum
-from vivarium.utils.polymerize import Polymerase, BindingSite, Terminator, Template, Elongation, polymerize_to, add_merge
+from vivarium.library.datum import Datum
+from vivarium.library.polymerize import Polymerase, BindingSite, Terminator, Template, Elongation, polymerize_to, add_merge
 
 INFINITY = float('inf')
 
