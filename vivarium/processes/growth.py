@@ -42,12 +42,16 @@ class Growth(Process):
     >>> configuration = {'growth_rate': math.log(2.0)}
     >>> growth_process = Growth(configuration)
     >>> state = growth_process.default_state()
-    >>> state
-    {'global': {'mass': 1339, 'divide': False}}
+    >>> # the initial mass magnitude (femtograms)
+    >>> mass = state['global']['mass'].magnitude
+    >>> mass
+    1339
     >>> update = growth_process.next_update(TIMESTEP, state)
-    >>> update
-    {'global': {'mass': 2678.0}}
-    >>> update['global']['mass'] / state['global']['mass']
+    >>> # the new mass magnitude (femtograms)
+    >>> new_mass = update['global']['mass'].magnitude
+    >>> new_mass
+    2678.0
+    >>> new_mass / mass
     2.0
 
     """

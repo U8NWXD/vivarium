@@ -5,7 +5,7 @@ import uuid
 import math
 import random
 
-from vivarium.core.tree import (
+from vivarium.core.experiment import (
     generate_state,
     Experiment
 )

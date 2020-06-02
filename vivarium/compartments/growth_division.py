@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.tree import (
+from vivarium.core.experiment import (
     Compartment,
 )
 
@@ -15,10 +15,6 @@ from vivarium.core.composition import (
 # processes
 from vivarium.processes.growth_protein import GrowthProtein
 from vivarium.processes.minimal_expression import MinimalExpression
-from vivarium.processes.division import (
-    Division,
-    divide_condition
-)
 from vivarium.processes.meta_division import MetaDivision
 from vivarium.processes.convenience_kinetics import (
     ConvenienceKinetics,

@@ -5,7 +5,7 @@ import argparse
 
 import matplotlib.pyplot as plt
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,

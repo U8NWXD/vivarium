@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import math
 import os
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
@@ -19,10 +19,7 @@ from vivarium.processes.antibiotic_transport import (
     DEFAULT_INITIAL_STATE as ANTIBIOTIC_DEFAULT_INITIAL_STATE,
 )
 from vivarium.processes.death import DeathFreezeState
-from vivarium.processes.division import (
-    Division,
-    divide_condition,
-)
+from vivarium.processes.division_volume import DivisionVolume
 from vivarium.processes.growth import Growth
 from vivarium.processes.ode_expression import ODE_expression
 
@@ -74,7 +71,7 @@ class Antibiotics(Compartment):
         growth = Growth(self.config)
         expression = ODE_expression(self.config)
         death = DeathFreezeState(self.config)
-        division = Division(self.config)
+        division = DivisionVolume(self.config)
 
         return {
             'antibiotic_transport': antibiotic_transport,

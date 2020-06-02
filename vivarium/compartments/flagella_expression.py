@@ -167,7 +167,7 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
 
 def make_flagella_network(out_dir='out'):
     # load the compartment
-    flagella_expression_compartment = load_compartment(generate_flagella_compartment)
+    flagella_expression_compartment = generate_flagella_compartment()
 
     # make expression network plot
     flagella_expression_processes = flagella_expression_compartment.processes

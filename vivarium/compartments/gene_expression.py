@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import networkx as nx
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,
@@ -18,7 +18,7 @@ from vivarium.processes.transcription import Transcription, UNBOUND_RNAP_KEY
 from vivarium.processes.translation import Translation, UNBOUND_RIBOSOME_KEY
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
-from vivarium.processes.division import Division, divide_condition
+from vivarium.processes.division_volume import DivisionVolume
 from vivarium.data.amino_acids import amino_acids
 from vivarium.data.nucleotides import nucleotides
 
@@ -41,7 +41,7 @@ class GeneExpression(Compartment):
         translation = Translation(config.get('translation', {}))
         degradation = RnaDegradation(config.get('degradation', {}))
         complexation = Complexation(config.get('complexation', {}))
-        division = Division(config)
+        division = DivisionVolume(config)
 
         return {
             'transcription': transcription,

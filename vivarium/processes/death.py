@@ -44,7 +44,7 @@ from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     PROCESS_OUT_DIR,
 )
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.process import Process
 
 TOY_ANTIBIOTIC_THRESHOLD = 5.0
@@ -222,9 +222,9 @@ class DeathFreezeState(Process):
                 return {
                     'global': {
                         '_delete': [
-                            (target,)
-                            for target in self.targets]},
-                        'dead': 1}
+                            ('..', target,)
+                            for target in self.targets],
+                        'dead': 1}}
         return {}
 
 
@@ -284,7 +284,7 @@ class ToyDeath(Compartment):
         return {
             'death': {
                 'internal': ('cell',),
-                'global': tuple(),
+                'global': ('global',),
             },
             'injector': {
                 'internal': ('cell',),
@@ -343,7 +343,7 @@ def test_death_freeze_state(end_time=10, asserts=True):
                 time * TOY_INJECTION_RATE)
             expected_saved_states['global']['dead'].append(
                 0 if time <= expected_death else 1)
-            expected_saved_states['time'].append(time)
+            expected_saved_states['time'].append(float(i))
         assert expected_saved_states == saved_states
 
     return saved_states

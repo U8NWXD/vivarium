@@ -1,3 +1,6 @@
+from __future__ import absolute_import, division, print_function
+
+
 class Process(object):
     def __init__(self, ports, parameters=None):
         ''' Declare what ports this process expects. '''
@@ -34,27 +37,8 @@ class Process(object):
     def pull_data(self):
         return {}
 
-    def assign_ports(self, states):
-        '''
-        Provide States for some or all of the ports this Process expects.
-
-        Roles and States must have the same keys. '''
-
-        self.states = states
-        for port, state in self.states.items():
-            state.declare_state(self.ports[port])
-
     def ports_schema(self):
         return {}
-
-    def update_for(self, timestep):
-        ''' Called each timestep to find the next state for this process. '''
-
-        states = {
-            port: self.states[port].state_for(values)
-            for port, values in self.ports.items()}
-
-        return self.next_update(timestep, states)
 
     def or_default(self, parameters, key):
         return parameters.get(key, self.defaults[key])

@@ -100,7 +100,7 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     # load the compartment
-    gfp_expression_compartment = load_compartment(generate_gfp_compartment)
+    gfp_expression_compartment = generate_gfp_compartment()
 
     # run simulation
     settings = {

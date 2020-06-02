@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
@@ -11,7 +11,7 @@ from vivarium.core.composition import (
 from vivarium.compartments.gene_expression import plot_gene_expression_output
 
 # processes
-from vivarium.processes.division import Division, divide_condition
+from vivarium.processes.division_volume import DivisionVolume
 from vivarium.processes.metabolism import Metabolism, get_iAF1260b_config
 from vivarium.processes.convenience_kinetics import ConvenienceKinetics, get_glc_lct_config
 from vivarium.processes.transcription import Transcription
@@ -36,8 +36,8 @@ def default_metabolism_config():
 class Master(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global'),
-        'external_path': ('..', 'external'),
+        'global_path': ('global',),
+        'external_path': ('external',),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
     }
@@ -76,7 +76,7 @@ class Master(Compartment):
         # get initial volume from metabolism
         division_config = config.get('division', {})
         division_config.update({'initial_state': metabolism.initial_state})
-        division = Division(division_config)
+        division = DivisionVolume(division_config)
 
         return {
             'transport': transport,

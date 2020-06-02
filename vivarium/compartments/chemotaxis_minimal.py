@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import random
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     add_timeline_to_compartment,
     simulate_compartment_in_experiment,
