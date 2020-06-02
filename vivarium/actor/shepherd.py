@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import multiprocessing as mp
 import vivarium.actor.event as event
 import vivarium.core.process
-import vivarium.core.tree
+import vivarium.core.experiment
 from vivarium.actor.actor import Actor
 
 class ActorShepherd(Actor):

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.tree import (
+from vivarium.core.experiment import (
     Compartment,
 )
 

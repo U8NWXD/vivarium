@@ -44,7 +44,7 @@ from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     PROCESS_OUT_DIR,
 )
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.process import Process
 
 TOY_ANTIBIOTIC_THRESHOLD = 5.0

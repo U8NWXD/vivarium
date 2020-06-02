@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import networkx as nx
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,

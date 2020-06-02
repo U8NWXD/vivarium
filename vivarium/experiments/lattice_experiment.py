@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import uuid
 
-from vivarium.core.tree import (
+from vivarium.core.experiment import (
     generate_state,
     Experiment
 )

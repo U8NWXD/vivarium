@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import math
 import os
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,

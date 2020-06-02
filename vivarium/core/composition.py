@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
-from vivarium.core.tree import (
+from vivarium.core.experiment import (
     Experiment,
     update_in,
     generate_derivers,
 )
 from vivarium.core.process import Process, Deriver
-from vivarium.core.tree import Compartment as TreeCompartment
+from vivarium.core.experiment import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
 from vivarium.utils.dict_utils import (
     deep_merge,
