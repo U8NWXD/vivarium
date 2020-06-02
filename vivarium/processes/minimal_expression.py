@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import random
 
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.utils.dict_utils import tuplify_port_dicts
 from vivarium.utils.regulation_logic import build_rule
 from vivarium.core.composition import (

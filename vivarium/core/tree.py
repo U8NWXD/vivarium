@@ -14,7 +14,6 @@ def pp(x):
     pretty.pprint(x)
 
 from vivarium.core.process import (
-    Process,
     divider_library)
 from vivarium.utils.units import Quantity
 from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -141,6 +140,7 @@ updater_library = {
 
 
 
+# Store
 def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
     return {
         key: {
@@ -154,7 +154,6 @@ def always_true(x):
 
 def identity(y):
     return y
-
 
 class Store(object):
     schema_keys = set([
@@ -676,6 +675,99 @@ class Store(object):
         target.apply_defaults()
 
 
+# Process
+class Process(object):
+    def __init__(self, ports, parameters=None):
+        ''' Declare what ports this process expects. '''
+
+        self.ports = ports
+        self.parameters = parameters or {}
+        self.states = None
+        self.time_step = parameters.get('time_step', 1.0)
+
+    def local_timestep(self):
+        '''
+        Returns the favored timestep for this process.
+        Meant to be overridden in subclasses, unless 1.0 is a happy value.
+        '''
+        return self.time_step
+
+    def default_state(self):
+        schema = self.ports_schema()
+        state = {}
+        for port, states in schema.items():
+            for key, value in states.items():
+                if '_default' in value:
+                    if port not in state:
+                        state[port] = {}
+                    state[port][key] = value['_default']
+        return state
+
+    def is_deriver(self):
+        return False
+
+    def derivers(self):
+        return {}
+
+    def pull_data(self):
+        return {}
+
+    def assign_ports(self, states):
+        '''
+        Provide States for some or all of the ports this Process expects.
+
+        Roles and States must have the same keys. '''
+
+        self.states = states
+        for port, state in self.states.items():
+            state.declare_state(self.ports[port])
+
+    def ports_schema(self):
+        return {}
+
+    def update_for(self, timestep):
+        ''' Called each timestep to find the next state for this process. '''
+
+        states = {
+            port: self.states[port].state_for(values)
+            for port, values in self.ports.items()}
+
+        return self.next_update(timestep, states)
+
+    def or_default(self, parameters, key):
+        return parameters.get(key, self.defaults[key])
+
+    def parameters_for(self, parameters, key):
+        ''' Return key in parameters or from self.default_parameters if not present. '''
+
+        return parameters.get(key, self.default_parameters[key])
+
+    def derive_defaults(self, parameters, original_key, derived_key, f):
+        present = self.parameters_for(parameters, original_key)
+        self.default_parameters[derived_key] = f(present)
+        return self.default_parameters[derived_key]
+
+    def find_states(self, tree, topology):
+        return {
+            port: tree.state_for(topology[port], keys)
+            for port, keys in self.ports.items()}
+
+    def next_update(self, timestep, states):
+        '''
+        Find the next update given the current states this process cares about.
+
+        This is the main function a new process would override.'''
+
+        return {
+            port: {}
+            for port, values in self.ports.items()}
+
+class Deriver(Process):
+    def is_deriver(self):
+        return True
+
+
+# Compartment
 def generate_derivers(processes, topology):
     deriver_processes = {}
     deriver_topology = {}
@@ -705,7 +797,6 @@ def generate_derivers(processes, topology):
     return {
         'processes': deriver_processes,
         'topology': deriver_topology}
-
 
 class Compartment(object):
     def __init__(self, config):
@@ -740,6 +831,8 @@ class Compartment(object):
             for process_id, process in processes.items()}
 
 
+
+# Experiment
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
@@ -747,7 +840,6 @@ def generate_state(processes, topology, initial_state):
     state.apply_defaults()
 
     return state
-
 
 def normalize_path(path):
     progress = []
@@ -758,7 +850,6 @@ def normalize_path(path):
             progress.append(step)
     return progress
 
-
 def timestamp(dt=None):
     if not dt:
         dt = datetime.datetime.now()
@@ -766,7 +857,6 @@ def timestamp(dt=None):
     return "%04d%02d%02d.%02d%02d%02d" % (
         dt.year, dt.month, dt.day,
         dt.hour, dt.minute, dt.second)
-
 
 class Experiment(object):
     def __init__(self, config):
@@ -968,6 +1058,7 @@ class Experiment(object):
             self.update(interval)
 
 
+# Tests
 def test_recursive_store():
     environment_config = {
         'environment': {
@@ -1053,7 +1144,6 @@ def test_in():
     print(get_in(blank, path))
     update_in(blank, path, lambda x: x + 6)
     print(blank)
-
 
 def test_timescales():
     class Slow(Process):

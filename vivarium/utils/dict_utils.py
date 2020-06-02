@@ -134,3 +134,7 @@ def str_to_tuple_keys(dictionary):
         del dictionary[str_k]
 
     return dictionary
+
+
+def keys_list(d):
+    return list(d.keys())

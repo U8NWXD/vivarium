@@ -33,7 +33,8 @@ from pygame.color import *
 # vivarium imports
 from vivarium.utils.units import units
 from vivarium.core.emitter import timeseries_from_data
-from vivarium.core.process import Process, COMPARTMENT_STATE
+from vivarium.core.process import COMPARTMENT_STATE
+from vivarium.core.tree import Process
 from vivarium.core.composition import (
     process_in_experiment,
     simulate_experiment,

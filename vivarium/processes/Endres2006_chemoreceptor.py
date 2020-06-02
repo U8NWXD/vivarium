@@ -11,7 +11,7 @@ from vivarium.core.composition import (
     simulate_process_in_experiment,
     PROCESS_OUT_DIR
 )
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.utils.units import units
 
 

@@ -8,7 +8,7 @@ import numpy as np
 from numpy import linspace
 import matplotlib.pyplot as plt
 
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     PROCESS_OUT_DIR,

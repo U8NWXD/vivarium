@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.core.composition import simulate_process
 
 

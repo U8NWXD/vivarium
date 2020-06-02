@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from vivarium.utils.units import units
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,

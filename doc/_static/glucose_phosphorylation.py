@@ -1,4 +1,4 @@
-from vivarium.core.process import Process
+from vivarium.core.tree import Process
 from vivarium.core.composition import (
     simulate_process,
     plot_simulation_output,

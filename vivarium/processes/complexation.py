@@ -5,7 +5,8 @@ import numpy as np
 from arrow import StochasticSystem
 
 from vivarium.data.molecular_weight import molecular_weight
-from vivarium.core.process import Process, keys_list
+from vivarium.utils.dict_utils import keys_list
+from vivarium.core.tree import Process
 from vivarium.data.chromosomes.flagella_chromosome import FlagellaChromosome
 
 chromosome = FlagellaChromosome()

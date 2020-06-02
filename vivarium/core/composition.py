@@ -8,10 +8,12 @@ import numpy as np
 import networkx as nx
 
 from vivarium.core.tree import (
+    Process,
+    Deriver,
     Experiment,
     update_in,
     generate_derivers,
-    deriver_library
+    deriver_library,
 )
 from vivarium.core.tree import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
@@ -19,11 +21,6 @@ from vivarium.utils.dict_utils import (
     deep_merge,
     deep_merge_check,
     flatten_timeseries,
-)
-from vivarium.core.process import (
-    Compartment,
-    Process,
-    Deriver,
 )
 from vivarium.utils.units import units
 
@@ -181,123 +178,6 @@ def add_timeline_to_compartment(compartment, settings={}):
         'timeline': timeline,
         'compartment': compartment,
         'path': path})
-
-
-
-# TODO -- remove the following functions!
-def load_compartment(composite, boot_config={}):
-    '''
-    put a composite function into a compartment
-
-    inputs:
-        - composite is a function that returns a dict with 'processes', 'states', and 'options'
-        for configuring a compartment
-        - boot_config (dict) with specific parameters for the processes
-    return:
-        - a compartment object for testing
-    '''
-
-    composite_config = composite(boot_config)
-    processes = composite_config['processes']
-    derivers = composite_config.get('derivers', {})
-    states = composite_config['states']
-    options = composite_config['options']
-    options['emitter'] = boot_config.get('emitter', 'timeseries')
-
-    return Compartment(processes, derivers, states, options)
-
-def simulate_with_environment(compartment, settings={}):
-    '''
-    run a compartment simulation with an environment.
-    Requires:
-        - a compartment with environment_port and exchange_port
-
-    Returns:
-        - a timeseries of variables from all ports.
-        - if 'return_raw_data' is True, it returns the raw data instead
-    '''
-
-    # parameters
-    nAvogadro = AVOGADRO
-
-    # get environment configuration
-    environment_port = settings['environment_port']
-    env_volume = settings.get('environment_volume', 1e-12) * units.L
-    exchange_port = settings.get('exchange_port')
-    if exchange_port:
-        exchange_ids = list(compartment.states[exchange_port].keys())
-    else:
-        print('no exchange port! simulate environment without exchange')
-    environment = compartment.states.get(environment_port)
-    exchange = compartment.states.get(exchange_port)
-
-    # get timeline
-    total_time = settings.get('total_time', 10)
-    timeline = copy.deepcopy(settings.get('timeline', [(total_time, {})]))
-    end_time = timeline[-1][0]
-    timestep = compartment.time_step
-
-    # data settings
-    return_raw_data = settings.get('return_raw_data', False)
-
-    ## run simulation
-    time = 0
-    while time < end_time:
-        time += timestep
-        for (t, change_dict) in timeline:
-            if time >= t:
-                for port_id, change in change_dict.items():
-                    port = compartment.states.get(port_id)
-                    port.assign_values(change)
-                timeline.pop(0)
-
-        # update compartment
-        compartment.update(timestep)
-
-        ## apply exchange to environment
-        # get counts, convert to change in concentration
-        if exchange:
-            delta_counts = exchange.state_for(exchange_ids)
-            mmol_to_counts = (nAvogadro.to('1/mmol') * env_volume).to('L/mmol').magnitude
-            delta_concs = {mol_id: counts / mmol_to_counts for mol_id, counts in delta_counts.items()}
-            environment.apply_update(delta_concs)
-
-            # reset exchange
-            reset_exchange = {key: 0 for key in exchange_ids}
-            exchange.assign_values(reset_exchange)
-
-    if return_raw_data:
-        return compartment.emitter.get_data()
-    else:
-        return compartment.emitter.get_timeseries()
-
-def simulate_compartment(compartment, settings={}):
-    '''
-    run a compartment simulation
-        Requires:
-        - a compartment
-
-    Returns:
-        - a timeseries of variables from all ports.
-        - if 'return_raw_data' is True, it returns the raw data instead
-    '''
-
-    timestep = settings.get('timestep', 1)
-    total_time = settings.get('total_time', 10)
-
-    # data settings
-    return_raw_data = settings.get('return_raw_data', False)
-
-    # run simulation
-    time = 0
-    while time < total_time:
-        time += timestep
-        compartment.update(timestep)
-
-    if return_raw_data:
-        return compartment.emitter.get_data()
-    else:
-        return compartment.emitter.get_timeseries()
 
 
 # plotting functions
