@@ -130,6 +130,14 @@ def compartment_in_experiment(compartment, settings={}):
         'emitter': emitter,
         'initial_state': settings.get('initial_state', {})})
 
+def add_timeline_to_compartment(compartment, settings={}):
+    timeline = settings['timeline']
+    path = settings['path']
+    return TimelineCompartment({
+        'timeline': timeline,
+        'compartment': compartment,
+        'path': path})
+
 
 # simulation functions
 def simulate_process(process, settings={}):
@@ -168,14 +176,6 @@ def simulate_experiment(experiment, settings={}):
         return experiment.emitter.get_data()
     else:
         return experiment.emitter.get_timeseries()
-
-def add_timeline_to_compartment(compartment, settings={}):
-    timeline = settings['timeline']
-    path = settings['path']
-    return TimelineCompartment({
-        'timeline': timeline,
-        'compartment': compartment,
-        'path': path})
 
 
 # plotting functions
