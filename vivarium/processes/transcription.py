@@ -11,6 +11,7 @@ import logging as log
 from arrow import StochasticSystem
 
 from vivarium.utils.dict_utils import deep_merge, keys_list
+from vivarium.utils.units import units
 from vivarium.core.experiment import pp
 from vivarium.core.process import Process
 from vivarium.core.composition import process_in_experiment
@@ -151,101 +152,8 @@ class Transcription(Process):
         >>> random.seed(0)  # Needed because process is stochastic
         >>> np.random.seed(0)
         >>> # We will use the toy chromosome from toy_chromosome_config
-        >>> print(format_dict(toy_chromosome_config))
-        {
-            "domains": {
-                "0": {
-                    "children": [],
-                    "id": 0,
-                    "lag": 0,
-                    "lead": 0
-                }
-            },
-            "genes": {
-                "oA": [
-                    "eA"
-                ],
-                "oAZ": [
-                    "eA",
-                    "eZ"
-                ],
-                "oB": [
-                    "eB"
-                ],
-                "oBY": [
-                    "eB",
-                    "eY"
-                ]
-            },
-            "promoter_order": [
-                "pA",
-                "pB"
-            ],
-            "promoters": {
-                "pA": {
-                    "direction": 1,
-                    "id": "pA",
-                    "position": 3,
-                    "sites": [
-                        {
-                            "length": 3,
-                            "position": 0,
-                            "thresholds": {
-                                "tfA": 0.3
-                            }
-                        }
-                    ],
-                    "terminators": [
-                        {
-                            "position": 6,
-                            "products": [
-                                "oA"
-                            ],
-                            "strength": 0.5
-                        },
-                        {
-                            "position": 12,
-                            "products": [
-                                "oAZ"
-                            ],
-                            "strength": 1.0
-                        }
-                    ]
-                },
-                "pB": {
-                    "direction": -1,
-                    "id": "pB",
-                    "position": -3,
-                    "sites": [
-                        {
-                            "length": 3,
-                            "position": 0,
-                            "thresholds": {
-                                "tfB": 0.5
-                            }
-                        }
-                    ],
-                    "terminators": [
-                        {
-                            "position": -9,
-                            "products": [
-                                "oB"
-                            ],
-                            "strength": 0.5
-                        },
-                        {
-                            "position": -12,
-                            "products": [
-                                "oBY"
-                            ],
-                            "strength": 1.0
-                        }
-                    ]
-                }
-            },
-            "rnaps": {},
-            "sequence": "ATACGGCACGTGACCGTCAACTTA"
-        }
+        >>> print(toy_chromosome_config)
+        {'sequence': 'ATACGGCACGTGACCGTCAACTTA', 'genes': {'oA': ['eA'], 'oAZ': ['eA', 'eZ'], 'oB': ['eB'], 'oBY': ['eB', 'eY']}, 'promoter_order': ['pA', 'pB'], 'promoters': {'pA': {'id': 'pA', 'position': 3, 'direction': 1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfA': <Quantity(0.3, 'millimolar')>}}], 'terminators': [{'position': 6, 'strength': 0.5, 'products': ['oA']}, {'position': 12, 'strength': 1.0, 'products': ['oAZ']}]}, 'pB': {'id': 'pB', 'position': -3, 'direction': -1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfB': <Quantity(0.5, 'millimolar')>}}], 'terminators': [{'position': -9, 'strength': 0.5, 'products': ['oB']}, {'position': -12, 'strength': 1.0, 'products': ['oBY']}]}}, 'domains': {0: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'rnaps': {}}
         >>> monomer_ids = list(nucleotides.values())
         >>> configuration = {
         ...     'promoter_affinities': {
@@ -275,7 +183,7 @@ class Transcription(Process):
         ...         for nucleotide in monomer_ids
         ...     },
         ...     'proteins': {UNBOUND_RNAP_KEY: 10},
-        ...     'factors': {'tfA': 0.2, 'tfB': 0.7},
+        ...     'factors': {'tfA': 0.2 * units.mM, 'tfB': 0.7 * units.mM},
         ... }
         >>> update = transcription_process.next_update(1.0, state)
         >>> print(update['chromosome'])
