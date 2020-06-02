@@ -38,9 +38,7 @@ def set_nested(dict, keys, value, create_missing=True):
     return dict
 
 def get_parameters_logspace(min, max, number):
-    '''
-    get list of n parameters logarithmically spaced between min and max
-    '''
+    ''' get list of n parameters logarithmically spaced between min and max '''
     range = np.logspace(np.log10(min), np.log10(max), number, endpoint=True)
     return list(range)
 
@@ -62,7 +60,7 @@ def run_sim_get_output(new_compartment, condition, metrics, settings):
 def parameter_scan(config):
     '''
     Pass in a config (dict) with:
-        - composite (function) -- a function for the composite compartment
+        - compartment (object) -- a compartment class, for configuration by the parameters
         - scan_parameters (dict) -- each parameter location (tuple) mapped to a list of values
         - metrics (list) -- a list of output values (tuple) with the (port, key)
         - conditions (list) -- a list of state values (dict) with {port: {variable: value}}
@@ -79,24 +77,23 @@ def parameter_scan(config):
     conditions = config.get('conditions', [{}])
     n_conditions = len(conditions)
 
-    ## Set up the parameter
-    # how many parameter sets for scan?
+    ## Set up the parameters
+    # get number of parameter sets for scan
     n_values = [len(v) for v in scan_params.values()]
     n_combinations = np.prod(np.array(n_values))
     print('parameter scan size: {}'.format(n_combinations))
 
-    # get default parameters from compartment
+    # get default parameters from baseline compartment object
     default_compartment = compartment({})
     default_params = default_compartment.get_parameters()
 
-    # make all parameter sets for scan
+    # get parameter sets for scan
     param_keys = list(scan_params.keys())
     param_values = list(scan_params.values())
     param_combinations = list(itertools.product(*param_values))  # a list of all parameter combinations
     param_sets = [dict(zip(param_keys, combo)) for combo in param_combinations]  # list of dicts with {param: value}
 
-
-    # run all parameters, and save results
+    # run all parameter sets and save results
     results = []
     for params_index, param_set in enumerate(param_sets):
         # set up the parameters
@@ -104,7 +101,7 @@ def parameter_scan(config):
         for param_key, param_value in param_set.items():
             parameters = set_nested(parameters, param_key, param_value)
 
-        ## Run the parameter set for each condition's state
+        ## run the parameter set for each condition's state
         for condition_index, condition_state in enumerate(conditions):
             print('running parameter set {}/{}, condition {}/{}'.format(
                 params_index + 1,
@@ -161,7 +158,6 @@ def organize_param_scan_results(data):
         param_index = result['parameter_index']
         condition_index = result['condition_index']
         output = result['output']
-
         for metric_index, datum in enumerate(output):
             metric = metrics[metric_index]
             metric_data[metric][condition_index][param_index] = datum
@@ -177,7 +173,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     conditions = results['conditions']
     parameter_indices = [idx for idx, param in enumerate(parameter_sets)]
 
-    ## make figure
+    # make the figure
     n_cols = 1
     lines_per_row = 8
     base_rows = len(metric_data)
@@ -213,22 +209,21 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
         '{}: {}'.format(condition_idx, condition)
         for condition_idx, condition in conditions.items()]
 
-    ## plot text
-    # parameters
+    # parameter text
     ax = fig.add_subplot(grid[base_rows:base_rows+param_rows, :])
     ax.text(0, 1.0, 'parameters')
     for text_idx, param in enumerate(parameter_text):
         ax.text(0, 0.9-text_idx*param_text_row, param)
     ax.axis('off')
 
-    # conditions
+    # condition text
     ax = fig.add_subplot(grid[base_rows+param_rows:, :])
     ax.text(0, 1.0, 'conditions')
     for text_idx, condition in enumerate(condition_text):
         ax.text(0, 0.9-text_idx*cond_text_row, condition)
     ax.axis('off')
 
-    ## save the figure
+    # save the figure
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
@@ -243,8 +238,7 @@ def scan_master():
          'EX_glc__D_e',
          ('internal', 'EIIglc'),
          'kcat_f'):
-            get_parameters_logspace(1e-3, 1e0, 6)
-    }
+            get_parameters_logspace(1e-3, 1e0, 6)}
 
     # metrics to collect from scan output
     metrics = [
@@ -266,7 +260,6 @@ def scan_master():
     results = parameter_scan(scan_config)
 
     return results
-
 
 
 if __name__ == '__main__':
