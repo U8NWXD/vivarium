@@ -4,6 +4,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
+from vivarium.core.experiment import Experiment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_compartment_topology,
@@ -94,9 +95,11 @@ def get_flagella_expression_config(config):
     return config
 
 
-def generate_flagella_compartment(config):
+def generate_flagella_experiment(config):
     flagella_expression_config = get_flagella_expression_config(config)
-    return GeneExpression(flagella_expression_config)
+    gene_expression = GeneExpression(flagella_expression_config)
+    compartment = gene_expression.generate({})
+    return Experiment(compartment)
 
 
 def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
@@ -167,10 +170,10 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
 
 def make_flagella_network(out_dir='out'):
     # load the compartment
-    flagella_expression_compartment = generate_flagella_compartment()
+    flagella_expression_experiment = generate_flagella_experiment({})
 
     # make expression network plot
-    flagella_expression_processes = flagella_expression_compartment.processes
+    flagella_expression_processes = flagella_expression_experiment.processes
     operons = flagella_expression_processes['transcription'].genes
     promoters = flagella_expression_processes['transcription'].templates
     complexes = flagella_expression_processes['complexation'].stoichiometry

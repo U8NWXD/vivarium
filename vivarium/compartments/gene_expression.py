@@ -32,7 +32,7 @@ NAME = 'gene_expression'
 class GeneExpression(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global'),
+        'global_path': ('global',),
         'initial_mass': 1339.0 * units.fg}
 
     def __init__(self, config):
