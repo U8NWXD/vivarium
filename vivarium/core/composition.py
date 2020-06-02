@@ -13,8 +13,8 @@ from vivarium.core.tree import (
     Experiment,
     update_in,
     generate_derivers,
-    deriver_library,
 )
+from vivarium.core.process import deriver_library
 from vivarium.core.tree import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
 from vivarium.utils.dict_utils import (

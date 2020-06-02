@@ -14,25 +14,19 @@ def pp(x):
     pretty.pprint(x)
 
 from vivarium.core.process import (
-    divider_library)
+    divider_library,
+    updater_library,
+    deriver_library)
 from vivarium.utils.units import Quantity
 from vivarium.utils.dict_utils import merge_dicts, deep_merge, deep_merge_check
 from vivarium.core.emitter import get_emitter
 
-# processes
-from vivarium.processes.derive_globals import DeriveGlobals, AVOGADRO
-from vivarium.processes.derive_counts import DeriveCounts
-from vivarium.processes.derive_concentrations import DeriveConcentrations
-from vivarium.processes.tree_mass import TreeMass
 
-deriver_library = {
-    'mmol_to_counts': DeriveCounts,
-    'counts_to_mmol': DeriveConcentrations,
-    'mass': TreeMass,
-    'globals': DeriveGlobals,
-}
+INFINITY = float('inf')
+VERBOSE = False
 
 
+# Store
 def key_for_value(d, looking):
     found = None
     for key, value in d.items():
@@ -40,7 +34,6 @@ def key_for_value(d, looking):
             found = key
             break
     return found
-
 
 def get_in(d, path):
     if path:
@@ -50,13 +43,11 @@ def get_in(d, path):
     else:
         return d
 
-
 def assoc_in(d, path, value):
     if path:
         return dict(d, **{path[0]: assoc_in(d.get(path[0], {}), path[1:], value)})
     else:
         return value
-
 
 def assoc_path(d, path, value):
     if path:
@@ -70,7 +61,6 @@ def assoc_path(d, path, value):
     else:
         value
 
-
 def update_in(d, path, f):
     if path:
         head = path[0]
@@ -81,66 +71,12 @@ def update_in(d, path, f):
                 d[head] = {}
             update_in(d[head], path[1:], f)
 
-
 def dissoc(d, removing):
     return {
         key: value
         for key, value in d.items()
         if not key in removing}
-        
 
-def select_keys(d, keys):
-    return {
-        key: d.get(key)
-        for key in keys}
-
-
-DEFAULT_TIMESTEP = 1.0
-
-INFINITY = float('inf')
-VERBOSE = False
-
-class topologyError(Exception):
-    pass
-
-def npize(d):
-    ''' Turn a dict into an ordered set of keys and values. '''
-
-    ordered = [[key, value] for key, value in d.items()]
-    keys = [key for key, _ in ordered]
-    values = np.array([value for _, value in ordered], np.float64)
-
-    return keys, values
-
-## updater functions
-# these function take in a variable key, the entire store's dict,
-# the variable's current value, the variable's current update,
-# and returns a new value, and other updates
-def update_accumulate(current_value, new_value):
-    return current_value + new_value
-
-def update_set(current_value, new_value):
-    return new_value
-
-def update_merge(current_value, new_value):
-    # merge dicts, with new_value replacing any shared keys with current_value
-    update = current_value.copy()
-    for k, v in current_value.items():
-        new = new_value.get(k)
-        if isinstance(new, dict):
-            update[k] = deep_merge(dict(v), new)
-        else:
-            update[k] = new
-    return update
-
-updater_library = {
-    'accumulate': update_accumulate,
-    'set': update_set,
-    'merge': update_merge}
-
-
-
-# Store
 def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
     return {
         key: {
