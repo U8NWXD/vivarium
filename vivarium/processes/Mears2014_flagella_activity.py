@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.patches import Patch
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,

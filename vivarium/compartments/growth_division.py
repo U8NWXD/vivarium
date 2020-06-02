@@ -22,7 +22,7 @@ from vivarium.processes.convenience_kinetics import (
 )
 from vivarium.processes.tree_mass import TreeMass
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 
 
 NAME = 'growth_division'

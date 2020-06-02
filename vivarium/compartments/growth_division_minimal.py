@@ -13,7 +13,7 @@ from vivarium.core.composition import (
 from vivarium.processes.growth_protein import GrowthProtein
 from vivarium.processes.meta_division import MetaDivision
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 
 
 

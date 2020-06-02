@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-from vivarium.utils.units import units
+from vivarium.library.units import units
 from vivarium.core.process import Process
 
 

@@ -10,7 +10,7 @@ Functions include:
     - get_molecules_from_stoich: given a list of desired reactions and dict of all reactions with stoichiometry, returns all the relevant molecules -- substrates and enzymes
 
 The RateLawUtilities module can be called with:
-> python -m vivarium.utils.rate_law_utilities
+> python -m vivarium.library.rate_law_utilities
 
 '''
 
@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 from vivarium.data.spreadsheets import load_tsv
 from vivarium.actor import filepath
 
-from vivarium.utils.look_up import LookUp
-import vivarium.utils.kinetic_rate_laws as rate_laws
+from vivarium.library.look_up import LookUp
+import vivarium.library.kinetic_rate_laws as rate_laws
 
 REACTIONS_FILE = os.path.join("vivarium", "data", "flat", "wcEcoli_reactions.tsv")
 PROTEINS_FILE = os.path.join("vivarium", "data", "flat", "wcEcoli_proteins.tsv")

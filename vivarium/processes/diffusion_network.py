@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,

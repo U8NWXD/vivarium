@@ -1,7 +1,7 @@
 # Note: proteins are referred to by their gene names with lower case letter
 # molecular_weight is daltons (Da) from nucleotide sequence, taken from ecocyc
 
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 molecular_weight = {
 

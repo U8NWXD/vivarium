@@ -7,8 +7,8 @@ from scipy import constants
 import numpy as np
 
 from vivarium.core.process import Deriver
-from vivarium.utils.units import units
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.units import units
+from vivarium.library.dict_utils import deep_merge
 
 
 PI = math.pi

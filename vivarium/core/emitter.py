@@ -5,7 +5,7 @@ from confluent_kafka import Producer
 import json
 
 from vivarium.actor.actor import delivery_report
-from vivarium.utils.dict_utils import merge_dicts
+from vivarium.library.dict_utils import merge_dicts
 
 HISTORY_INDEXES = [
     'time',

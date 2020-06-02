@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import copy
 
-from vivarium.utils.dict_utils import keys_list
+from vivarium.library.dict_utils import keys_list
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process,
@@ -11,7 +11,7 @@ from vivarium.core.composition import (
     PROCESS_OUT_DIR,
 )
 from vivarium.data.nucleotides import nucleotides
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 
 NAME = 'degradation'

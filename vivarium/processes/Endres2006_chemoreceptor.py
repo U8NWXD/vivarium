@@ -12,7 +12,7 @@ from vivarium.core.composition import (
     PROCESS_OUT_DIR
 )
 from vivarium.core.process import Process
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 
 NAME = 'Endres2006_chemoreceptor'
