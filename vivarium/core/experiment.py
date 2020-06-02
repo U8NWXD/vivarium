@@ -723,8 +723,6 @@ class Experiment(object):
 
         self.local_time = 0.0
 
-        import ipdb; ipdb.set_trace()
-
         # run the derivers
         self.send_updates([])
 
