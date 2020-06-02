@@ -130,7 +130,8 @@ class Master(Compartment):
 
             'complexation': {
                 'monomers': ('proteins',),
-                'complexes': ('proteins',)},
+                'complexes': ('proteins',),
+                'global': global_path},
 
             'division': {
                 'global': global_path}}
@@ -140,21 +141,18 @@ def run_master(out_dir):
     timeseries = test_master()
     volume_ts = timeseries['global']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
-
-    plot_settings = {
-        'max_rows': 20,
-        'remove_zeros': True,
-        'overlay': {'reactions': 'flux_bounds'},
-        'skip_ports': ['prior_state', 'null']}
-
     expression_plot_settings = {
         'name': 'gene_expression',
         'ports': {
             'transcripts': 'transcripts',
             'molecules': 'metabolites',
             'proteins': 'proteins'}}
-
     plot_gene_expression_output(timeseries, expression_plot_settings, out_dir)
+
+    plot_settings = {
+        'max_rows': 20,
+        'remove_zeros': True,
+        'skip_ports': ['prior_state', 'null', 'flux_bounds', 'chromosome', 'reactions', 'exchange']}
     plot_simulation_output(timeseries, plot_settings, out_dir)
 
 def test_master():

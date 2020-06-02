@@ -434,12 +434,14 @@ class Transcription(Process):
 
         schema['transcripts'] = {
             protein: {
+                '_default': 0,
                 '_emit': True}
-            for protein in self.protein_ids}
+            for protein in self.transcript_ids}
 
         schema['proteins'] = {
             protein: {
-                '_default': 0}
+                '_default': 0,
+                '_emit': True}
             for protein in self.protein_ids}
 
         return schema

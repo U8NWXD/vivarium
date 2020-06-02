@@ -121,9 +121,6 @@ class RnaDegradation(Process):
         transcripts = states['transcripts']
         proteins = states['proteins']
         molecules = states['molecules']
-
-        import ipdb; ipdb.set_trace()
-
         mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
 
         delta_transcripts = {

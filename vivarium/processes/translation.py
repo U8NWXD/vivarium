@@ -394,7 +394,8 @@ class Translation(Process):
 
             'proteins': {
                 protein: add_mass({
-                    '_default': 0}, molecular_weight, protein)
+                    '_default': 0,
+                    '_emit': True}, molecular_weight, protein)
                 for protein in self.all_protein_keys},
 
             'concentrations': {
