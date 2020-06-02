@@ -215,6 +215,8 @@ class Store(object):
             # self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
+                if isinstance(self.default, Quantity):
+                    self.units = self.default.units
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
                 if isinstance(self.value, Quantity):

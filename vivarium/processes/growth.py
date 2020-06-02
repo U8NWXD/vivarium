@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 
+from vivarium.utils.units import units
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
@@ -76,7 +77,7 @@ class Growth(Process):
             'global': {
                 'mass': {
                     '_emit': True,
-                    '_default': 1339,
+                    '_default': 1339 * units.fg,
                     '_updater': 'set',
                     '_divider': 'split'},
                 'volume': {
