@@ -156,7 +156,6 @@ def main():
 
     plot_settings = {
         'max_rows': 25,
-        'skip_ports': ['prior_state'],
     }
 
     timeseries = run_antibiotics_composite()

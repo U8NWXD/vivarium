@@ -458,21 +458,20 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     # get settings
     timeseries = copy.deepcopy(timeseries_raw)
     max_rows = settings.get('max_rows', 25)
-    remove_zeros = settings.get('remove_zeros', False)
-    remove_flat = settings.get('remove_flat', False)
+    remove_zeros = settings.get('remove_zeros', True)
+    remove_flat = settings.get('remove_flat', True)
     skip_ports = settings.get('skip_ports', [])
     overlay = settings.get('overlay', {})
-    show_state = settings.get('show_state', [])
     top_ports = list(overlay.values())
     bottom_ports = list(overlay.keys())
 
-    time_vec = timeseries['time']
+    time_vec = timeseries.pop('time')
 
     ports = {}
     for port_id, states in timeseries.items():
         if port_id in skip_keys + skip_ports:
             continue
-        if port_id not in ports:
+        if port_id not in ports and len(states) != 0:
             ports[port_id] = []
         for state_id in list(states.keys()):
             if state_id not in ports[port_id]:
@@ -493,11 +492,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                 if all(v == 0 for v in series):
                     removed_states.append((port, state_id))
 
-    # if specified in show_state, keep in timeseries
-    for port_state in show_state:
-        if port_state in removed_states:
-            removed_states.remove(port_state)
-
     # remove from timeseries
     for (port, state_id) in removed_states:
         del timeseries[port][state_id]
@@ -513,7 +507,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     n_rows = max(columns)
     fig = plt.figure(figsize=(n_cols * 3, n_rows * 1))
     grid = plt.GridSpec(n_rows, n_cols)
-
     row_idx = 0
     col_idx = 0
     for port in ports:
@@ -538,11 +531,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                 if any(x == 0.0 for x in series) or (any(x < 0.0 for x in series) and any(x > 0.0 for x in series)):
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
-
-                if (port, state_id) in show_state:
-                    ax.plot(time_vec, series, 'indigo', linewidth=2)
-                else:
-                    ax.plot(time_vec, series)
+                ax.plot(time_vec, series)
 
                 # overlay
                 if state_id in top_timeseries.keys():
