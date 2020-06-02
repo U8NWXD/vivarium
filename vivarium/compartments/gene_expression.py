@@ -10,6 +10,7 @@ from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,
+    plot_simulation_output,
 )
 from vivarium.utils.make_network import save_network
 from vivarium.utils.units import units
@@ -379,7 +380,6 @@ def gene_network_plot(data, out_dir, filename='gene_network'):
     plt.figure(3, figsize=(12, 12))
     plt.axis('off')
     plt.savefig(fig_path, bbox_inches='tight')
-
     plt.close()
 
 def plot_gene_expression_output(timeseries, config, out_dir='out'):
@@ -458,8 +458,8 @@ def plot_gene_expression_output(timeseries, config, out_dir='out'):
 
 
 # test
-def run_gene_expression(out_dir):
-    timeseries = test_gene_expression()
+def run_gene_expression(total_time=10, out_dir='out'):
+    timeseries = test_gene_expression(total_time)
     plot_settings = {
         'name': 'gene_expression',
         'ports': {
@@ -468,7 +468,10 @@ def run_gene_expression(out_dir):
             'proteins': 'proteins'}}
     plot_gene_expression_output(timeseries, plot_settings, out_dir)
 
-def test_gene_expression():
+    sim_plot_settings = {'max_rows': 25}
+    plot_simulation_output(timeseries, sim_plot_settings, out_dir)
+
+def test_gene_expression(total_time=10):
     # load the compartment
     compartment_config = {
         'external_path': ('external',),
@@ -480,8 +483,11 @@ def test_gene_expression():
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 10,
+        'total_time': total_time,
         'initial_state': {
+            'proteins': {
+                mol_id: 100
+                for mol_id in [UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
             'molecules': {
                 aa: 1000
                 for aa in amino_acids.values()}}}
@@ -494,4 +500,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_gene_expression(out_dir)
+    run_gene_expression(600, out_dir)

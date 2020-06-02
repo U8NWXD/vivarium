@@ -384,6 +384,7 @@ class Translation(Process):
 
             'molecules': {
                 molecule: add_mass({
+                    '_emit': True,
                     '_default': 0}, molecular_weight, molecule)
                 for molecule in self.molecule_ids},
 
