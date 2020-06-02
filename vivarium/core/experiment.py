@@ -710,7 +710,7 @@ class Experiment(object):
         self.description = config.get('description','')
         self.processes = config['processes']
         self.topology = config['topology']
-        self.initial_state = config['initial_state']
+        self.initial_state = config.get('initial_state', {})
 
         self.state = generate_state(
             self.processes,
