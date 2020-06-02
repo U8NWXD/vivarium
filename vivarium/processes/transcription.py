@@ -331,7 +331,8 @@ class Transcription(Process):
             'molecules': self.molecule_ids,
             'factors': self.transcription_factors,
             'transcripts': self.transcript_ids,
-            'proteins': self.protein_ids}
+            'proteins': self.protein_ids,
+            'global': []}
 
         log.debug('transcription parameters: {}'.format(self.parameters))
 
@@ -448,6 +449,8 @@ class Transcription(Process):
                 '_emit': True}
             for protein in self.protein_ids}
 
+        schema['global'] = {}
+
         return schema
 
     def derivers(self):
@@ -457,7 +460,7 @@ class Transcription(Process):
                 'port_mapping': {
                     'global': 'global',
                     'counts': 'proteins',
-                    'concentrations': 'concentrations'},
+                    'concentrations': 'factors'},
                 'config': {
                     'concentration_keys': self.transcription_factors}}}
 
