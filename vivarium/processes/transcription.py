@@ -30,29 +30,30 @@ UNBOUND_RNAP_KEY = 'RNA Polymerase'
 monomer_ids = list(nucleotides.values())
 
 #: The default configuration parameters for :py:class:`Transcription`
-default_transcription_parameters = {
-    'promoter_affinities': {
-        ('pA', None): 1.0,
-        ('pA', 'tfA'): 10.0,
-        ('pB', None): 1.0,
-        ('pB', 'tfB'): 10.0},
-    'transcription_factors': ['tfA', 'tfB'],
-    'sequence': toy_chromosome_config['sequence'],
-    'templates': toy_chromosome_config['promoters'],
-    'genes': toy_chromosome_config['genes'],
-    'elongation_rate': 1.0,
-    'polymerase_occlusion': 5,
-    'symbol_to_monomer': nucleotides,
-    'monomer_ids': monomer_ids,
-    'initial_domains': {
-        0: {
-            'id': 0,
-            'lead': 0,
-            'lag': 0,
-            'children': []}},
-    'molecule_ids': monomer_ids}
-
 class Transcription(Process):
+    defaults = {
+        'promoter_affinities': {
+            ('pA', None): 1.0,
+            ('pA', 'tfA'): 10.0,
+            ('pB', None): 1.0,
+            ('pB', 'tfB'): 10.0},
+        'transcription_factors': ['tfA', 'tfB'],
+        'sequence': toy_chromosome_config['sequence'],
+        'templates': toy_chromosome_config['promoters'],
+        'genes': toy_chromosome_config['genes'],
+        'elongation_rate': 1.0,
+        'polymerase_occlusion': 5,
+        'symbol_to_monomer': nucleotides,
+        'monomer_ids': monomer_ids,
+        'concentrations_deriver_key': 'transcription_concentrations',
+        'initial_domains': {
+            0: {
+                'id': 0,
+                'lead': 0,
+                'lag': 0,
+                'children': []}},
+        'molecule_ids': monomer_ids}
+
     def __init__(self, initial_parameters={}):
         '''A stochastic transcription model
 
@@ -283,12 +284,12 @@ class Transcription(Process):
         '''
 
         log.debug('inital_parameters: {}'.format(initial_parameters))
+        self.default_parameters = self.defaults
 
-        self.default_parameters = default_transcription_parameters
         self.derive_defaults(initial_parameters, 'templates', 'promoter_order', keys_list)
         self.derive_defaults(initial_parameters, 'templates', 'transcript_ids', template_products)
 
-        self.parameters = copy.deepcopy(self.default_parameters)
+        self.parameters = copy.deepcopy(self.defaults)
         self.parameters.update(initial_parameters)
 
         self.sequence = self.parameters['sequence']
@@ -320,7 +321,10 @@ class Transcription(Process):
 
         self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
 
-        self.initial_domains = self.parameters.get('initial_domains', self.default_parameters['initial_domains'])
+        self.initial_domains = self.parameters.get('initial_domains', self.defaults['initial_domains'])
+
+        self.concentrations_deriver_key = self.or_default(
+            initial_parameters, 'concentrations_deriver_key')
 
         self.ports = {
             'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
@@ -423,7 +427,7 @@ class Transcription(Process):
 
         schema['molecules'] = {
             molecule: {
-                '_default': 100,
+                '_default': 0,
                 '_emit': True}
             for molecule in self.molecule_ids}
 
@@ -445,6 +449,17 @@ class Transcription(Process):
             for protein in self.protein_ids}
 
         return schema
+
+    def derivers(self):
+        return {
+            self.concentrations_deriver_key: {
+                'deriver': 'counts_to_mmol',
+                'port_mapping': {
+                    'global': 'global',
+                    'counts': 'proteins',
+                    'concentrations': 'concentrations'},
+                'config': {
+                    'concentration_keys': self.transcription_factors}}}
 
     def next_update(self, timestep, states):
         chromosome_state = states['chromosome']
@@ -589,9 +604,6 @@ class Transcription(Process):
 
         chromosome_dict = chromosome.to_dict()
         rnaps = chromosome_dict['rnaps']
-        # rnaps = {
-        #     rnap['id']: rnap
-        #     for rnap in chromosome_dict['rnaps']}
 
         completed_rnaps = original_rnap_keys - rnaps.keys()
         rnap_updates = {
@@ -618,12 +630,6 @@ class Transcription(Process):
         return update
 
 
-def unflatten_rnaps(chromosome):
-    chromosome['rnaps'] = {
-        rnap['id']: rnap
-        for rnap in chromosome['rnaps']}
-    return chromosome
-
 def test_transcription():
     parameters = {
         'elongation_rate': 10.0}
@@ -633,7 +639,7 @@ def test_transcription():
 
     experiment = process_in_experiment(transcription, {
         'initial_state': {
-            'chromosome': chromosome.to_dict(), # unflatten_rnaps(chromosome.to_dict()),
+            'chromosome': chromosome.to_dict(),
             'molecules': {
                 nucleotide: 10
                 for nucleotide in transcription.monomer_ids},

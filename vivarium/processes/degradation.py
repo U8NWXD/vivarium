@@ -83,13 +83,13 @@ class RnaDegradation(Process):
     def ports_schema(self):
         default_state = {
             'transcripts': {
-                transcript: 1e3
+                transcript: 0
                 for transcript in self.transcript_order},
             'proteins': {
-                protein: 1e0
+                protein: 0
                 for protein in self.protein_order},
             'molecules': {
-                nucleotide: 1e4
+                nucleotide: 0
                 for nucleotide in self.molecule_order}}
         emit_keys = {
             'transcripts': self.transcript_order,
@@ -169,9 +169,27 @@ def test_rna_degradation(end_time=100):
         'catalysis_rates': {
             'endoRNAse': 0.1}}
     rna_degradation = RnaDegradation(parameters)
+
+    proteins = {
+        protein: 10
+        for protein in self.protein_order}
+
+    molecules = {
+        molecule: 10
+        for molecule in self.molecule_order}
+
+    transcripts = {
+        molecule: 10
+        for transcript in self.transcript_order}
+
     settings = {
         'timestep': 1,
-        'total_time': end_time}
+        'total_time': end_time,
+        'initial_state': {
+            'molecules': molecules,
+            'proteins': proteins,
+            'transcripts': transcripts}}
+
     return simulate_process(rna_degradation, settings)
 
 

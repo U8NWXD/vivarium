@@ -480,19 +480,33 @@ def test_gene_expression(total_time=10):
         'agents_path': ('..', '..', 'cells',)}
     compartment = GeneExpression(compartment_config)
 
+    molecules = {
+        nt: 1000
+        for nt in nucleotides.values()}
+    molecules.update({
+        aa: 1000
+        for aa in amino_acids.values()})
+
+    proteins = {
+        polymerase: 100
+        for polymerase in [
+                UNBOUND_RNAP_KEY,
+                UNBOUND_RIBOSOME_KEY]}
+
+    proteins.update({
+        polymerase: 1000000
+        for polymerase in [
+                'tfA',
+                'tfB']})
+
     # simulate
     settings = {
         'timestep': 1,
         'total_time': total_time,
         'initial_state': {
-            'proteins': {
-                mol_id: 100
-                for mol_id in [UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
-            'molecules': {
-                aa: 1000
-                for aa in amino_acids.values()}}}
+            'proteins': proteins,
+            'molecules': molecules}}
     return simulate_compartment_in_experiment(compartment, settings)
-
 
 
 if __name__ == '__main__':

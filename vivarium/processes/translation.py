@@ -557,6 +557,8 @@ class Translation(Process):
             'molecules': molecules,
             'proteins': proteins}
 
+        import ipdb; ipdb.set_trace()
+
         return update
 
 

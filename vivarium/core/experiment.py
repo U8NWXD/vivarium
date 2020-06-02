@@ -712,6 +712,8 @@ class Experiment(object):
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
 
+        import ipdb; ipdb.set_trace()
+
         self.state = generate_state(
             self.processes,
             self.topology,
@@ -722,8 +724,6 @@ class Experiment(object):
         self.emitter = get_emitter(emitter_config)
 
         self.local_time = 0.0
-
-        import ipdb; ipdb.set_trace()
 
         # run the derivers
         self.send_updates([])
