@@ -351,7 +351,7 @@ class Translation(Process):
 
         def add_mass(schema, masses, key):
             if key in masses:
-                schema['_properties']['mass'] = masses[key]
+                schema['_properties']['mw'] = masses[key]
             return schema
 
         return {

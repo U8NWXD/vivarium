@@ -85,7 +85,7 @@ class Complexation(Process):
                     '_default': 0,
                     '_emit': True,
                     '_properties': {
-                        'mass': molecular_weight[
+                        'mw': molecular_weight[
                             monomer]} if monomer in molecular_weight else {}}
                 for monomer in self.monomer_ids},
             'complexes': {
@@ -93,7 +93,7 @@ class Complexation(Process):
                     '_default': 0,
                     '_emit': True,
                     '_properties': {
-                        'mass': molecular_weight[
+                        'mw': molecular_weight[
                             complex]} if complex in molecular_weight else {}}
                 for complex in self.complex_ids},
             'global': {}}
