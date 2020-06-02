@@ -102,7 +102,7 @@ class Translation(Process):
         'mass_deriver_key': 'mass_deriver',
         'concentrations_deriver_key': 'translation_concentrations'}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
         '''A stochastic translation model
 
         .. WARNING::
@@ -275,6 +275,10 @@ class Translation(Process):
         >>> print(update['ribosomes'])
         {1: <class 'vivarium.processes.translation.Ribosome'>: {'id': 1, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, 2: <class 'vivarium.processes.translation.Ribosome'>: {'id': 2, 'state': 'occluding', 'position': 9, 'template': ('oAZ', 'eZ'), 'template_index': 0, 'terminator': 0}, '_delete': []}
         '''
+
+        if not initial_parameters:
+            initial_parameters = {}
+
         self.monomer_symbols = list(amino_acids.keys())
         self.monomer_ids = list(amino_acids.values())
 
@@ -558,8 +562,6 @@ class Translation(Process):
             'ribosomes': ribosome_updates,
             'molecules': molecules,
             'proteins': proteins}
-
-        import ipdb; ipdb.set_trace()
 
         return update
 

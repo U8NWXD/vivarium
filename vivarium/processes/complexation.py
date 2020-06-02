@@ -43,7 +43,10 @@ class Complexation(Process):
         'rates': chromosome.complexation_rates,
         'mass_deriver_key': 'mass_deriver'}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
+
         self.default_parameters = copy.deepcopy(self.defaults)
         self.derive_defaults(initial_parameters, 'stoichiometry', 'reaction_ids', keys_list)
 

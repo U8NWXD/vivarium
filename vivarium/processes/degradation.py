@@ -48,7 +48,10 @@ class RnaDegradation(Process):
         'global_deriver_key': 'global_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
+
         self.default_parameters = self.defaults
 
         self.derive_defaults(initial_parameters, 'sequences', 'transcript_order', keys_list)
@@ -91,6 +94,7 @@ class RnaDegradation(Process):
             'molecules': {
                 nucleotide: 0
                 for nucleotide in self.molecule_order}}
+
         emit_keys = {
             'transcripts': self.transcript_order,
             'proteins': self.protein_order,
@@ -106,7 +110,9 @@ class RnaDegradation(Process):
             if port in emit_keys:
                 for state_id in emit_keys[port]:
                     schema[port][state_id]['_emit'] = True
-                    
+
+        schema['global'] = {}
+
         return schema
 
     def derivers(self):

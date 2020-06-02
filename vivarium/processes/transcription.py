@@ -4,6 +4,7 @@ Stochastic Transcription
 ========================
 '''
 
+import os
 import copy
 import numpy as np
 import logging as log
@@ -17,7 +18,7 @@ from vivarium.states.chromosome import Chromosome, Rnap, Promoter, frequencies, 
 from vivarium.utils.polymerize import Elongation, build_stoichiometry, template_products
 from vivarium.data.nucleotides import nucleotides
 
-# log.basicConfig(level=log.DEBUG)
+log.basicConfig(level=os.environ.get("LOGLEVEL", log.INFO))
 
 def choose_element(elements):
     if elements:
@@ -54,7 +55,7 @@ class Transcription(Process):
                 'children': []}},
         'molecule_ids': monomer_ids}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
         '''A stochastic transcription model
 
         .. WARNING:: Vivarium's knowledge base uses the gene name to
@@ -284,12 +285,15 @@ class Transcription(Process):
         '''
 
         log.debug('inital_parameters: {}'.format(initial_parameters))
-        self.default_parameters = self.defaults
 
+        if not initial_parameters:
+            initial_parameters = {}
+
+        self.default_parameters = copy.deepcopy(self.defaults)
         self.derive_defaults(initial_parameters, 'templates', 'promoter_order', keys_list)
         self.derive_defaults(initial_parameters, 'templates', 'transcript_ids', template_products)
 
-        self.parameters = copy.deepcopy(self.defaults)
+        self.parameters = copy.deepcopy(self.default_parameters)
         self.parameters.update(initial_parameters)
 
         self.sequence = self.parameters['sequence']

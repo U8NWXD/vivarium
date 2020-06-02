@@ -69,7 +69,8 @@ class GeneExpression(Compartment):
                 'molecules': ('molecules',),
                 'proteins': ('proteins',),
                 'transcripts': ('transcripts',),
-                'factors': ('concentrations',)},
+                'factors': ('concentrations',),
+                'global': global_path},
 
             'translation': {
                 'ribosomes': ('ribosomes',),
