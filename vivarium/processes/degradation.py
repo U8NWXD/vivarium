@@ -178,15 +178,15 @@ def test_rna_degradation(end_time=100):
 
     proteins = {
         protein: 10
-        for protein in self.protein_order}
+        for protein in rna_degradation.protein_order}
 
     molecules = {
         molecule: 10
-        for molecule in self.molecule_order}
+        for molecule in rna_degradation.molecule_order}
 
     transcripts = {
-        molecule: 10
-        for transcript in self.transcript_order}
+        transcript: 10
+        for transcript in rna_degradation.transcript_order}
 
     settings = {
         'timestep': 1,
