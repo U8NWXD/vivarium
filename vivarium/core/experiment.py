@@ -446,8 +446,8 @@ class Store(object):
                 mother = divide['mother']
                 daughters = divide['daughters']
                 initial_state = self.inner[mother].get_value(
-                    condition=lambda new_child: not(isinstance(child.value, Process)),
-                    f=lambda new_child: copy.deepcopy(child))
+                    condition=lambda child: not(isinstance(child.value, Process)),
+                    f=lambda child: copy.deepcopy(child))
                 states = self.inner[mother].divide_value()
 
                 for daughter, state in zip(daughters, states):
