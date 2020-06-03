@@ -11,6 +11,7 @@ import logging as log
 
 import pprint
 pretty=pprint.PrettyPrinter(indent=2)
+
 def pp(x):
     pretty.pprint(x)
 
@@ -32,6 +33,7 @@ VERBOSE = False
 
 log.basicConfig(level=os.environ.get("LOGLEVEL", log.WARNING))
 
+
 # Store
 def key_for_value(d, looking):
     found = None
@@ -41,6 +43,7 @@ def key_for_value(d, looking):
             break
     return found
 
+
 def get_in(d, path):
     if path:
         head = path[0]
@@ -49,11 +52,13 @@ def get_in(d, path):
     else:
         return d
 
+
 def assoc_in(d, path, value):
     if path:
         return dict(d, **{path[0]: assoc_in(d.get(path[0], {}), path[1:], value)})
     else:
         return value
+
 
 def assoc_path(d, path, value):
     if path:
@@ -67,6 +72,7 @@ def assoc_path(d, path, value):
     else:
         value
 
+
 def update_in(d, path, f):
     if path:
         head = path[0]
@@ -77,11 +83,13 @@ def update_in(d, path, f):
                 d[head] = {}
             update_in(d[head], path[1:], f)
 
+
 def dissoc(d, removing):
     return {
         key: value
         for key, value in d.items()
-        if not key in removing}
+        if key not in removing}
+
 
 def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
     return {
@@ -91,11 +99,14 @@ def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
             '_updater': updater}
         for key in keys}
 
+
 def always_true(x):
     return True
 
+
 def identity(y):
     return y
+
 
 class Store(object):
     schema_keys = set([
@@ -125,8 +136,13 @@ class Store(object):
 
     def check_default(self, new_default):
         if self.default is not None and new_default != self.default:
-            print('_default schema conflict: {} and {}. selecting {}'.format(
-                self.default, new_default, new_default))
+            if new_default == 0 and self.default != 0:
+                log.info('_default schema conflict: {} and {}. selecting {}'.format(
+                    self.default, new_default, self.default))
+                return self.default
+            else:
+                log.info('_default schema conflict: {} and {}. selecting {}'.format(
+                    self.default, new_default, new_default))
         return new_default
 
     def check_value(self, new_value):
@@ -185,7 +201,7 @@ class Store(object):
             self.value = None
 
             for key, child in config.items():
-                if not key in self.inner:
+                if key not in self.inner:
                     self.inner[key] = Store(child, outer=self, source=source)
                 else:
                     self.inner[key].apply_config(child, source=source)
@@ -291,10 +307,10 @@ class Store(object):
         return self.get_path(path).get_value()
 
     def get_template(self, template):
-        '''
+        """
         Pass in a template dict with None for each value you want to
         retrieve from the tree!
-        '''
+        """
 
         state = {}
         for key, value in template.items():
@@ -364,13 +380,13 @@ class Store(object):
 
     def reduce_to(self, path, reducer, initial=None):
         value = self.reduce(reducer, initial)
-        update = assoc_path({}, path, value)
+        assoc_path({}, path, value)
         self.apply_update(update)
 
     def set_value(self, value):
         if self.inner or self.subschema:
-            for child, child_value in value.items():
-                if not child in self.inner:
+            for child, inner_value in value.items():
+                if child not in self.inner:
                     if self.subschema:
                         self.inner[child] = Store(self.subschema, self)
                     else:
@@ -378,14 +394,17 @@ class Store(object):
 
                         # TODO: continue to ignore extra keys?
                         # print("setting value that doesn't exist in tree {} {}".format(
-                        #     child, child_value))
+                        #     child, inner_value))
 
                 if child in self.inner:
-                    self.inner[child].set_value(child_value)
+                    self.inner[child].set_value(inner_value)
         else:
             self.value = value
 
     def apply_defaults(self):
+        """
+        if value is None, set to default 
+        """
         if self.inner:
             for child in self.inner.values():
                 child.apply_defaults()
@@ -427,8 +446,8 @@ class Store(object):
                 mother = divide['mother']
                 daughters = divide['daughters']
                 initial_state = self.inner[mother].get_value(
-                    condition=lambda child: not(isinstance(child.value, Process)),
-                    f=lambda child: copy.deepcopy(child))
+                    condition=lambda new_child: not(isinstance(child.value, Process)),
+                    f=lambda new_child: copy.deepcopy(child))
                 states = self.inner[mother].divide_value()
 
                 for daughter, state in zip(daughters, states):
@@ -491,11 +510,17 @@ class Store(object):
             # else:
             self.value = updater(self.value, update)
 
-    def child_value(self, key):
+    def inner_value(self, key):
+        """
+        get the value of an inner state
+        """
         if key in self.inner:
             return self.inner[key].get_value()
 
     def state_for(self, path, keys):
+        """
+        get the value of a state at a given path
+        """
         state = self.get_path(path)
         if state is None:
             return {}
@@ -503,7 +528,7 @@ class Store(object):
             return state.get_value()
         else:
             return {
-                key: state.child_value(key)
+                key: state.inner_value(key)
                 for key in keys}
 
     def depth(self, path=()):
@@ -534,7 +559,7 @@ class Store(object):
                     source=source)
 
             else:
-                if not path_step in self.inner:
+                if path_step not in self.inner:
                     self.inner[path_step] = Store({}, outer=self, source=source)
                 return self.inner[path_step].establish_path(
                     remaining, config,
@@ -603,7 +628,7 @@ class Store(object):
                                             initial, dict) else None,
                                     source=source)
             else:
-                if not key in self.inner:
+                if key not in self.inner:
                     self.inner[key] = Store({}, outer=self)
                 substate = initial_state.get(key, {})
                 self.inner[key].generate_paths(
@@ -616,6 +641,7 @@ class Store(object):
         target.generate_paths(processes, topology, initial_state)
         target.set_value(initial_state)
         target.apply_defaults()
+
 
 # Compartment
 def generate_derivers(processes, topology):
@@ -647,6 +673,7 @@ def generate_derivers(processes, topology):
     return {
         'processes': deriver_processes,
         'topology': deriver_topology}
+
 
 class Compartment(object):
     def __init__(self, config):
@@ -681,15 +708,14 @@ class Compartment(object):
             for process_id, process in processes.items()}
 
 
-
 # Experiment
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
     state.set_value(initial_state)
     state.apply_defaults()
-
     return state
+
 
 def normalize_path(path):
     progress = []
@@ -700,19 +726,20 @@ def normalize_path(path):
             progress.append(step)
     return progress
 
+
 def timestamp(dt=None):
     if not dt:
         dt = datetime.datetime.now()
-
     return "%04d%02d%02d.%02d%02d%02d" % (
         dt.year, dt.month, dt.day,
         dt.hour, dt.minute, dt.second)
+
 
 class Experiment(object):
     def __init__(self, config):
         self.config = config
         self.experiment_id = config.get('experiment_id', uuid.uuid1())
-        self.description = config.get('description','')
+        self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
@@ -818,7 +845,7 @@ class Experiment(object):
         self.run_derivers(derivers)
 
     def update(self, timestep):
-        ''' Run each process for the given time step and update the related states. '''
+        """ Run each process for the given time step and update the related states. """
 
         time = 0
 
@@ -994,6 +1021,7 @@ def test_in():
     print(get_in(blank, path))
     update_in(blank, path, lambda x: x + 6)
     print(blank)
+
 
 def test_timescales():
     class Slow(Process):
