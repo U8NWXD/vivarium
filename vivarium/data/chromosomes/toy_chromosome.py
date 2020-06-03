@@ -1,4 +1,4 @@
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 toy_chromosome_config = {
     'sequence': 'ATACGGCACGTGACCGTCAACTTA',
