@@ -60,7 +60,7 @@ def make_chemotaxis_experiment(config={}):
 # configurations
 def get_chemotaxis_experiment_config():
 
-    n_agents = 3
+    n_agents = 1
     bounds = [20, 20]
     n_bins = [10, 10]
 

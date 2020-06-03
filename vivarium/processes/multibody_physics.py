@@ -57,13 +57,6 @@ HUES = [hue/360 for hue in np.linspace(0,360,30)]
 DEFAULT_HUE = HUES[0]
 DEFAULT_SV = [100.0/100.0, 70.0/100.0]
 
-# agent port keys
-AGENT_KEYS = ['location', 'angle', 'volume', 'length', 'width', 'mass', 'forces']
-NON_AGENT_KEYS = ['fields', 'time', 'global']
-
-
-
-
 
 def random_body_position(body):
     # pick a random point along the boundary
@@ -86,6 +79,7 @@ def random_body_position(body):
             location = (width, random.uniform(0, length))
     return location
 
+
 def daughter_locations(parent_location, parent_values):
     parent_length = parent_values['length']
     parent_angle = parent_values['angle']
@@ -96,7 +90,6 @@ def daughter_locations(parent_location, parent_values):
         dy = parent_length * pos_ratios[daughter] * math.sin(parent_angle)
         location = [parent_location[0] + dx, parent_location[1] + dy]
         daughter_locations.append(location)
-
     return daughter_locations
 
 
@@ -218,9 +211,17 @@ class Multibody(Process):
                         '_units': units.fg,
                         '_default': 1 * units.fg,
                         '_updater': 'set'},
-                    'motile_force': {
-                        '_default': [0.0, 0.0],
-                        '_updater': 'set'}}}}
+                },
+                'boundary': {
+                    'thrust': {
+                        '_default': 0.0,
+                        '_updater': 'set'},
+                    'torque': {
+                        '_default': 0.0,
+                        '_updater': 'set'},
+                }
+            }
+        }
 
         initial_agents_schema = {
             agent_id: {
@@ -257,9 +258,9 @@ class Multibody(Process):
         # update agents, add new agents
         for agent_id, specs in agents.items():
             if agent_id in self.agent_bodies:
-                self.update_body(agent_id, specs['global'])
+                self.update_body(agent_id, specs)
             else:
-                self.add_body_from_center(agent_id, specs['global'])
+                self.add_body_from_center(agent_id, specs)
 
         # run simulation
         self.run(timestep)
@@ -296,9 +297,12 @@ class Multibody(Process):
 
         # motile forces
         motile_location = (width / 2, 0)  # apply force at back end of body
-        motile_force = [0.0, 0.0]
-        if hasattr(body, 'motile_force'):
-            thrust, torque = body.motile_force
+        thrust = 0.0
+        torque = 0.0
+
+        if hasattr(body, 'thrust'):
+            thrust = body.thrust
+            torque = body.torque
             motile_force = [thrust, 0.0]
 
             # add directly to angular velocity
@@ -399,10 +403,14 @@ class Multibody(Process):
         self.agent_bodies[body_id] = (body, shape)
 
     def update_body(self, body_id, specs):
-        length = specs['length'] * self.pygame_scale
-        width = specs['width'] * self.pygame_scale
-        mass = specs['mass'].magnitude
-        motile_force = specs.get('motile_force', [0, 0])
+        global_specs = specs['global']
+        boundary_specs = specs['boundary']
+
+        length = global_specs['length'] * self.pygame_scale
+        width = global_specs['width'] * self.pygame_scale
+        mass = global_specs['mass'].magnitude
+        thrust = boundary_specs['thrust']
+        torque = boundary_specs['torque']
 
         body, shape = self.agent_bodies[body_id]
         position = body.position
@@ -425,7 +433,8 @@ class Multibody(Process):
         new_body.angle = angle
         new_body.angular_velocity = body.angular_velocity
         new_body.dimensions = (width, length)
-        new_body.motile_force = motile_force
+        new_body.thrust = thrust
+        new_body.torque = torque
 
         new_shape.elasticity = shape.elasticity
         new_shape.friction = shape.friction
@@ -613,8 +622,11 @@ def simulate_motility(config, settings):
     experiment = process_in_experiment(multibody)
     experiment.state.update_subschema(
         ('agents',), {
-            'global': {
-                'motile_force': {
+            'boundary': {
+                'thrust': {
+                    '_emit': True,
+                    '_updater': 'set'},
+                'torque': {
                     '_emit': True,
                     '_updater': 'set'}}})
     experiment.state.apply_subschemas()
@@ -623,16 +635,18 @@ def simulate_motility(config, settings):
     experiment.state.set_value({'agents': initial_agents_state})
     agents_store = experiment.state.get_path(['agents'])
 
-    # initialize hidden agent motile states, and update agent motile_forces in agent store
+    # initialize hidden agent motile states, and update agent motile forces in agent store
     agent_motile_states = {}
     motile_forces = {}
     for agent_id, specs in agents_store.get_value().items():
-        motile_force = run()
+        [thrust, torque] = run()
         agent_motile_states[agent_id] = {
             'motor_state': 1,  # 0 for run, 1 for tumble
             'time_in_motor_state': 0}
         motile_forces[agent_id] = {
-            'global': {'motile_force': motile_force}}
+            'boundary': {
+                'thrust': thrust,
+                'torque': torque}}
     experiment.send_updates([{'agents': motile_forces}])
 
     ## run simulation
@@ -650,21 +664,21 @@ def simulate_motility(config, settings):
 
             if motor_state == 1:  # tumble
                 if time_in_motor_state < tumble_time:
-                    motile_force = run()
+                    [thrust, torque] = tumble()
                     time_in_motor_state += timestep
                 else:
                     # switch
-                    motile_force = run()
+                    [thrust, torque] = run()
                     motor_state = 0
                     time_in_motor_state = 0
 
             elif motor_state == 0:  # run
                 if time_in_motor_state < run_time:
-                    motile_force = tumble()
+                    [thrust, torque] = run()
                     time_in_motor_state += timestep
                 else:
                     # switch
-                    motile_force = tumble()
+                    [thrust, torque] = tumble()
                     motor_state = 1
                     time_in_motor_state = 0
 
@@ -672,7 +686,9 @@ def simulate_motility(config, settings):
                 'motor_state': motor_state,  # 0 for run, 1 for tumble
                 'time_in_motor_state': time_in_motor_state}
             motile_forces[agent_id] = {
-                'global': {'motile_force': motile_force}}
+                'boundary': {
+                    'thrust': thrust,
+                    'torque': torque}}
 
         experiment.send_updates([{'agents': motile_forces}])
 
@@ -688,7 +704,7 @@ def run_motility(out_dir):
         'timestep': 0.05,
         'total_time': 2}
     motility_config = {
-        'animate': True,
+        'animate': False,
         'jitter_force': 0,
         'bounds': bounds}
     body_config = {
@@ -699,6 +715,8 @@ def run_motility(out_dir):
     # run motility sim
     motility_data = simulate_motility(motility_config, motility_sim_settings)
     motility_timeseries = timeseries_from_data(motility_data)
+
+    import ipdb; ipdb.set_trace()
 
     # make motility plot
     plot_motility(motility_timeseries, out_dir)
@@ -1046,8 +1064,9 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         # go through each time point for this agent
         for time, time_data in zip(times, agent_data):
             angle = time_data['global']['angle']
-            thrust, torque = time_data['global']['motile_force']
             location = time_data['global']['location']
+            thrust = time_data['boundary']['thrust']
+            torque = time_data['boundary']['torque']
 
             # get speed since last time
             if time != times[0]:
@@ -1069,6 +1088,8 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
             # save previous location and time
             previous_location = location
             previous_time = time
+
+    import ipdb; ipdb.set_trace()
 
     # plot results
     cols = 1
