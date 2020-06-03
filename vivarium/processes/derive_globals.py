@@ -6,9 +6,9 @@ import math
 from scipy import constants
 import numpy as np
 
-from vivarium.compartment.process import Process
-from vivarium.utils.units import units
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.core.process import Deriver
+from vivarium.library.units import units
+from vivarium.library.dict_utils import deep_merge
 
 
 PI = math.pi
@@ -49,27 +49,20 @@ def surface_area_from_length(length, width):
 
 
 
-class DeriveGlobals(Process):
+class DeriveGlobals(Deriver):
     """
     Process for deriving volume, mmol_to_counts, and shape from the cell mass
     """
 
     defaults = {
         'width': 1,  # um
+        'initial_mass': 1339 * units.fg,  # wet mass in fg
     }
 
     def __init__(self, initial_parameters={}):
 
         self.width = initial_parameters.get('width', self.defaults['width'])
-        source_ports = initial_parameters.get('source_ports')
-        target_ports = initial_parameters.get('target_ports')
-
-        if source_ports:
-            assert len(source_ports) == 1, 'DeriveGlobals too many source ports'
-            assert list(source_ports.keys())[0] == 'global', 'DeriveGlobals requires source port named global'
-        if target_ports:
-            assert len(target_ports) == 1, 'DeriveGlobals too many target ports'
-            assert list(target_ports.keys())[0] == 'global', 'DeriveGlobals requires target port named global'
+        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
 
         ports = {
             'global': [
@@ -86,69 +79,60 @@ class DeriveGlobals(Process):
 
         super(DeriveGlobals, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']
+        split_divide = ['volume', 'length', 'surface_area']
+        emit = {'global': ['volume', 'width', 'length', 'surface_area']}
+
         # default state
-        mass = 1339 * units.fg  # wet mass in fg
+        mass = self.initial_mass
         density = 1100 * units.g / units.L
         volume = mass/density
         mmol_to_counts = (AVOGADRO * volume).to('L/mmol')
         length = length_from_volume(volume.magnitude, self.width)
         surface_area = surface_area_from_length(length, self.width)
 
-        global_state = {
-            'mass': mass.magnitude,
-            'volume': volume.to('fL').magnitude,
-            'mmol_to_counts': mmol_to_counts.magnitude,
-            'density': density.magnitude,
-            'width': self.width,
-            'length': length,
-            'surface_area': surface_area,
-        }
-
         default_state = {
-            'global': global_state}
-
-        # default emitter keys
-        default_emitter_keys = {
-            'global': ['volume', 'width', 'length', 'surface_area']}
-
-        # schema
-        set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']
-        set_divide = ['density']
-        schema = {
             'global': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in set_states}}
-        divide_schema = {
-            'global': {
-                state_id : {
-                    'divide': 'set'}
-                for state_id in set_divide}}
-        schema = deep_merge(schema, divide_schema)
+                'mass': mass,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
+                'density': density,
+                'width': self.width,
+                'length': length,
+                'surface_area': surface_area}}
 
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
+        schema = {}
+        for port, states in default_state.items():
+            schema[port] = {}
+            for state_id, value in states.items():
+                schema[port][state_id] = {}
+                if state_id in set_states:
+                    schema[port][state_id]['_updater'] = 'set'
+                if state_id in emit[port]:
+                    schema[port][state_id]['_emit'] = True
+                if state_id in split_divide:
+                    schema[port][state_id]['_divider'] = 'split'
+                if state_id in default_state[port]:
+                    schema[port][state_id]['_default'] = default_state[port][state_id]
 
-        return default_settings
+        return schema
 
     def next_update(self, timestep, states):
-        # states
-        density = states['global']['density'] * units.g / units.L
-        mass = states['global']['mass'] * units.fg
+        density = states['global']['density']
+        mass = states['global']['mass']
+        width = states['global']['width']
 
         # get volume from mass, and more variables from volume
         volume = mass / density
         mmol_to_counts = (AVOGADRO * volume).to('L/mmol')
-        length = length_from_volume(volume.magnitude, self.width)
-        surface_area = surface_area_from_length(length, self.width)
+        length = length_from_volume(volume.magnitude, width)
+        surface_area = surface_area_from_length(length, width)
 
         return {
             'global': {
-                'volume': volume.to('fL').magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
                 'length': length,
                 'surface_area': surface_area}}
 
@@ -160,10 +144,7 @@ def test_deriver(total_time=10):
 
     # configure process
     deriver = DeriveGlobals({})
-
-    # get initial state and parameters
-    settings = deriver.default_settings()
-    state = settings['state']
+    state = deriver.default_state()
 
     # initialize saved data
     saved_state = {}

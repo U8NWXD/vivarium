@@ -5,7 +5,8 @@ import numpy as np
 from arrow import StochasticSystem
 
 from vivarium.data.molecular_weight import molecular_weight
-from vivarium.compartment.process import Process, keys_list
+from vivarium.library.dict_utils import keys_list
+from vivarium.core.process import Process
 from vivarium.data.chromosomes.flagella_chromosome import FlagellaChromosome
 
 chromosome = FlagellaChromosome()
@@ -39,9 +40,13 @@ class Complexation(Process):
         'monomer_ids': chromosome.complexation_monomer_ids,
         'complex_ids': chromosome.complexation_complex_ids,
         'stoichiometry': chromosome.complexation_stoichiometry,
-        'rates': chromosome.complexation_rates}
+        'rates': chromosome.complexation_rates,
+        'mass_deriver_key': 'mass_deriver'}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
+
         self.default_parameters = copy.deepcopy(self.defaults)
         self.derive_defaults(initial_parameters, 'stoichiometry', 'reaction_ids', keys_list)
 
@@ -64,56 +69,44 @@ class Complexation(Process):
 
         self.complexation = StochasticSystem(self.complexation_stoichiometry)
 
+        self.mass_deriver_key = self.or_default(initial_parameters, 'mass_deriver_key')
+
         ports = {
             'monomers': self.monomer_ids,
             'complexes': self.complex_ids,
             'global': []}
 
-        super(Complexation, self).__init__(ports)
+        parameters = {}
+        parameters.update(initial_parameters)
 
-    def default_settings(self):
-        default_state = {
-            'monomers': {monomer_id: 0 for monomer_id in self.monomer_ids},
-            'complexes': {complex_id: 0 for complex_id in self.complex_ids}}
+        super(Complexation, self).__init__(ports, parameters)
 
-        default_emitter_keys = {
-            'monomers': self.monomer_ids,
-            'complexes': self.complex_ids}
-
-        # get mass schema
-        monomers_with_mass = [
-            mol_id for mol_id in self.ports['monomers']
-            if mol_id in molecular_weight]
-        complexes_with_mass = [
-            mol_id for mol_id in self.ports['complexes']
-            if mol_id in molecular_weight]
-        schema = {
-            'monomers': {mol_id: {
-                'mass': molecular_weight.get(mol_id)}
-                for mol_id in monomers_with_mass},
-            'complexes': {mol_id: {
-                'mass': molecular_weight.get(mol_id)}
-                for mol_id in complexes_with_mass}}
-
-        # deriver_settings
-        deriver_setting = [
-            {
-            'type': 'mass',
-            'source_port': 'monomers',
-            'derived_port': 'global',
-            'keys': monomers_with_mass},
-            {
-            'type': 'mass',
-            'source_port': 'complexes',
-            'derived_port': 'global',
-            'keys': complexes_with_mass}]
-
+    def ports_schema(self):
         return {
-            'state': default_state,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
-            'emitter_keys': default_emitter_keys,
-            'parameters': self.parameters}
+            'monomers': {
+                monomer: {
+                    '_default': 0,
+                    '_emit': True,
+                    '_properties': {
+                        'mw': molecular_weight[
+                            monomer]} if monomer in molecular_weight else {}}
+                for monomer in self.monomer_ids},
+            'complexes': {
+                complex: {
+                    '_default': 0,
+                    '_emit': True,
+                    '_properties': {
+                        'mw': molecular_weight[
+                            complex]} if complex in molecular_weight else {}}
+                for complex in self.complex_ids},
+            'global': {}}
+
+    def derivers(self):
+        return {
+            self.mass_deriver_key: {
+                'deriver': 'mass',
+                'port_mapping': {
+                    'global': 'global'}}}
 
     def next_update(self, timestep, states):
         monomers = states['monomers']
@@ -149,10 +142,13 @@ class Complexation(Process):
 
 def test_complexation():
     complexation = Complexation()
-    settings = complexation.default_settings()
-    state = settings['state']
-    for monomer in complexation.monomer_ids:
-        state['monomers'][monomer] = 1000
+    state = {
+        'monomers': {
+            monomer: 1000
+            for monomer in complexation.monomer_ids},
+        'complexes': {
+            complex: 0
+            for complex in complexation.complex_ids}}
 
     update = complexation.next_update(1.0, state)
     print('initial state: {}'.format(state))

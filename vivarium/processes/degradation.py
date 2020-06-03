@@ -3,13 +3,18 @@ from __future__ import absolute_import, division, print_function
 import os
 import copy
 
-from vivarium.compartment.process import Process, keys_list
-from vivarium.compartment.composition import (
+from vivarium.library.dict_utils import keys_list
+from vivarium.core.process import Process
+from vivarium.core.composition import (
     simulate_process,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 from vivarium.data.nucleotides import nucleotides
-from vivarium.utils.units import units
+from vivarium.library.units import units
+
+
+NAME = 'degradation'
 
 def all_subkeys(d):
     subkeys = set([])
@@ -22,27 +27,32 @@ def kinetics(E, S, kcat, km):
 
 DEFAULT_TRANSCRIPT_DEGRADATION_KM = 1e-23
 
-default_degradation_parameters = {
-    'sequences': {
-        'oA': 'GCC',
-        'oAZ': 'GCCGUGCAC',
-        'oB': 'AGUUGA',
-        'oBY': 'AGUUGACGG'},
-
-    'catalysis_rates': {
-        'endoRNAse': 0.1},
-
-    'degradation_rates': {
-        'transcripts': {
-            'endoRNAse': {
-                'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM}}}}
-
 class RnaDegradation(Process):
-    def __init__(self, initial_parameters={}):
-        self.default_parameters = default_degradation_parameters
+    defaults = {
+        'sequences': {
+            'oA': 'GCC',
+            'oAZ': 'GCCGUGCAC',
+            'oB': 'AGUUGA',
+            'oBY': 'AGUUGACGG'},
+
+        'catalysis_rates': {
+            'endoRNAse': 0.1},
+
+        'degradation_rates': {
+            'transcripts': {
+                'endoRNAse': {
+                    'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM}}},
+        'global_deriver_key': 'global_deriver',
+    }
+
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
+
+        self.default_parameters = self.defaults
 
         self.derive_defaults(initial_parameters, 'sequences', 'transcript_order', keys_list)
         self.derive_defaults(initial_parameters, 'catalysis_rates', 'protein_order', keys_list)
@@ -61,6 +71,9 @@ class RnaDegradation(Process):
             transcript: 0
             for transcript in self.transcript_order}
 
+        self.global_deriver_key = self.or_default(
+            initial_parameters, 'global_deriver_key')
+
         self.ports = {
             'transcripts': self.transcript_order,
             'proteins': self.protein_order,
@@ -69,42 +82,53 @@ class RnaDegradation(Process):
 
         super(RnaDegradation, self).__init__(self.ports, self.parameters)
 
-    def default_settings(self):
+
+    def ports_schema(self):
         default_state = {
             'transcripts': {
-                transcript: 1e3
+                transcript: 0
                 for transcript in self.transcript_order},
             'proteins': {
-                protein: 1e0
+                protein: 0
                 for protein in self.protein_order},
             'molecules': {
-                nucleotide: 1e4
+                nucleotide: 0
                 for nucleotide in self.molecule_order}}
 
-        default_emitter_keys = {
+        emit_keys = {
             'transcripts': self.transcript_order,
             'proteins': self.protein_order,
             'molecules': self.molecule_order,
             'global': []}
 
-        # derivers
-        deriver_setting = [{
-            'type': 'globals',
-            'source_port': 'global',
-            'derived_port': 'global',
-            'keys': []}]
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_keys:
+                for state_id in emit_keys[port]:
+                    schema[port][state_id]['_emit'] = True
 
+        schema['global'] = {}
+
+        return schema
+
+    def derivers(self):
         return {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'deriver_setting': deriver_setting,
-            'parameters': self.parameters}
+            self.global_deriver_key: {
+                'deriver': 'globals',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {
+                    'width': 1.11}}}
 
     def next_update(self, timestep, states):
         transcripts = states['transcripts']
         proteins = states['proteins']
         molecules = states['molecules']
-        mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
+        mmol_to_counts = states['global']['mmol_to_counts']
 
         delta_transcripts = {
             transcript: 0
@@ -147,16 +171,36 @@ class RnaDegradation(Process):
 
 
 def test_rna_degradation(end_time=100):
-    rna_degradation = RnaDegradation({})
+    parameters = {
+        'catalysis_rates': {
+            'endoRNAse': 0.1}}
+    rna_degradation = RnaDegradation(parameters)
+
+    proteins = {
+        protein: 10
+        for protein in rna_degradation.protein_order}
+
+    molecules = {
+        molecule: 10
+        for molecule in rna_degradation.molecule_order}
+
+    transcripts = {
+        transcript: 10
+        for transcript in rna_degradation.transcript_order}
+
     settings = {
         'timestep': 1,
         'total_time': end_time,
-    }
+        'initial_state': {
+            'molecules': molecules,
+            'proteins': proteins,
+            'transcripts': transcripts}}
+
     return simulate_process(rna_degradation, settings)
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'degradation')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

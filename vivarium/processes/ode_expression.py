@@ -9,17 +9,19 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 
-from vivarium.compartment.process import Process
-from vivarium.utils.dict_utils import deep_merge, tuplify_port_dicts
-from vivarium.compartment.composition import (
-    process_in_compartment,
-    simulate_with_environment,
-    plot_simulation_output
+from vivarium.core.process import Process
+from vivarium.library.dict_utils import deep_merge, tuplify_port_dicts
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
-from vivarium.utils.regulation_logic import build_rule
-from vivarium.utils.units import units
+from vivarium.library.regulation_logic import build_rule
+from vivarium.library.units import units
 from vivarium.processes.derive_globals import AVOGADRO
 
+
+NAME = 'ode_expression'
 
 class ODE_expression(Process):
 
@@ -31,6 +33,7 @@ class ODE_expression(Process):
         'regulation': {},
         'regulators': [],
         'initial_state': {},
+        'counts_deriver_key': 'expression_counts',
     }
 
     def __init__(self, initial_parameters={}):
@@ -158,7 +161,7 @@ class ODE_expression(Process):
         ...     },
         ... }
         >>> expression_process = ODE_expression(config)
-        >>> state = expression_process.default_settings()['state']
+        >>> state = expression_process.default_state()
         >>> state == initial_state
         True
         >>> # When external glc__D_e present, no transcription
@@ -204,51 +207,49 @@ class ODE_expression(Process):
         internal = list(self.initial_state.get('internal', {}).keys())
         external = list(self.initial_state.get('external', {}).keys())
 
+        self.counts_deriver_key = self.or_default(
+            initial_parameters, 'counts_deriver_key')
+
+        self.concentration_keys = internal + internal_regulators
         ports = {
-            'internal': internal + internal_regulators,
+            'internal': self.concentration_keys,
             'external': external + external_regulators,
-            'counts': []}
+            'counts': self.concentration_keys,
+            'global': ['volume']}
 
         parameters = {}
         parameters.update(initial_parameters)
 
         super(ODE_expression, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        set_mmol = {'internal': self.ports['internal']}
+        emit_port = ['internal', 'external', 'counts']
 
-        # default state
-        default_state = self.initial_state
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            # if port in set_mmol:
+            #     for state_id in set_mmol[port]:
+            #         schema[port][state_id]['_units'] = units.mmol
+            if port in self.initial_state:
+                for state_id, value in self.initial_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_port:
+                for state_id in self.ports[port]:
+                    schema[port][state_id]['_emit'] = True
+        return schema
 
-        # schema
-        # don't include if it uses the default
-        schema = {
-            'internal': {
-                state : {
-                    'divide': 'set',
-                    'units': 'mmol',
-                    'updater': 'accumulate'}
-                for state in self.ports['internal']}}
-
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': self.ports['internal'],
-            'external': self.ports['external'],
-            'counts': self.ports['internal']}
-
-        # derivers
-        deriver_setting = [{
-            'type': 'mmol_to_counts',
-            'source_port': 'internal',
-            'derived_port': 'counts',
-            'keys': self.ports['internal']}]
-
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting}
-
-        return default_settings
+    def derivers(self):
+        return {
+            self.counts_deriver_key: {
+                'deriver': 'mmol_to_counts',
+                'port_mapping': {
+                    'global': 'global',
+                    'concentrations': 'internal',
+                    'counts': 'counts'},
+                'config': {
+                    'concentration_keys': self.concentration_keys}}}
 
     def next_update(self, timestep, states):
         internal_state = states['internal']
@@ -316,7 +317,9 @@ def get_lacy_config():
     initial_state = {
         'internal': {
             'lacy_RNA': 0.0,
-            'LacY': 0.0}}
+            'LacY': 0.0},
+        'external': {
+            'glc__D_e': 8.0}}
 
     return {
         'transcription_rates': transcription_rates,
@@ -373,24 +376,13 @@ def get_flagella_expression():
 
 
 def test_expression(config=get_lacy_config(), timeline=[(100, {})]):
-
-    # load process
     expression = ODE_expression(config)
-    compartment = process_in_compartment(expression)
-    options = compartment.configuration
-
-    # simulate
-    settings = {
-        'environment_port': options.get('environment_port'),
-        'exchange_port': options.get('exchange_port'),
-        'environment_volume': 1e-13,  # L
-        'timeline': timeline}
-
-    return simulate_with_environment(compartment, settings)
+    settings = {'timeline': timeline}
+    return simulate_process_in_experiment(expression, settings)
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'ode_expression_process')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -399,25 +391,18 @@ if __name__ == '__main__':
     parser.add_argument('--flagella', '-f', action='store_true', default=False)
     args = parser.parse_args()
 
-    if args.lacY:
+    if args.flagella:
+        timeline = [(100, {})]
+        timeseries = test_expression(get_flagella_expression(), timeline) # 2520 sec (42 min) is the expected doubling time in minimal media
+        plot_simulation_output(timeseries, {}, out_dir, 'flagella_expression')
+    else:
         total_time = 5000
         shift_time1 = int(total_time / 5)
         shift_time2 = int(3 * total_time / 5)
         timeline = [
-            (0, {'external': {'glc__D_e': 10}}),
-            (shift_time1, {'external': {'glc__D_e': 0}}),
-            (shift_time2, {'external': {'glc__D_e': 10}}),
+            (0, {('external', 'glc__D_e'): 10}),
+            (shift_time1, {('external', 'glc__D_e'): 0}),
+            (shift_time2, {('external', 'glc__D_e'): 10}),
             (total_time, {})]
-
         timeseries = test_expression(get_lacy_config(), timeline) # 2520 sec (42 min) is the expected doubling time in minimal media
         plot_simulation_output(timeseries, {}, out_dir, 'lacY_expression')
-
-    elif args.flagella:
-        timeline = [(100, {})]
-        timeseries = test_expression(get_flagella_expression(), timeline) # 2520 sec (42 min) is the expected doubling time in minimal media
-        plot_simulation_output(timeseries, {}, out_dir, 'flagella_expression')
-
-    else:
-        timeline = [(100, {})]
-        timeseries = test_expression(get_lacy_config(), timeline) # 2520 sec (42 min) is the expected doubling time in minimal media
-        plot_simulation_output(timeseries, {}, out_dir)

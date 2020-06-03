@@ -1,3 +1,5 @@
+from vivarium.library.units import units
+
 toy_chromosome_config = {
     'sequence': 'ATACGGCACGTGACCGTCAACTTA',
     'genes': {
@@ -14,7 +16,7 @@ toy_chromosome_config = {
             'sites': [{
                 'position': 0,
                 'length': 3,
-                'thresholds': {'tfA': 0.3}}],
+                'thresholds': {'tfA': 0.3 * units.mM}}],
             'terminators': [
                 {
                     'position': 6,
@@ -31,7 +33,7 @@ toy_chromosome_config = {
             'sites': [{
                 'position': 0,
                 'length': 3,
-                'thresholds': {'tfB': 0.5}}],
+                'thresholds': {'tfB': 0.5 * units.mM}}],
             'terminators': [
                 {
                     'position': -9,
@@ -47,4 +49,4 @@ toy_chromosome_config = {
             'lead': 0,
             'lag': 0,
             'children': []}},
-    'rnaps': []}
+    'rnaps': {}}

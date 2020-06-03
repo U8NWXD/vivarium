@@ -3,15 +3,17 @@ from __future__ import absolute_import, division, print_function
 import os
 import random
 
-from vivarium.compartment.process import Process
-from vivarium.utils.dict_utils import tuplify_port_dicts
-from vivarium.utils.regulation_logic import build_rule
-from vivarium.compartment.composition import (
-    process_in_compartment,
-    simulate_with_environment,
-    plot_simulation_output
+from vivarium.core.process import Process
+from vivarium.library.dict_utils import tuplify_port_dicts
+from vivarium.library.regulation_logic import build_rule
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
+
+NAME = 'minimal_expression'
 
 
 class MinimalExpression(Process):
@@ -26,6 +28,7 @@ class MinimalExpression(Process):
     defaults = {
         'step_size': 1,
         'regulation': {},
+        'concentrations_deriver_key': 'expression_concentrations_deriver',
     }
 
     def __init__(self, initial_parameters={}):
@@ -39,10 +42,13 @@ class MinimalExpression(Process):
         internal_regulators = [state_id for port_id, state_id in regulators if port_id == 'internal']
         external_regulators = [state_id for port_id, state_id in regulators if port_id == 'external']
 
+        self.concentration_keys = self.internal_states + internal_regulators
+
         ports = {
             'internal': self.internal_states + internal_regulators,
             'external': external_regulators,
-            'concentrations': []}
+            'concentrations': [],
+            'global': []}
 
         parameters = {
             'expression_rates': expression_rates,
@@ -50,31 +56,32 @@ class MinimalExpression(Process):
 
         parameters.update(initial_parameters)
 
+        self.concentrations_deriver_key = self.or_default(initial_parameters, 'concentrations_deriver_key')
 
         super(MinimalExpression, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        return {
+            'global': {},
+            'concentrations': {},
+            'external': {},
+            'internal': {
+                state : {
+                    '_updater': 'accumulate',
+                    '_default': 0.0,
+                    '_emit': True}
+                for state in self.ports['internal']}}
 
-        # default state
-        # TODO -- load in initial state, or have compartment set to 0
-        internal = {state_id: 0 for state_id in self.internal_states}
-        default_state = {'internal': internal}
-
-        # default emitter keys
-        default_emitter_keys = {'internal': self.internal_states}
-
-        deriver_setting = [{
-            'type': 'counts_to_mmol',
-            'source_port': 'internal',
-            'derived_port': 'concentrations',
-            'keys': self.internal_states}]
-
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'deriver_setting': deriver_setting}
-
-        return default_settings
+    def derivers(self):
+        return {
+            self.concentrations_deriver_key: {
+                'deriver': 'counts_to_mmol',
+                'port_mapping': {
+                    'global': 'global',
+                    'counts': 'internal',
+                    'concentrations': 'concentrations'},
+                'config': {
+                    'concentration_keys': self.concentration_keys}}}
 
     def next_update(self, timestep, states):
         internal = states['internal']
@@ -113,20 +120,13 @@ def test_expression(end_time=10):
 
     # load process
     expression = MinimalExpression(expression_config)
+    settings = {'total_time': end_time}
+    return simulate_process_in_experiment(expression, settings)
 
-    settings = {
-        'total_time': 100,
-        # 'exchange_port': 'exchange',
-        'environment_port': 'external',
-        'environment_volume': 1e-12,
-    }
-
-    compartment = process_in_compartment(expression)
-    return simulate_with_environment(compartment, settings)
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'minimal_expression')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

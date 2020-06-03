@@ -5,14 +5,14 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.compartment.composition import (
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
     plot_simulation_output,
-    simulate_process_with_environment,
     flatten_timeseries,
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
 from vivarium.processes.convenience_kinetics import ConvenienceKinetics
@@ -104,38 +104,40 @@ class AntibioticTransport(ConvenienceKinetics):
 
         super(AntibioticTransport, self).__init__(parameters)
 
-    def default_settings(self):
-        default_settings = super(AntibioticTransport, self).default_settings()
-        default_settings.update(
-            {
-                'process_id': 'antibiotic_transport',
-                'emitter_keys': {
-                    'internal': ['antibiotic'],
-                    'external': ['antibiotic'],
-                },
-                'updaters': {
-                    'exchange': {
-                        'antibiotic': 'set',
-                    },
-                    'fluxes': {
-                        'antibiotic_import': 'set',
-                        'antibiotic_export': 'set',
-                    },
-                },
-            },
-        )
-        return default_settings
+    def ports_schema(self):
+        emit = {
+            'internal': ['antibiotic'],
+            'external': ['antibiotic']}
+        set_update = {
+            'exchange': ['antibiotic'],
+            'fluxes': [
+                'antibiotic_import',
+                'antibiotic_export']}
 
+        # update convenience kinetics schema
+        schema = super(AntibioticTransport, self).ports_schema()
+        for port, states in self.ports.items():
+            for state_id in states:
+                if port in emit:
+                    if state_id in emit[port]:
+                        schema[port][state_id]['_emit'] = True
+                if port in set_update:
+                    if state_id in set_update[port]:
+                        schema[port][state_id]['_updater'] = 'set'
+
+        return schema
 
 def run_antibiotic_transport():
     process = AntibioticTransport()
     settings = {
         'total_time': 4000,
-        'exchange_port': 'exchange',
-        'environment_port': 'external',
-        'environment_volume': 1e-15,  # Units of L
+        'environment': {
+            'volume': 1e-15,
+            'states': ['antibiotic'],
+            'environment_port': 'external',
+            'exchange_port': 'exchange'},
     }
-    return simulate_process_with_environment(process, settings)
+    return simulate_process_in_experiment(process, settings)
 
 
 def test_antibiotic_transport():
@@ -147,7 +149,7 @@ def test_antibiotic_transport():
 
 
 def main():
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     timeseries = run_antibiotic_transport()

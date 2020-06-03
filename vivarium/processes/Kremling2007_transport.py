@@ -7,9 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
-from vivarium.compartment.process import Process
-from vivarium.utils.flux_conversion import millimolar_to_counts, counts_to_millimolar
-from vivarium.environment.make_media import Media
+from vivarium.core.process import Process
+from vivarium.library.flux_conversion import millimolar_to_counts, counts_to_millimolar
+from vivarium.library.make_media import Media
+from vivarium.core.composition import PROCESS_OUT_DIR
+
+
+NAME = 'Kremling2007_transport'
 
 DEFAULT_PARAMETERS = {
     # enzyme synthesis
@@ -555,7 +559,7 @@ def plot_all_state(saved_state, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Kremling2007_transport')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

@@ -4,18 +4,20 @@ Stochastic Transcription
 ========================
 '''
 
+import os
 import copy
 import numpy as np
 import logging as log
 from arrow import StochasticSystem
 
-from vivarium.utils.dict_utils import deep_merge
-from vivarium.compartment.process import Process, keys_list
+from vivarium.library.units import units
+from vivarium.library.dict_utils import deep_merge, keys_list
+from vivarium.core.experiment import pp
+from vivarium.core.process import Process
+from vivarium.core.composition import process_in_experiment
 from vivarium.states.chromosome import Chromosome, Rnap, Promoter, frequencies, add_merge, toy_chromosome_config
-from vivarium.utils.polymerize import Elongation, build_stoichiometry, template_products
+from vivarium.library.polymerize import Elongation, build_stoichiometry, template_products
 from vivarium.data.nucleotides import nucleotides
-
-# log.basicConfig(level=log.DEBUG)
 
 def choose_element(elements):
     if elements:
@@ -28,24 +30,31 @@ UNBOUND_RNAP_KEY = 'RNA Polymerase'
 monomer_ids = list(nucleotides.values())
 
 #: The default configuration parameters for :py:class:`Transcription`
-default_transcription_parameters = {
-    'promoter_affinities': {
-        ('pA', None): 1.0,
-        ('pA', 'tfA'): 10.0,
-        ('pB', None): 1.0,
-        ('pB', 'tfB'): 10.0},
-    'transcription_factors': ['tfA', 'tfB'],
-    'sequence': toy_chromosome_config['sequence'],
-    'templates': toy_chromosome_config['promoters'],
-    'genes': toy_chromosome_config['genes'],
-    'elongation_rate': 1.0,
-    'polymerase_occlusion': 5,
-    'symbol_to_monomer': nucleotides,
-    'monomer_ids': monomer_ids,
-    'molecule_ids': monomer_ids}
-
 class Transcription(Process):
-    def __init__(self, initial_parameters={}):
+    defaults = {
+        'promoter_affinities': {
+            ('pA', None): 1.0,
+            ('pA', 'tfA'): 10.0,
+            ('pB', None): 1.0,
+            ('pB', 'tfB'): 10.0},
+        'transcription_factors': ['tfA', 'tfB'],
+        'sequence': toy_chromosome_config['sequence'],
+        'templates': toy_chromosome_config['promoters'],
+        'genes': toy_chromosome_config['genes'],
+        'elongation_rate': 1.0,
+        'polymerase_occlusion': 5,
+        'symbol_to_monomer': nucleotides,
+        'monomer_ids': monomer_ids,
+        'concentrations_deriver_key': 'transcription_concentrations',
+        'initial_domains': {
+            0: {
+                'id': 0,
+                'lead': 0,
+                'lag': 0,
+                'children': []}},
+        'molecule_ids': monomer_ids}
+
+    def __init__(self, initial_parameters=None):
         '''A stochastic transcription model
 
         .. WARNING:: Vivarium's knowledge base uses the gene name to
@@ -126,7 +135,7 @@ class Transcription(Process):
                   generally be the same as *monomer_ids*.
 
         Example configuring the process (uses
-        :py:func:`vivarium.utils.pretty.format_dict`):
+        :py:func:`vivarium.library.pretty.format_dict`):
 
         >>> import random
         >>>
@@ -138,106 +147,13 @@ class Transcription(Process):
         ... )
         >>> from vivarium.data.nucleotides import nucleotides
         >>> # format_dict lets us print dictionaries prettily
-        >>> from vivarium.utils.pretty import format_dict
+        >>> from vivarium.library.pretty import format_dict
         >>>
         >>> random.seed(0)  # Needed because process is stochastic
         >>> np.random.seed(0)
         >>> # We will use the toy chromosome from toy_chromosome_config
-        >>> print(format_dict(toy_chromosome_config))
-        {
-            "domains": {
-                "0": {
-                    "children": [],
-                    "id": 0,
-                    "lag": 0,
-                    "lead": 0
-                }
-            },
-            "genes": {
-                "oA": [
-                    "eA"
-                ],
-                "oAZ": [
-                    "eA",
-                    "eZ"
-                ],
-                "oB": [
-                    "eB"
-                ],
-                "oBY": [
-                    "eB",
-                    "eY"
-                ]
-            },
-            "promoter_order": [
-                "pA",
-                "pB"
-            ],
-            "promoters": {
-                "pA": {
-                    "direction": 1,
-                    "id": "pA",
-                    "position": 3,
-                    "sites": [
-                        {
-                            "length": 3,
-                            "position": 0,
-                            "thresholds": {
-                                "tfA": 0.3
-                            }
-                        }
-                    ],
-                    "terminators": [
-                        {
-                            "position": 6,
-                            "products": [
-                                "oA"
-                            ],
-                            "strength": 0.5
-                        },
-                        {
-                            "position": 12,
-                            "products": [
-                                "oAZ"
-                            ],
-                            "strength": 1.0
-                        }
-                    ]
-                },
-                "pB": {
-                    "direction": -1,
-                    "id": "pB",
-                    "position": -3,
-                    "sites": [
-                        {
-                            "length": 3,
-                            "position": 0,
-                            "thresholds": {
-                                "tfB": 0.5
-                            }
-                        }
-                    ],
-                    "terminators": [
-                        {
-                            "position": -9,
-                            "products": [
-                                "oB"
-                            ],
-                            "strength": 0.5
-                        },
-                        {
-                            "position": -12,
-                            "products": [
-                                "oBY"
-                            ],
-                            "strength": 1.0
-                        }
-                    ]
-                }
-            },
-            "rnaps": [],
-            "sequence": "ATACGGCACGTGACCGTCAACTTA"
-        }
+        >>> print(toy_chromosome_config)
+        {'sequence': 'ATACGGCACGTGACCGTCAACTTA', 'genes': {'oA': ['eA'], 'oAZ': ['eA', 'eZ'], 'oB': ['eB'], 'oBY': ['eB', 'eY']}, 'promoter_order': ['pA', 'pB'], 'promoters': {'pA': {'id': 'pA', 'position': 3, 'direction': 1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfA': <Quantity(0.3, 'millimolar')>}}], 'terminators': [{'position': 6, 'strength': 0.5, 'products': ['oA']}, {'position': 12, 'strength': 1.0, 'products': ['oAZ']}]}, 'pB': {'id': 'pB', 'position': -3, 'direction': -1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfB': <Quantity(0.5, 'millimolar')>}}], 'terminators': [{'position': -9, 'strength': 0.5, 'products': ['oB']}, {'position': -12, 'strength': 1.0, 'products': ['oBY']}]}}, 'domains': {0: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'rnaps': {}}
         >>> monomer_ids = list(nucleotides.values())
         >>> configuration = {
         ...     'promoter_affinities': {
@@ -261,81 +177,25 @@ class Transcription(Process):
         >>> transcription_process = Transcription(configuration)
         >>> # Now we need to initialize the simulation stores
         >>> state = {
-        ...     'chromosome': Chromosome(
-        ...         toy_chromosome_config).to_dict(),
+        ...     'chromosome': toy_chromosome_config,
         ...     'molecules': {
         ...         nucleotide: 10
         ...         for nucleotide in monomer_ids
         ...     },
         ...     'proteins': {UNBOUND_RNAP_KEY: 10},
-        ...     'factors': {'tfA': 0.2, 'tfB': 0.7},
+        ...     'factors': {'tfA': 0.2 * units.mM, 'tfB': 0.7 * units.mM},
         ... }
         >>> update = transcription_process.next_update(1.0, state)
-        >>> print(format_dict(update))
-        {
-            "chromosome": {
-                "domains": {
-                    "0": {
-                        "children": [],
-                        "id": 0,
-                        "lag": 0,
-                        "lead": 0
-                    }
-                },
-                "rnap_id": 4,
-                "rnaps": [
-                    {
-                        "domain": 0,
-                        "id": 2,
-                        "position": 7,
-                        "state": "polymerizing",
-                        "template": "pA",
-                        "template_index": 0,
-                        "terminator": 1
-                    },
-                    {
-                        "domain": 0,
-                        "id": 3,
-                        "position": 3,
-                        "state": "occluding",
-                        "template": "pB",
-                        "template_index": 1,
-                        "terminator": 0
-                    },
-                    {
-                        "domain": 0,
-                        "id": 4,
-                        "position": 0,
-                        "state": "occluding",
-                        "template": "pA",
-                        "template_index": 0,
-                        "terminator": 0
-                    }
-                ],
-                "root_domain": 0
-            },
-            "molecules": {
-                "rATP": -3,
-                "rCTP": -4,
-                "rGTP": -8,
-                "rUTP": -4
-            },
-            "proteins": {
-                "RNA Polymerase": -3
-            },
-            "transcripts": {
-                "oA": 0,
-                "oAZ": 0,
-                "oB": 0,
-                "oBY": 1
-            }
-        }
-
+        >>> print(update['chromosome'])
+        {'rnaps': {2: <class 'vivarium.states.chromosome.Rnap'>: {'id': 2, 'template': 'pA', 'template_index': 0, 'terminator': 1, 'domain': 0, 'state': 'polymerizing', 'position': 7}, 3: <class 'vivarium.states.chromosome.Rnap'>: {'id': 3, 'template': 'pB', 'template_index': 1, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 3}, 4: <class 'vivarium.states.chromosome.Rnap'>: {'id': 4, 'template': 'pA', 'template_index': 0, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 0}, '_delete': []}, 'rnap_id': 4, 'domains': {0: <class 'vivarium.states.chromosome.Domain'>: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'root_domain': 0}
         '''
 
         log.debug('inital_parameters: {}'.format(initial_parameters))
 
-        self.default_parameters = default_transcription_parameters
+        if not initial_parameters:
+            initial_parameters = {}
+
+        self.default_parameters = copy.deepcopy(self.defaults)
         self.derive_defaults(initial_parameters, 'templates', 'promoter_order', keys_list)
         self.derive_defaults(initial_parameters, 'templates', 'transcript_ids', template_products)
 
@@ -369,12 +229,20 @@ class Transcription(Process):
         self.stoichiometry = build_stoichiometry(self.promoter_count)
         self.initiation = StochasticSystem(self.stoichiometry, random_seed=np.random.randint(2**31))
 
+        self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
+
+        self.initial_domains = self.parameters.get('initial_domains', self.defaults['initial_domains'])
+
+        self.concentrations_deriver_key = self.or_default(
+            initial_parameters, 'concentrations_deriver_key')
+
         self.ports = {
             'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
             'molecules': self.molecule_ids,
             'factors': self.transcription_factors,
             'transcripts': self.transcript_ids,
-            'proteins': [UNBOUND_RNAP_KEY] + self.transcription_factors}
+            'proteins': self.protein_ids,
+            'global': []}
 
         log.debug('transcription parameters: {}'.format(self.parameters))
 
@@ -398,71 +266,125 @@ class Transcription(Process):
             promoter_order=self.promoter_order,
             genes=self.genes)
 
-    def default_settings(self):
-        default_state = {
-            'chromosome': {
-                'rnaps': [],
-                'rnap_id': 0,
-                'root_domain': 0,
-                'domains': {
-                    0: {
-                        'id': 0,
-                        'lead': 0,
-                        'lag': 0,
-                        'children': []}}},
-            'molecules': {},
-            'proteins': {UNBOUND_RNAP_KEY: 10},
-            'factors': {
-                key: 0.0
-                for key in self.transcription_factors}}
+    def ports_schema(self):
+        schema = {}
 
-        default_state['molecules'].update({
-            nucleotide: 100
-            for nucleotide in self.monomer_ids})
+        schema['chromosome'] = {
+            'rnap_id': {
+                '_default': 1,
+                '_updater': 'set'},
+            'root_domain': {
+                '_default': 0,
+                '_updater': 'set'},
+            'domains': {
+                '*': {
+                    'id': {
+                        '_default': 1,
+                        '_updater': 'set'},
+                    'lead': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'lag': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'children': {
+                        '_default': [],
+                        '_updater': 'set'}}},
+            'rnaps': {
+                '*': {
+                    'id': {
+                        '_default': -1,
+                        '_updater': 'set'},
+                    'domain': {
+                        '_default': 0,
+                        '_updater': 'set'},
+                    'state': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'position': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template': {
+                        '_default': None,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'template_index': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True},
+                    'terminator': {
+                        '_default': 0,
+                        '_updater': 'set',
+                        '_emit': True}}}}
 
-        chromosome = Chromosome(
-            self.chromosome_config(
-                default_state['chromosome']))
+        initial_domains = {
+            id: {
+                'id': {
+                    '_default': id,
+                    '_updater': 'set'},
+                'lead': {
+                    '_default': 0,
+                    '_updater': 'set'},
+                'lag': {
+                    '_default': 0,
+                    '_updater': 'set'},
+                'children': {
+                    '_default': [],
+                    '_updater': 'set'}}
+            for id, domain in self.initial_domains.items()}
+        schema['chromosome']['domains'].update(initial_domains)
 
-        operons = [operon.id for operon in chromosome.operons()]
+        schema['molecules'] = {
+            molecule: {
+                '_default': 0,
+                '_emit': True}
+            for molecule in self.molecule_ids}
 
-        default_state['transcripts'] = {
-            operon: 0
-            for operon in operons}
+        schema['factors'] = {
+            factor: {
+                '_default': 0.0}
+            for factor in self.transcription_factors}
 
-        default_state = deep_merge(
-            default_state,
-            self.parameters.get('initial_state', {}))
+        schema['transcripts'] = {
+            protein: {
+                '_default': 0,
+                '_emit': True}
+            for protein in self.transcript_ids}
 
-        default_emitter_keys = {
-            'chromosome': ['rnaps'],
-            'molecules': self.monomer_ids,
-            'proteins': [UNBOUND_RNAP_KEY],
-            'transcripts': operons}
+        schema['proteins'] = {
+            protein: {
+                '_default': 0,
+                '_emit': True}
+            for protein in self.protein_ids}
 
-        schema = {
-            'chromosome': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in self.ports['chromosome']}}
+        schema['global'] = {}
 
+        return schema
+
+    def derivers(self):
         return {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'parameters': self.parameters}
+            self.concentrations_deriver_key: {
+                'deriver': 'counts_to_mmol',
+                'port_mapping': {
+                    'global': 'global',
+                    'counts': 'proteins',
+                    'concentrations': 'factors'},
+                'config': {
+                    'concentration_keys': self.transcription_factors}}}
 
     def next_update(self, timestep, states):
+        chromosome_state = states['chromosome']
+        # chromosome_state['rnaps'] = list(chromosome_state['rnaps'].values())
+        original_rnap_keys = [
+            rnap['id'] for rnap in chromosome_state['rnaps'].values()]
         chromosome = Chromosome(
-            self.chromosome_config(
-                states['chromosome']))
+            self.chromosome_config(chromosome_state))
+
         molecules = states['molecules']
         proteins = states['proteins']
         factors = states['factors'] # as concentrations
-
-        # print('concentrations: flhDC - {}, fliA - {}'.format(
-        #     factors['flhDC'],
-        #     factors['fliA']))
 
         promoter_rnaps = chromosome.promoter_rnaps()
         promoter_domains = chromosome.promoter_domains()
@@ -508,8 +430,6 @@ class Transcription(Process):
             self.elongation)
 
         initiation_affinity = self.build_affinity_vector(chromosome.promoters, factors)
-
-        # print('initiation affinity - {}'.format(initiation_affinity))
 
         while time < timestep:
             # build the state vector for the gillespie simulation
@@ -571,7 +491,7 @@ class Transcription(Process):
                 unbound_rnaps -= 1
 
             # deal with occluding rnap
-            for rnap in chromosome.rnaps:
+            for rnap in chromosome.rnaps.values():
                 if rnap.is_unoccluding(self.polymerase_occlusion):
                     log.debug('RNAP unoccluding: {}'.format(rnap))
 
@@ -596,6 +516,20 @@ class Transcription(Process):
             for key, count in elongation.monomers.items()}
 
         chromosome_dict = chromosome.to_dict()
+        rnaps = chromosome_dict['rnaps']
+
+        completed_rnaps = original_rnap_keys - rnaps.keys()
+        rnap_updates = {
+            rnap_id: rnap
+            for rnap_id, rnap in rnaps.items()
+            if rnap_id not in completed_rnaps}
+        delete_rnaps = [
+            (completed,)
+            for completed in completed_rnaps]
+
+        rnap_updates['_delete'] = delete_rnaps
+        chromosome_dict['rnaps'] = rnap_updates
+
         update = {
             'chromosome': {
                 key: chromosome_dict[key]
@@ -616,19 +550,19 @@ def test_transcription():
     chromosome = Chromosome(toy_chromosome_config)
     transcription = Transcription(parameters)
 
-    states = {
-        'chromosome': chromosome.to_dict(),
-        'molecules': {},
-        'proteins': {UNBOUND_RNAP_KEY: 10},
-        'factors': {'tfA': 0.2, 'tfB': 0.7}}
+    experiment = process_in_experiment(transcription, {
+        'initial_state': {
+            'chromosome': chromosome.to_dict(),
+            'molecules': {
+                nucleotide: 10
+                for nucleotide in transcription.monomer_ids},
+            'proteins': {UNBOUND_RNAP_KEY: 10},
+            'factors': {'tfA': 0.2, 'tfB': 0.7}}})
 
-    states['molecules'].update({
-        nucleotide: 10
-        for nucleotide in transcription.monomer_ids})
+    pp(experiment.state.get_value())
+    experiment.update_interval(10.0, 1.0)
+    pp(experiment.state.get_value())
 
-    update = transcription.next_update(1.0, states)
-
-    print(update)
     print('complete!')
 
 

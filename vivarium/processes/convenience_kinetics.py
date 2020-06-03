@@ -30,20 +30,21 @@ import os
 
 from scipy import constants
 
-from vivarium.compartment.process import Process
-from vivarium.compartment.composition import (
-    simulate_process_with_environment,
+from vivarium.core.experiment import schema_for
+from vivarium.core.process import Process
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
     plot_simulation_output,
     flatten_timeseries,
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
-from vivarium.utils.kinetic_rate_laws import KineticFluxModel
-from vivarium.utils.dict_utils import tuplify_port_dicts
-from vivarium.utils.units import units
+from vivarium.library.kinetic_rate_laws import KineticFluxModel
+from vivarium.library.dict_utils import tuplify_port_dicts
+from vivarium.library.units import units
 
 
 #: The name of the process, which is used to name the subdirectory under
@@ -61,8 +62,8 @@ class ConvenienceKinetics(Process):
         'kinetic_parameters': {},
         'ports': {
             'internal': [],
-            'external': []}
-    }
+            'external': []},
+        'global_deriver_key': 'global_deriver'}
 
     def __init__(self, initial_parameters={}):
         '''Michaelis-Menten-style enzyme kinetics model
@@ -246,42 +247,43 @@ class ConvenienceKinetics(Process):
         parameters = {}
         parameters.update(initial_parameters)
 
+        self.global_deriver_key = self.or_default(
+            initial_parameters, 'global_deriver_key')
+
         super(ConvenienceKinetics, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        set_ports = ['fluxes']
+        emit_ports = ['internal', 'external', 'fluxes']
 
-        # default state
-        default_state = self.initial_state
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state_id in states:
+                schema[port][state_id] = {}
+                if port in self.initial_state:
+                    if state_id in self.initial_state[port]:
+                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+                else:
+                    schema[port][state_id]['_default'] = 0.0
+            if port in set_ports:
+                for state_id in states:
+                    schema[port][state_id]['_updater'] = 'set'
 
-        # default emitter keys
-        emit_ports = ['internal', 'external']
-        default_emitter_keys = {
-            port: state_list
-            for port, state_list in self.ports.items() if port in emit_ports}
+            emitting = port in emit_ports
+            for state_id in states:
+                schema[port][state_id]['_emit'] = emitting
 
-        # schema
-        schema = {
-            'fluxes': {
-                flux_id : {
-                    'updater': 'set'}
-                for flux_id in self.kinetic_rate_laws.reaction_ids}}
+        return schema
 
-        # derivers
-        deriver_setting = [{
-            'type': 'globals',
-            'source_port': 'global',
-            'derived_port': 'global',
-            'keys': []}]
-
-        default_settings = {
-            'process_id': 'convenience_kinetics',
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
-            'time_step': 1.0}
-
-        return default_settings
+    def derivers(self):
+        return {
+            self.global_deriver_key: {
+                'deriver': 'globals',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {
+                    'width': 1.0}}}
 
     def next_update(self, timestep, states):
 
@@ -466,15 +468,15 @@ def test_convenience_kinetics(end_time=2520):
     kinetic_process = ConvenienceKinetics(config)
 
     settings = {
-        'environment_port': 'external',
-        'exchange_port': 'exchange',
-        'environment_volume': 5e-14,  # L
+        'environment': {
+            'volume': 1e-14,
+            'states': ['glc__D_e', 'lcts_e'],
+            'environment_port': 'external',
+            'exchange_port': 'exchange'},
         'timestep': 1,
         'total_time': end_time}
 
-    saved_state = simulate_process_with_environment(kinetic_process, settings)
-    return saved_state
-
+    return simulate_process_in_experiment(kinetic_process, settings)
 
 def test_convenience_kinetics_correlated_to_reference():
     timeseries = test_convenience_kinetics()
@@ -485,12 +487,12 @@ def test_convenience_kinetics_correlated_to_reference():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    plot_settings = {}
-
     timeseries = test_convenience_kinetics()
+
+    plot_settings = {}
     plot_simulation_output(timeseries, plot_settings, out_dir)
     save_timeseries(timeseries, out_dir)

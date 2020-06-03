@@ -8,18 +8,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from vivarium.compartment.composition import (
-    load_compartment,
-    simulate_compartment,
-    simulate_with_environment)
-
-# composites
-from vivarium.composites.master import compose_master
-
-
-
-null_emitter = {'emitter': 'null'}
-
+from vivarium.core.composition import simulate_compartment_in_experiment
+from vivarium.compartments.master import Master
 
 
 def get_nested(dict, keys):
@@ -32,7 +22,6 @@ def get_nested(dict, keys):
     except:
         value = None
         print('value not found for: {}'.format(keys))
-
     return value
 
 def set_nested(dict, keys, value, create_missing=True):
@@ -49,74 +38,62 @@ def set_nested(dict, keys, value, create_missing=True):
     return dict
 
 def get_parameters_logspace(min, max, number):
-    '''
-    get list of n parameters logarithmically spaced between min and max
-    '''
+    ''' get list of n parameters logarithmically spaced between min and max '''
     range = np.logspace(np.log10(min), np.log10(max), number, endpoint=True)
     return list(range)
 
-def run_sim_get_output(new_compartment, output_values, settings, total_time, simulate_environment=False):
-    if simulate_environment:
-        sim_out = simulate_with_environment(new_compartment, settings)
-    else:
-        sim_out = simulate_compartment(new_compartment, settings)
+def run_sim_get_output(new_compartment, condition, metrics, settings):
+    settings['initial_state'] = condition
+    settings['return_raw_data'] = True
 
-    last_state = sim_out[total_time]
+    # run the simulation and get the last state
+    sim_out = simulate_compartment_in_experiment(new_compartment, settings)
+    time_vec = list(sim_out.keys())
+    last_state = sim_out[time_vec[-1]]
 
+    # pull out metric values from last_state
     output = []
-    for output_value in output_values:
+    for output_value in metrics:
         output.append(get_nested(last_state, output_value))
-
     return output
 
 def parameter_scan(config):
     '''
     Pass in a config (dict) with:
-        - composite (function) -- a function for the composite compartment
+        - compartment (object) -- a compartment class, for configuration by the parameters
         - scan_parameters (dict) -- each parameter location (tuple) mapped to a list of values
-        - output_values (list) -- a list of output values (tuple) with the (port, key)
+        - metrics (list) -- a list of output values (tuple) with the (port, key)
         - conditions (list) -- a list of state values (dict) with {port: {variable: value}}
             for the default state the condition is and empty dict, [{}]
-        - options (dict)
+        - settings (dict) -- simulation settings for the experiments
 
     Returns a list of all parameter combinations, and a dictionary with output values for those parameters
     '''
 
-    composite = config['composite']
+    compartment = config['compartment']
     scan_params = config['scan_parameters']
     metrics = config['metrics']
-    options = config.get('options', {})
+    settings = config.get('settings', {})
     conditions = config.get('conditions', [{}])
     n_conditions = len(conditions)
 
-    ## Set up the parameter
-    # how many parameter sets for scan?
+    ## Set up the parameters
+    # get number of parameter sets for scan
     n_values = [len(v) for v in scan_params.values()]
     n_combinations = np.prod(np.array(n_values))
     print('parameter scan size: {}'.format(n_combinations))
 
-    # get default parameters from compartment
-    compartment = load_compartment(composite)
-    default_params = compartment.current_parameters()
+    # get default parameters from baseline compartment object
+    default_compartment = compartment({})
+    default_params = default_compartment.get_parameters()
 
-    # make all parameter sets for scan
+    # get parameter sets for scan
     param_keys = list(scan_params.keys())
     param_values = list(scan_params.values())
     param_combinations = list(itertools.product(*param_values))  # a list of all parameter combinations
     param_sets = [dict(zip(param_keys, combo)) for combo in param_combinations]  # list of dicts with {param: value}
 
-    ## Simulation settings for scan
-    total_time = options.get('time', 10)
-    timestep = options.get('timestep', 1)
-    simulate_environment = options.get('simulate_with_environment', False)
-    simulation_settings = options.get('simulation_settings', {})
-    settings = {
-        'timestep': timestep,
-        'total_time': total_time,
-        'return_raw_data': True}
-    settings.update(simulation_settings)
-
-    # run all parameters, and save results
+    # run all parameter sets and save results
     results = []
     for params_index, param_set in enumerate(param_sets):
         # set up the parameters
@@ -124,7 +101,7 @@ def parameter_scan(config):
         for param_key, param_value in param_set.items():
             parameters = set_nested(parameters, param_key, param_value)
 
-        ## Run the parameter set for each condition's state
+        ## run the parameter set for each condition's state
         for condition_index, condition_state in enumerate(conditions):
             print('running parameter set {}/{}, condition {}/{}'.format(
                 params_index + 1,
@@ -132,21 +109,16 @@ def parameter_scan(config):
                 condition_index+1,
                 n_conditions))
 
-            # make the compartment
-            new_compartment = load_compartment(composite, parameters)
+            # make compartment with new parameters
+            new_compartment = compartment(parameters)
 
-            # update the states
-            for store, values in condition_state.items():
-                new_compartment.states[store].assign_values(values)
-
-            # run the sim with these parameters and condition
+            # run a sim with the new_compartment and condition
             try:
                 output = run_sim_get_output(
                     new_compartment,
+                    condition_state,
                     metrics,
-                    settings,
-                    total_time,
-                    simulate_environment)
+                    settings)
 
                 result = {
                     'parameter_index': params_index,
@@ -186,7 +158,6 @@ def organize_param_scan_results(data):
         param_index = result['parameter_index']
         condition_index = result['condition_index']
         output = result['output']
-
         for metric_index, datum in enumerate(output):
             metric = metrics[metric_index]
             metric_data[metric][condition_index][param_index] = datum
@@ -202,7 +173,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     conditions = results['conditions']
     parameter_indices = [idx for idx, param in enumerate(parameter_sets)]
 
-    ## make figure
+    # make the figure
     n_cols = 1
     lines_per_row = 8
     base_rows = len(metric_data)
@@ -238,70 +209,61 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
         '{}: {}'.format(condition_idx, condition)
         for condition_idx, condition in conditions.items()]
 
-    ## plot text
-    # parameters
+    # parameter text
     ax = fig.add_subplot(grid[base_rows:base_rows+param_rows, :])
     ax.text(0, 1.0, 'parameters')
     for text_idx, param in enumerate(parameter_text):
         ax.text(0, 0.9-text_idx*param_text_row, param)
     ax.axis('off')
 
-    # conditions
+    # condition text
     ax = fig.add_subplot(grid[base_rows+param_rows:, :])
     ax.text(0, 1.0, 'conditions')
     for text_idx, condition in enumerate(condition_text):
         ax.text(0, 0.9-text_idx*cond_text_row, condition)
     ax.axis('off')
 
-
-    ## save figure
+    # save the figure
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
 
 def scan_master():
-    composite = compose_master
+    compartment = Master
 
-    # define scanned parameters, to replace defaults
+    # define scanned parameters, which replace defaults
     scan_params = {
         ('transport',
          'kinetic_parameters',
          'EX_glc__D_e',
-         ('internal','PTSG'),
+         ('internal', 'EIIglc'),
          'kcat_f'):
-            get_parameters_logspace(1e-3, 1e0, 6)
-    }
+            get_parameters_logspace(1e-3, 1e0, 6)}
 
-    output_values = [
+    # metrics to collect from scan output
+    metrics = [
         ('reactions', 'EX_glc__D_e'),
         ('reactions', 'GLCptspp'),
-        ('global', 'growth_rate')]
+        ('global', 'volume')]
 
     # set up simulation settings and scan options
     timeline = [(30, {})]
-    sim_settings = {
-        'environment_port': 'environment',
-        'exchange_port': 'exchange',
-        'environment_volume': 1e-6,  # L
+    settings = {
+        # 'environment_volume': 1e-6,  # L
         'timeline': timeline}
 
-    scan_options = {
-        'simulate_with_environment': True,
-        'simulation_settings': sim_settings}
-
     scan_config = {
-        'composite': composite,
+        'compartment': compartment,
         'scan_parameters': scan_params,
-        'output_values': output_values,
-        'options': scan_options}
+        'metrics': metrics,
+        'settings': settings}
     results = parameter_scan(scan_config)
 
     return results
 
 
-
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'master_composite')
+    out_dir = os.path.join('out', 'parameters', 'master')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

@@ -8,38 +8,14 @@ import numpy as np
 from numpy import linspace
 import matplotlib.pyplot as plt
 
-from vivarium.compartment.process import Process
+from vivarium.core.process import Process
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR,
+)
 
-# parameters
-DEFAULT_PARAMETERS = {
-    # 'k_A': 5.0,  #
-    'k_y': 100.0,  # 1/uM/s
-    'k_z': 30.0,  # / CheZ,
-    'gamma_Y': 0.1,
-    'k_s': 0.45,  # scaling coefficient
-    'adapt_precision': 3,  # scales CheY_P to cluster activity
-    # motor
-    'mb_0': 0.65,  # steady state motor bias (Cluzel et al 2000)
-    'n_motors': 5,
-    'cw_to_ccw': 0.83,  # 1/s (Block1983) motor bias, assumed to be constant
-}
 
-##initial state
-INITIAL_STATE = {
-    # response regulator proteins
-    'CheY_tot': 9.7,  # (uM) #0.0097,  # (mM) 9.7 uM = 0.0097 mM
-    'CheY_P': 0.5,
-    'CheZ': 0.01*100,  # (uM) #phosphatase 100 uM = 0.1 mM (0.01 scaling from RapidCell1.4.2)
-    'CheA': 0.01*100,  # (uM) #100 uM = 0.1 mM (0.01 scaling from RapidCell1.4.2)
-    # sensor activity
-    'chemoreceptor_activity': 1/3,
-    # motor activity
-    'ccw_motor_bias': 0.5,
-    'ccw_to_cw': 0.5,
-    'motile_force': 0,
-    'motile_torque': 0,
-    'motor_state': 1,  # motor_state 1 for tumble, 0 for run
-}
+NAME = 'Vladimirov2008_motor'
 
 class MotorActivity(Process):
     '''
@@ -49,8 +25,35 @@ class MotorActivity(Process):
     '''
 
     defaults = {
-        'parameters': DEFAULT_PARAMETERS
-    }
+        'parameters': {
+            # 'k_A': 5.0,  #
+            'k_y': 100.0,  # 1/uM/s
+            'k_z': 30.0,  # / CheZ,
+            'gamma_Y': 0.1,
+            'k_s': 0.45,  # scaling coefficient
+            'adapt_precision': 3,  # scales CheY_P to cluster activity
+            # motor
+            'mb_0': 0.65,  # steady state motor bias (Cluzel et al 2000)
+            'n_motors': 5,
+            'cw_to_ccw': 0.83,  # 1/s (Block1983) motor bias, assumed to be constant
+            'timestep': 0.1,
+        },
+        'initial_state': {
+            'internal': {
+                # response regulator proteins
+                'CheY_tot': 9.7,  # (uM) #0.0097,  # (mM) 9.7 uM = 0.0097 mM
+                'CheY_P': 0.5,
+                'CheZ': 0.01*100,  # (uM) #phosphatase 100 uM = 0.1 mM (0.01 scaling from RapidCell1.4.2)
+                'CheA': 0.01*100,  # (uM) #100 uM = 0.1 mM (0.01 scaling from RapidCell1.4.2)
+                # sensor activity
+                'chemoreceptor_activity': 1/3,
+                # motor activity
+                'ccw_motor_bias': 0.5,
+                'ccw_to_cw': 0.5,
+                'motile_force': 0,
+                'motile_torque': 0,
+                'motor_state': 1,  # motor_state 1 for tumble, 0 for run
+            }}}
 
     def __init__(self, initial_parameters={}):
 
@@ -72,16 +75,9 @@ class MotorActivity(Process):
 
         super(MotorActivity, self).__init__(ports, parameters)
 
-    def default_settings(self):
-
-        # default state
-        internal = INITIAL_STATE
-        default_state = {
-            'external': {},
-            'internal': internal}
-
-        # default emitter keys
-        default_emitter_keys = {
+    def ports_schema(self):
+        default_state = self.defaults['initial_state']
+        set_states = {
             'internal': [
                 'ccw_motor_bias',
                 'ccw_to_cw',
@@ -89,32 +85,30 @@ class MotorActivity(Process):
                 'motile_torque',
                 'motor_state',
                 'CheA',
-                'CheY_P'],
-            'external': []}
+                'CheY_P']}
+        emitter_states = {
+            'internal': [
+                'ccw_motor_bias',
+                'ccw_to_cw',
+                'motile_force',
+                'motile_torque',
+                'motor_state',
+                'CheA',
+                'CheY_P']}
 
-        # schema
-        set_states = [
-            'ccw_motor_bias',
-            'ccw_to_cw',
-            'motile_force',
-            'motile_torque',
-            'motor_state',
-            'CheA',
-            'CheY_P']
-        schema = {
-            'internal': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in set_states}}
-
-        default_settings = {
-            'process_id': 'motor',
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'time_step': 0.1}
-
-        return default_settings
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in set_states:
+                for state_id in set_states[port]:
+                    schema[port][state_id]['_updater'] = 'set'
+            if port in emitter_states:
+                for state_id in emitter_states[port]:
+                    schema[port][state_id]['_emit'] = True
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
+        return schema
 
     def next_update(self, timestep, states):
         '''
@@ -196,51 +190,15 @@ def run():
 
 
 def test_motor_control(total_time=10):
-    # TODO -- add asserts for test
     motor = MotorActivity({})
-    settings = motor.default_settings()
-    state = settings['state']
-    receptor_activity = 1./3.
-    state['internal']['chemoreceptor_activity'] = receptor_activity
-
-    CheY_P_vec = []
-    ccw_motor_bias_vec = []
-    ccw_to_cw_vec = []
-    motor_state_vec = []
-    time_vec = []
-
-    # run simulation
-    time = 0
-    timestep = 0.01  # sec
-    while time < total_time:
-        time += timestep
-
-        update = motor.next_update(timestep, state)
-        CheY_P = update['internal']['CheY_P']
-        ccw_motor_bias = update['internal']['ccw_motor_bias']
-        ccw_to_cw = update['internal']['ccw_to_cw']
-        motor_state = update['internal']['motor_state']
-
-        # update motor state
-        state['internal']['motor_state'] = motor_state
-        CheY_P_vec.append(CheY_P)
-        ccw_motor_bias_vec.append(ccw_motor_bias)
-        ccw_to_cw_vec.append(ccw_to_cw)
-        motor_state_vec.append(motor_state)
-        time_vec.append(time)
-
-
-    return {
-        'CheY_P_vec': CheY_P_vec,
-        'ccw_motor_bias_vec': ccw_motor_bias_vec,
-        'ccw_to_cw_vec': ccw_to_cw_vec,
-        'motor_state_vec': motor_state_vec,
-        'time_vec': time_vec}
+    experiment_settings = {
+        'total_time': total_time,
+        'timestep': 0.01}
+    return simulate_process_in_experiment(motor, experiment_settings)
 
 def test_variable_receptor():
     motor = MotorActivity()
-    settings = motor.default_settings()
-    state = settings['state']
+    state = motor.default_state()
     timestep = 1
     receptor_activities = linspace(0.0, 1.0, 501).tolist()
     CheY_P_vec = []
@@ -270,17 +228,17 @@ def test_variable_receptor():
         'ccw_to_cw_vec': ccw_to_cw_vec,
         'motor_state_vec': motor_state_vec}
 
-def plot_motor_control(output, out_dir='out'):
+def plot_motor_control(timeseries, out_dir='out'):
     # TODO -- make this into an analysis figure
     expected_run = 0.42  # s (Berg) expected run length without chemotaxis
     expected_tumble = 0.14  # s (Berg)
 
     # receptor_activities = output['receptor_activities']
-    CheY_P_vec = output['CheY_P_vec']
-    ccw_motor_bias_vec = output['ccw_motor_bias_vec']
-    ccw_to_cw_vec = output['ccw_to_cw_vec']
-    motor_state_vec = output['motor_state_vec']
-    time_vec = output['time_vec']
+    CheY_P_vec = timeseries['internal']['CheY_P']
+    ccw_motor_bias_vec = timeseries['internal']['ccw_motor_bias']
+    ccw_to_cw_vec = timeseries['internal']['ccw_to_cw']
+    motor_state_vec = timeseries['internal']['motor_state']
+    time_vec = timeseries['time']
 
     # plot results
     cols = 1
@@ -348,7 +306,6 @@ def plot_motor_control(output, out_dir='out'):
     plt.subplots_adjust(wspace=0.7, hspace=0.5)
     plt.savefig(fig_path + '.png', bbox_inches='tight')
 
-
 def plot_variable_receptor(output, out_dir='out'):
     receptor_activities = output['receptor_activities']
     CheY_P_vec = output['CheY_P_vec']
@@ -379,7 +336,7 @@ def plot_variable_receptor(output, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Vladimirov2008_motor')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

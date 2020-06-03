@@ -1,8 +1,19 @@
 from __future__ import absolute_import, division, print_function
 
+import os
+
 import numpy as np
 
-from vivarium.compartment.process import Process
+from vivarium.library.units import units
+from vivarium.core.process import Process
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
+)
+
+
+NAME = 'growth'
 
 
 class Growth(Process):
@@ -30,55 +41,79 @@ class Growth(Process):
     >>> # growth rate chosen so mass doubles each timestep
     >>> configuration = {'growth_rate': math.log(2.0)}
     >>> growth_process = Growth(configuration)
-    >>> state = growth_process.default_settings()['state']
-    >>> state
-    {'global': {'mass': 1339}}
+    >>> state = growth_process.default_state()
+    >>> # the initial mass magnitude (femtograms)
+    >>> mass = state['global']['mass'].magnitude
+    >>> mass
+    1339
     >>> update = growth_process.next_update(TIMESTEP, state)
-    >>> update
-    {'global': {'mass': 2678.0}}
-    >>> update['global']['mass'] / state['global']['mass']
+    >>> # the new mass magnitude (femtograms)
+    >>> new_mass = update['global']['mass'].magnitude
+    >>> new_mass
+    2678.0
+    >>> new_mass / mass
     2.0
 
     """
 
     defaults = {
-        'growth_rate': 0.0006}
+        'growth_rate': 0.0006,
+        'global_deriver_key': 'global_deriver',
+    }
 
     def __init__(self, initial_parameters={}):
         ports = {
-            'global': ['mass', 'volume']}
+            'global': [
+                'mass',
+                'volume',
+                'divide']}
 
-        growth_rate = initial_parameters.get('growth_rate', self.defaults['growth_rate'])
-
+        self.growth_rate = self.or_default(initial_parameters, 'growth_rate')
+        self.global_deriver_key = self.or_default(initial_parameters, 'global_deriver_key')
         parameters = {
-            'growth_rate': growth_rate}
+            'growth_rate': self.growth_rate}
         parameters.update(initial_parameters)
 
         super(Growth, self).__init__(ports, parameters)
 
-    def default_settings(self):
-        # default state
-        mass = 1339  # (wet mass in fg)
-        internal = {'mass': mass}
-        default_state = {'global': internal}
-
-        # default emitter keys
-        default_emitter_keys = {'global': ['mass']}
-
-        # schema
-        schema = {
+    def ports_schema(self):
+        return {
             'global': {
                 'mass': {
-                    'updater': 'set'}}}
+                    '_emit': True,
+                    '_default': 1339 * units.fg,
+                    '_updater': 'set',
+                    '_divider': 'split'},
+                'volume': {
+                    '_updater': 'set',
+                    '_divider': 'split'},
+                'divide': {
+                    '_default': False,
+                    '_updater': 'set'}}}
 
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
-
-        return default_settings
+    def derivers(self):
+        return {
+            self.global_deriver_key: {
+                'deriver': 'globals',
+                'port_mapping': {
+                    'global': 'global'},
+                'config': {
+                    'width': 1.0}}}
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
         new_mass = mass * np.exp(self.parameters['growth_rate'] * timestep)
-        return {'global': {'mass': new_mass}}
+        return {
+            'global': {
+                'mass': new_mass}}
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    growth = Growth({})
+    settings = {'total_time': 10}
+    timeseries = simulate_process_in_experiment(growth, settings)
+    plot_simulation_output(timeseries, {}, out_dir)

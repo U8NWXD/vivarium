@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import sys
 import argparse
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -14,6 +15,7 @@ matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.colors import hsv_to_rgb
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 
 # pymunk imports
@@ -29,19 +31,20 @@ from pygame.locals import *
 from pygame.color import *
 
 # vivarium imports
-from vivarium.compartment.emitter import timeseries_from_data
-from vivarium.compartment.process import (
-    Process,
-    COMPARTMENT_STATE)
-from vivarium.compartment.composition import (
-    process_in_compartment,
-    simulate_process,
-    simulate_compartment)
+from vivarium.library.units import units
+from vivarium.core.emitter import timeseries_from_data
+from vivarium.core.process import Process
+from vivarium.core.composition import (
+    process_in_experiment,
+    simulate_experiment,
+    PROCESS_OUT_DIR,
+)
 from vivarium.processes.Vladimirov2008_motor import run, tumble
-from vivarium.processes.derive_globals import (
-    volume_from_length)
+from vivarium.processes.derive_globals import volume_from_length
 
 
+
+NAME = 'multibody'
 
 DEBUG_SIZE = 600  # size of the pygame debug screen
 DEFAULT_BOUNDS = [10, 10]
@@ -56,7 +59,7 @@ DEFAULT_SV = [100.0/100.0, 70.0/100.0]
 
 # agent port keys
 AGENT_KEYS = ['location', 'angle', 'volume', 'length', 'width', 'mass', 'forces']
-NON_AGENT_KEYS = ['fields', 'time', 'global', COMPARTMENT_STATE]
+NON_AGENT_KEYS = ['fields', 'time', 'global']
 
 
 
@@ -83,7 +86,9 @@ def random_body_position(body):
             location = (width, random.uniform(0, length))
     return location
 
-def daughter_locations(parent_location, parent_length, parent_angle):
+def daughter_locations(parent_location, parent_values):
+    parent_length = parent_values['length']
+    parent_angle = parent_values['angle']
     pos_ratios = [-0.25, 0.25]
     daughter_locations = []
     for daughter in range(2):
@@ -117,6 +122,7 @@ class Multibody(Process):
         'physics_dt': 0.005,
         'force_scaling': 100,  # scales from pN
         'jitter_force': 1e-3,  # pN
+        'time_step': 2,
         'bounds': DEFAULT_BOUNDS,
         'mother_machine': False,
         'animate': False,
@@ -156,7 +162,6 @@ class Multibody(Process):
             self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
 
         # add static barriers
-        # TODO -- mother machine configuration
         self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
         self.add_barriers(self.bounds)
 
@@ -164,7 +169,7 @@ class Multibody(Process):
         self.agent_bodies = {}
         self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
         for agent_id, specs in self.initial_agents.items():
-            self.add_body_from_center(agent_id, specs)
+            self.add_body_from_center(agent_id, specs['global'])
 
         # interactive plot for visualization
         self.animate = initial_parameters.get('animate', self.defaults['animate'])
@@ -175,31 +180,65 @@ class Multibody(Process):
             self.animate_frame(self.initial_agents)
 
         # all initial agents get a key under a single port
-        ports = {'agents': ['agents']}
+        ports = {
+            'agents': ['*']}
 
-        parameters = {}
+        parameters = {'time_step': self.defaults['time_step']}
         parameters.update(initial_parameters)
 
         super(Multibody, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        glob_schema = {
+            '*': {
+                'global': {
+                    'location': {
+                        '_emit': True,
+                        '_default': [0.5, 0.5],
+                        '_updater': 'set',
+                        '_divider': {
+                            'divider': daughter_locations,
+                            'topology': {
+                                'length': ('length',),
+                                'angle': ('angle',)}}},
+                    'length': {
+                        '_emit': True,
+                        '_default': 2.0,
+                        '_divider': 'split',  # TODO -- might want this to be set by agent
+                        '_updater': 'set'},
+                    'width': {
+                        '_emit': True,
+                        '_default': 1.0,
+                        '_updater': 'set'},
+                    'angle': {
+                        '_emit': True,
+                        '_default': 0.0,
+                        '_updater': 'set'},
+                    'mass': {
+                        '_units': units.fg,
+                        '_default': 1 * units.fg,
+                        '_updater': 'set'},
+                    'motile_force': {
+                        '_default': [0.0, 0.0],
+                        '_updater': 'set'}}}}
 
-        state = {'agents': {'agents': self.initial_agents}}
+        initial_agents_schema = {
+            agent_id: {
+                port: {
+                    state: {
+                        # '_value': value if state in ['location', 'angle'] else None,
+                        '_default': value}
+                    for state, value in state_values.items()}
+                for port, state_values in states.items()}
+            for agent_id, states in self.initial_agents.items()}
 
-        schema = {'agents': {'agents': {'updater': 'merge'}}}
+        schema = {'agents': initial_agents_schema}
+        schema['agents'].update(glob_schema)
 
-        default_emitter_keys = {
-            port_id: keys for port_id, keys in self.ports.items()}
-
-        return {
-            'state': state,
-            'schema': schema,
-            'emitter_keys': default_emitter_keys,
-            'time_step': 2
-        }
+        return schema
 
     def next_update(self, timestep, states):
-        agents = states['agents']['agents']
+        agents = states['agents']
 
         # animate before update
         if self.animate:
@@ -218,19 +257,20 @@ class Multibody(Process):
         # update agents, add new agents
         for agent_id, specs in agents.items():
             if agent_id in self.agent_bodies:
-                self.update_body(agent_id, specs)
+                self.update_body(agent_id, specs['global'])
             else:
-                self.add_body_from_center(agent_id, specs)
+                self.add_body_from_center(agent_id, specs['global'])
 
         # run simulation
         self.run(timestep)
 
         # get new agent position
         agent_position = {
-            agent_id: self.get_body_position(agent_id)
+            agent_id: {
+                'global': self.get_body_position(agent_id)}
             for agent_id in self.agent_bodies.keys()}
 
-        return {'agents': {'agents': agent_position}}
+        return {'agents': agent_position}
 
     def run(self, timestep):
         assert self.physics_dt < timestep
@@ -324,7 +364,7 @@ class Multibody(Process):
     def add_body_from_center(self, body_id, body):
         width = body['width'] * self.pygame_scale
         length = body['length'] * self.pygame_scale
-        mass = body['mass']
+        mass = body['mass'].magnitude
         center_position = body['location']
         angle = body['angle']
         angular_velocity = body.get('angular_velocity', 0.0)
@@ -359,10 +399,9 @@ class Multibody(Process):
         self.agent_bodies[body_id] = (body, shape)
 
     def update_body(self, body_id, specs):
-
         length = specs['length'] * self.pygame_scale
         width = specs['width'] * self.pygame_scale
-        mass = specs['mass']
+        mass = specs['mass'].magnitude
         motile_force = specs.get('motile_force', [0, 0])
 
         body, shape = self.agent_bodies[body_id]
@@ -424,6 +463,7 @@ class Multibody(Process):
         plt.cla()
         for agent_id, data in agents.items():
             # location, orientation, length
+            data = data['global']
             x_center = data['location'][0]
             y_center = data['location'][1]
             angle = data['angle'] / PI * 180 + 90  # rotate 90 degrees to match field
@@ -475,30 +515,29 @@ class Multibody(Process):
 
 
 # configs
-def get_n_dummy_agents(n_agents):
-    return {agent_id: None for agent_id in range(n_agents)}
-
-def random_body_config(config):
+def random_agent_config(bounds):
     # cell dimensions
     width = 1
     length = 2
     volume = volume_from_length(length, width)
 
-    n_agents = config['n_agents']
+    return {'global': {
+        'location': [
+            np.random.uniform(0, bounds[0]),
+            np.random.uniform(0, bounds[1])],
+        'angle': np.random.uniform(0, 2 * PI),
+        'volume': volume,
+        'length': length,
+        'width': width,
+        'mass': 1 * units.fg,  #1400 * units.fg,
+        'forces': [0, 0]}}
+
+def random_body_config(config):
+    agent_ids = config['agent_ids']
     bounds = config.get('bounds', DEFAULT_BOUNDS)
-    agents = get_n_dummy_agents(n_agents)
     agent_config = {
-        agent_id: {
-            'location': [
-                np.random.uniform(0, bounds[0]),
-                np.random.uniform(0, bounds[1])],
-            'angle': np.random.uniform(0, 2 * PI),
-            'volume': volume,
-            'length': length,
-            'width': width,
-            'mass': 1,
-            'forces': [0, 0]}
-        for agent_id in agents.keys()}
+        agent_id: random_agent_config(bounds)
+        for agent_id in agent_ids}
 
     return {
         'agents': agent_config,
@@ -510,9 +549,10 @@ def mother_machine_body_config(config):
     length = 2
     volume = volume_from_length(length, width)
 
-    n_agents = config['n_agents']
+    agent_ids = config['agent_ids']
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     channel_space = config.get('channel_space', 1)
+    n_agents = len(agent_ids)
 
     # possible locations, shuffled for index-in
     n_spaces = math.floor(bounds[0]/channel_space)
@@ -523,39 +563,41 @@ def mother_machine_body_config(config):
         for x in range(1, n_spaces)]
     random.shuffle(possible_locations)
 
-    agents = get_n_dummy_agents(n_agents)
     agent_config = {
         agent_id: {
-            'location': possible_locations[index],
-            'angle': PI/2,
-            'volume': volume,
-            'length': length,
-            'width': width,
-            'mass': 1,
-            'forces': [0, 0]}
-        for index, agent_id in enumerate(agents.keys())}
+            'global': {
+                'location': possible_locations[index],
+                'angle': PI/2,
+                'volume': volume,
+                'length': length,
+                'width': width,
+                'mass': 1 * units.fg,
+                'forces': [0, 0]}}
+        for index, agent_id in enumerate(agent_ids)}
 
     return {
         'agents': agent_config,
         'bounds': bounds}
 
 # tests and simulations
-def test_multibody(config={'n_agents':1}, time=1):
-    body_config = random_body_config(config)
+def test_multibody(config={'n_agents':1}, time=10):
+    n_agents = config.get('n_agents',1)
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
+    body_config = random_body_config({'agent_ids': agent_ids})
     multibody = Multibody(body_config)
 
     # initialize agent's boundary state
     initial_agents_state = body_config['agents']
-    compartment = process_in_compartment(multibody)
-    compartment.send_updates({'agents': [{'agents': initial_agents_state}]})
+    experiment = process_in_experiment(multibody)
+    experiment.state.set_value({'agents': initial_agents_state})
 
+    # run experiment
     settings = {
+        'timestep': 1,
         'total_time': time,
-        'return_raw_data': True,
-        'environment_port': 'external',
-        'environment_volume': 1e-2}
-
-    return simulate_compartment(compartment, settings)
+        'return_raw_data': True}
+    return simulate_experiment(experiment, settings)
 
 def simulate_motility(config, settings):
     # time of motor behavior without chemotaxis
@@ -568,31 +610,36 @@ def simulate_motility(config, settings):
 
     # make the process
     multibody = Multibody(config)
-    compartment = process_in_compartment(multibody)
-
-    # initialize agent boundary state
-    compartment.send_updates({'agents': [{'agents': initial_agents_state}]})
+    experiment = process_in_experiment(multibody)
+    experiment.state.update_subschema(
+        ('agents',), {
+            'global': {
+                'motile_force': {
+                    '_emit': True,
+                    '_updater': 'set'}}})
+    experiment.state.apply_subschemas()
 
     # get initial agent state
-    agents_store = compartment.states['agents']
-    agents_state = agents_store.state
+    experiment.state.set_value({'agents': initial_agents_state})
+    agents_store = experiment.state.get_path(['agents'])
 
     # initialize hidden agent motile states, and update agent motile_forces in agent store
     agent_motile_states = {}
     motile_forces = {}
-    for agent_id, specs in agents_state['agents'].items():
+    for agent_id, specs in agents_store.get_value().items():
         motile_force = run()
         agent_motile_states[agent_id] = {
             'motor_state': 1,  # 0 for run, 1 for tumble
             'time_in_motor_state': 0}
-        motile_forces[agent_id] = {'motile_force': motile_force}
-    compartment.send_updates({'agents': [{'agents': motile_forces}]})
+        motile_forces[agent_id] = {
+            'global': {'motile_force': motile_force}}
+    experiment.send_updates([{'agents': motile_forces}])
 
     ## run simulation
     # test run/tumble
     time = 0
     while time < total_time:
-        print('time: {}'.format(time))
+        experiment.update(timestep)
         time += timestep
 
         # update motile force and apply to state
@@ -624,81 +671,59 @@ def simulate_motility(config, settings):
             agent_motile_states[agent_id] = {
                 'motor_state': motor_state,  # 0 for run, 1 for tumble
                 'time_in_motor_state': time_in_motor_state}
-            motile_forces[agent_id] = {'motile_force': motile_force}
+            motile_forces[agent_id] = {
+                'global': {'motile_force': motile_force}}
 
-        compartment.send_updates({'agents': [{'agents': motile_forces}]})
-        update = compartment.update(timestep)
+        experiment.send_updates([{'agents': motile_forces}])
 
-    return compartment.emitter.get_data()
-
-def run_mother_machine():
-    bounds = [30, 30]
-    channel_height = 0.7 * bounds[1]
-    channel_space = 1.5
-
-    settings = {
-        'growth_rate': 0.02,
-        'growth_rate_noise': 0.02,
-        'division_volume': 2.6,
-        'channel_height': channel_height,
-        'total_time': 240}
-    mm_config = {
-        'animate': True,
-        'mother_machine': {
-            'channel_height': channel_height,
-            'channel_space': channel_space},
-        'jitter_force': 2e-2,
-        'bounds': bounds}
-    body_config = {
-        'bounds': bounds,
-        'channel_height': channel_height,
-        'channel_space': channel_space,
-        'n_agents': 5}
-    mm_config.update(mother_machine_body_config(body_config))
-    mm_data = simulate_growth_division(mm_config, settings)
-
-    # make snapshot
-    agents = {time: time_data['agents']['agents'] for time, time_data in mm_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, mm_config, out_dir, 'mother_machine_snapshots')
-
+    return experiment.emitter.get_data()
 
 def run_motility(out_dir):
+    n_agents = 6
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
     # test motility
     bounds = [100, 100]
     motility_sim_settings = {
         'timestep': 0.05,
-        'total_time': 5}
+        'total_time': 2}
     motility_config = {
         'animate': True,
         'jitter_force': 0,
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'n_agents': 6}
+        'agent_ids': agent_ids}
     motility_config.update(random_body_config(body_config))
 
     # run motility sim
     motility_data = simulate_motility(motility_config, motility_sim_settings)
+    motility_timeseries = timeseries_from_data(motility_data)
 
     # make motility plot
-    reduced_data = {time: data['agents'] for time, data in motility_data.items()}
-    motility_timeseries = timeseries_from_data(reduced_data)
     plot_motility(motility_timeseries, out_dir)
     plot_trajectory(motility_timeseries, motility_config, out_dir)
 
-    # make motility snapshot
-    agents = {time: time_data['agents']['agents'] for time, time_data in motility_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, motility_config, out_dir, 'motility_snapshots')
+    # snapshots plot
+    agents = {time: time_data['agents'] for time, time_data in motility_data.items()}
+    data = {
+        'agents': agents,
+        'config': motility_config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': 'motility_snapshots'}
+    plot_snapshots(data, plot_config)
 
 def run_growth_division():
+    n_agents = 1
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+
     bounds = [20, 20]
     settings = {
         'growth_rate': 0.02,
         'growth_rate_noise': 0.02,
         'division_volume': 2.6,
-        'total_time': 300}
+        'total_time': 100}
 
     gd_config = {
         'animate': True,
@@ -706,24 +731,36 @@ def run_growth_division():
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'n_agents': 1}
+        'agent_ids': agent_ids}
     gd_config.update(random_body_config(body_config))
     gd_data = simulate_growth_division(gd_config, settings)
 
-    # make snapshot
-    agents = {time: time_data['agents']['agents'] for time, time_data in gd_data.items()}
-    fields = {}
-    plot_snapshots(agents, fields, gd_config, out_dir, 'growth_division_snapshots')
-
+    # snapshots plot
+    agents = {time: time_data['agents'] for time, time_data in gd_data.items()}
+    data = {
+        'agents': agents,
+        'config': gd_config}
+    plot_config = {
+        'out_dir': out_dir,
+        'filename': 'growth_division_snapshots'}
+    plot_snapshots(data, plot_config)
 
 def simulate_growth_division(config, settings):
 
     # make the process
     multibody = Multibody(config)
-    compartment = process_in_compartment(multibody)
+    experiment = process_in_experiment(multibody)
+    experiment.state.update_subschema(
+        ('agents',), {
+            'global': {
+                'mass': {
+                    '_divider': 'split'},
+                'length': {
+                    '_divider': 'split'}}})
+    experiment.state.apply_subschemas()
 
     # get initial agent state
-    agents_store = compartment.states['agents']
+    agents_store = experiment.state.get_path(['agents'])
 
     ## run simulation
     # get simulation settings
@@ -732,23 +769,23 @@ def simulate_growth_division(config, settings):
     division_volume = settings.get('division_volume', 0.4)
     channel_height = settings.get('channel_height')
     total_time = settings.get('total_time', 10)
-    timestep = compartment.time_step
+    timestep = 1
 
     time = 0
     while time < total_time:
-        print('time: {}'.format(time))
+        experiment.update(timestep)
         time += timestep
+        agents_state = agents_store.get_value()
 
-        agents_state = agents_store.state
         agent_updates = {}
         remove_agents = []
         add_agents = {}
-        for agent_id, state in agents_state['agents'].items():
-            location = state['location']
-            angle = state['angle']
-            length = state['length']
-            width = state['width']
-            mass = state['mass']
+        for agent_id, state in agents_state.items():
+            location = state['global']['location']
+            angle = state['global']['angle']
+            length = state['global']['length']
+            width = state['global']['width']
+            mass = state['global']['mass'].magnitude
 
             # update
             growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
@@ -757,58 +794,48 @@ def simulate_growth_division(config, settings):
             new_volume = volume_from_length(new_length, width)
 
             if channel_height and location[1] > channel_height:
-                remove_agents.append(agent_id)
+                update = {'_delete': [(agent_id,)]}
+                experiment.send_updates([{'agents': update}])
+
             elif new_volume > division_volume:
                 daughter_ids = [str(agent_id) + '0', str(agent_id) + '1']
 
-                # daughter state with updated values
-                half_mass = new_mass / 2
-                half_length = new_length / 2
-                new_locations = daughter_locations(location, length, angle)
+                daughter_updates = []
+                for daughter_id in daughter_ids:
+                    daughter_updates.append({
+                        'daughter': daughter_id,
+                        'path': (daughter_id,),
+                        'processes': {},
+                        'topology': {},
+                        'initial_state': {}})
 
-                daughter_states = {}
-                for index, daughter_id in enumerate(daughter_ids):
-                    daughter_state = state.copy()
-                    daughter_state.update({
-                        'location': new_locations[index],
-                        'mass': half_mass,
-                        'length': half_length})
-                    daughter_states[daughter_id] = daughter_state
-
-                # remove mother from store, add daughters
-                remove_agents.append(agent_id)
-                add_agents.update(daughter_states)
-                agent_updates.update(daughter_states)  # TODO -- why is this not updating the store?
-
+                # initial state will be provided by division in the tree
+                update = {
+                    '_divide': {
+                        'mother': agent_id,
+                        'daughters': daughter_updates}}
+                experiment.send_updates([{'agents': update}])
             else:
                 agent_updates[agent_id] = {
-                    'volume': new_volume,
-                    'length': new_length,
-                    'mass': new_mass}
+                    'global': {
+                        'volume': new_volume,
+                        'length': new_length,
+                        'mass': new_mass * units.fg}}
 
-        for agent_id in remove_agents:
-            # remove from store
-            del agents_state['agents'][agent_id]
+        # update experiment
+        experiment.send_updates([{'agents': agent_updates}])
 
-        if add_agents:
-            # add to store
-            agents_state['agents'].update(add_agents)
-
-        # update compartment
-        compartment.send_updates({'agents': [{'agents': agent_updates}]})
-        compartment.update(timestep)
-
-    return compartment.emitter.get_data()
+    return experiment.emitter.get_data()
 
 
 # plotting
 def plot_agent(ax, data, color):
     # location, orientation, length
-    x_center = data['location'][0]
-    y_center = data['location'][1]
-    theta = data['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
-    length = data['length']
-    width = data['width']
+    x_center = data['global']['location'][0]
+    y_center = data['global']['location'][1]
+    theta = data['global']['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
+    length = data['global']['length']
+    width = data['global']['width']
 
     # get bottom left position
     x_offset = (width / 2)
@@ -840,19 +867,35 @@ def plot_agents(ax, agents, agent_colors={}):
         color = agent_colors.get(agent_id, [DEFAULT_HUE]+DEFAULT_SV)
         plot_agent(ax, agent_data, color)
 
-def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
+def plot_snapshots(data, plot_config):
     '''
         - agents (dict): with {time: agent_data}
         - fields TODO
         - config (dict): the environment config for the simulation
     '''
-    n_snapshots = 6
+    n_snapshots = plot_config.get('n_snapshots', 6)
+    out_dir = plot_config.get('out_dir', 'out')
+    filename = plot_config.get('filename', 'snapshots')
+
+    # get data
+    agents = data.get('agents', {})
+    fields = data.get('fields', {})
+    config = data.get('config', {})
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     edge_length_x = bounds[0]
     edge_length_y = bounds[1]
 
     # time steps that will be used
-    time_vec = list(agents.keys())
+    if agents and fields:
+        assert set(list(agents.keys())) == set(list(fields.keys())), 'agent and field times are different'
+        time_vec = list(agents.keys())
+    elif agents:
+        time_vec = list(agents.keys())
+    elif fields:
+        time_vec = list(fields.keys())
+    else:
+        raise Exception('No agents or field data')
+
     time_indices = np.round(np.linspace(0, len(time_vec) - 1, n_snapshots)).astype(int)
     snapshot_times = [time_vec[i] for i in time_indices]
 
@@ -868,17 +911,18 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
 
     # get agent ids
     agent_ids = set()
-    for time, time_data in agents.items():
-        current_agents = list(time_data.keys())
-        agent_ids.update(current_agents)
-    agent_ids = list(agent_ids)
+    if agents:
+        for time, time_data in agents.items():
+            current_agents = list(time_data.keys())
+            agent_ids.update(current_agents)
+        agent_ids = list(agent_ids)
 
-    # set agent colors
-    agent_colors = {}
-    for agent_id in agent_ids:
-        hue = random.choice(HUES)  # select random initial hue
-        color = [hue] + DEFAULT_SV
-        agent_colors[agent_id] = color
+        # set agent colors
+        agent_colors = {}
+        for agent_id in agent_ids:
+            hue = random.choice(HUES)  # select random initial hue
+            color = [hue] + DEFAULT_SV
+            agent_colors[agent_id] = color
 
     # make the figure
     n_rows = max(len(field_ids), 1)
@@ -888,11 +932,12 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
     plt.rcParams.update({'font.size': 36})
 
     # plot snapshot data in each subsequent column
-    for col_idx, (time_idx, time) in enumerate(zip(time_indices, snapshot_times), 1):
-        agents_now = agents[time]
+    for col_idx, (time_idx, time) in enumerate(zip(time_indices, snapshot_times)):
         if field_ids:
             for row_idx, field_id in enumerate(field_ids):
+
                 ax = init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time)
+
                 # transpose field to align with agent
                 field = np.transpose(np.array(fields[time][field_id])).tolist()
                 vmin, vmax = field_range[field_id]
@@ -903,10 +948,22 @@ def plot_snapshots(agents, fields, config, out_dir='out', filename='snapshots'):
                                 vmax=vmax,
                                 cmap='BuPu')
 
-                plot_agents(ax, agents_now, agent_colors)
+                if agents:
+                    agents_now = agents[time]
+                    plot_agents(ax, agents_now, agent_colors)
+
+                # colorbar in new column after final snapshot
+                if col_idx == n_snapshots-1:
+                    cbar_col = col_idx + 1
+                    ax = fig.add_subplot(grid[row_idx, cbar_col])
+                    divider = make_axes_locatable(ax)
+                    cax = divider.append_axes("left", size="5%", pad=0.0)
+                    fig.colorbar(im, cax=cax, format='%.6f')
+                    ax.axis('off')
         else:
             row_idx = 0
             ax = init_axes(fig, bounds[0], bounds[1], grid, row_idx, col_idx, time)
+            agents_now = agents[time]
             plot_agents(ax, agents_now, agent_colors)
 
     fig_path = os.path.join(out_dir, filename)
@@ -929,8 +986,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     for agent_id, data in agents.items():
         trajectories[agent_id] = []
         for time_data in data:
-            x, y = time_data['location']
-            theta = time_data['angle']
+            x, y = time_data['global']['location']
+            theta = time_data['global']['angle']
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
@@ -988,9 +1045,9 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
 
         # go through each time point for this agent
         for time, time_data in zip(times, agent_data):
-            angle = time_data['angle']
-            thrust, torque = time_data['motile_force']
-            location = time_data['location']
+            angle = time_data['global']['angle']
+            thrust, torque = time_data['global']['motile_force']
+            location = time_data['global']['location']
 
             # get speed since last time
             if time != times[0]:
@@ -1061,19 +1118,17 @@ def init_axes(fig, edge_length_x, edge_length_y, grid, row_idx, col_idx, time):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'multibody')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--mother', '-m', action='store_true', default=False)
     parser.add_argument('--motility', '-o', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     args = parser.parse_args()
+    no_args = (len(sys.argv) == 1)
 
-    if args.mother:
-        run_mother_machine()
-    elif args.motility:
+    if args.motility or no_args:
         run_motility(out_dir)
-    elif args.growth:
-        data = run_growth_division()
+    elif args.growth or no_args:
+        run_growth_division()

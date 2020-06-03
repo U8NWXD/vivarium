@@ -6,8 +6,16 @@ import numpy as np
 import scipy.constants as constants
 import matplotlib.pyplot as plt
 
-from vivarium.compartment.process import Process
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.core.process import Process
+from vivarium.library.dict_utils import deep_merge
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
+)
+
+
+NAME = 'membrane_potential'
 
 # PMF ~170mV at pH 7. ~140mV at pH 7.7 (Berg)
 # Ecoli internal pH in range 7.6-7.8 (Berg)
@@ -23,7 +31,8 @@ DEFAULT_STATE = {
     'external': {
         'K': 5,
         'Na': 145,
-        'Cl': 110}  # (mmol)
+        'Cl': 110,  # (mmol)
+        'T': 310.15}
     }
 
 # TODO -- get references on these
@@ -92,31 +101,24 @@ class MembranePotential(Process):
 
         super(MembranePotential, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
+        set_update = {'membrane': ['d_V', 'd_pH', 'PMF']}
+        default_state = self.initial_states
 
-        # default state
-        config = {'external': {'T': 310.15}}
-        default_state = deep_merge((self.initial_states), config)
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {
+                state: {
+                    '_emit': True  # emit all states
+                } for state in states}
+            if port in set_update:
+                for state_id in set_update[port]:
+                    schema[port][state_id]['_updater'] = 'set'
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
 
-        # default emitter keys
-        default_emitter_keys = {'membrane': ['d_V', 'd_pH', 'PMF']}
-
-
-        # schema
-        set_membrane = ['d_V', 'd_pH', 'PMF']
-        schema = {
-            'membrane': {
-                state_id : {
-                    'updater': 'set',
-                    'divide': 'set'}
-                for state_id in set_membrane}}
-
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
-
-        return default_settings
+        return schema
 
     def next_update(self, timestep, states):
         internal_state = states['internal']
@@ -164,16 +166,13 @@ class MembranePotential(Process):
         # proton motive force
         PMF = d_V + d_pH
 
-        update = {
+        return {
             'membrane': {
                 'd_V': d_V,
                 'd_pH': d_pH,
-                'PMF': PMF,
-            }}
-        return update
+                'PMF': PMF}}
 
 def test_mem_potential():
-
     initial_parameters = {
         'states': DEFAULT_STATE,
         'parameters': DEFAULT_PARAMETERS,
@@ -183,98 +182,19 @@ def test_mem_potential():
 
     # configure process
     mp = MembranePotential(initial_parameters)
-
-    # get initial state and parameters
-    settings = mp.default_settings()
-    state = settings['state']
-    saved_state = {'internal': {}, 'external': {}, 'membrane': {}, 'time': []}
-
-    ## Simulation
     timeline = [
-        (0, {'external': {
-            'Na': 1}
-        }),
-        (100, {'external': {
-            'Na': 2}
-        }),
-        (500, {}),
-    ]
+        (0, {('external', 'Na'): 1}),
+        (100, {('external', 'Na'): 2}),
+        (500, {})]
 
-    time = 0
-    timestep = 1  # sec
-    while time < timeline[-1][0]:
-        time += timestep
-        for (t, change_dict) in timeline:
-            if time >= t:
-                for key, change in change_dict.items():
-                    state[key].update(change)
-
-        update = mp.next_update(timestep, state)
-        saved_state['time'].append(time)
-
-        # update external state
-        for port in ['internal', 'external']:
-            for state_id, value in state[port].items():
-                if state_id in saved_state[port].keys():
-                    saved_state[port][state_id].append(value)
-                else:
-                    saved_state[port][state_id] = [value]
-
-        # update membrane state from update
-        for state_id, value in update['membrane'].items():
-            if state_id in saved_state['membrane'].keys():
-                saved_state['membrane'][state_id].append(value)
-            else:
-                saved_state['membrane'][state_id] = [value]
-
-    return saved_state
-
-def plot_mem_potential(saved_state, out_dir='out'):
-
-    data_keys = [key for key in saved_state.keys() if key is not 'time']
-    time_vec = [float(t) / 3600 for t in saved_state['time']]  # convert to hours
-
-    # make figure, with grid for subplots
-    n_data = [len(saved_state[key].keys()) for key in data_keys]
-    n_rows = sum(n_data)
-    fig = plt.figure(figsize=(8, n_rows * 2.5))
-    grid = plt.GridSpec(n_rows + 1, 1, wspace=0.4, hspace=1.5)
-
-    # plot data
-    plot_idx = 0
-    for key in data_keys:
-
-        if key in ['internal', 'external']:
-            ax = fig.add_subplot(grid[plot_idx, 0])  # grid is (row, column)
-            for mol_id, series in sorted(saved_state[key].items()):
-                # if mol_id is 'T':
-                #     pass
-                # else:
-                ax.plot(time_vec, series, label=mol_id)
-
-            ax.title.set_text(key)
-            ax.set_yscale('log')
-            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            ax.set_xlabel('time (hrs)')
-            plot_idx += 1
-
-        else:
-            for mol_id, series in sorted(saved_state[key].items()):
-                ax = fig.add_subplot(grid[plot_idx, 0])  # grid is (row, column)
-                ax.plot(time_vec, series)
-                ax.title.set_text(str(key) + ': ' + mol_id)
-                ax.set_xlabel('time (hrs)')
-                plot_idx += 1
-
-    # save figure
-    fig_path = os.path.join(out_dir, 'membrane_potential')
-    plt.subplots_adjust(wspace=0.5, hspace=0.5)
-    plt.savefig(fig_path + '.png', bbox_inches='tight')
+    settings = {'timeline': timeline}
+    return simulate_process_in_experiment(mp, settings)
 
 
 if __name__ == '__main__':
-    saved_state = test_mem_potential()
-    out_dir = os.path.join('out', 'tests', 'membrane_potential')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    plot_mem_potential(saved_state, out_dir)
+
+    timeseries = test_mem_potential()
+    plot_simulation_output(timeseries, {}, out_dir)

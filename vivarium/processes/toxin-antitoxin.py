@@ -4,13 +4,15 @@ import os
 
 import numpy as np
 
-from vivarium.compartment.process import Process
-from vivarium.compartment.composition import (
+from vivarium.core.process import Process
+from vivarium.core.composition import (
     simulate_process,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
 
+NAME = 'toxin_antitoxin'
 
 class ToxinAntitoxin(Process):
     mazF = 4
@@ -48,31 +50,25 @@ class ToxinAntitoxin(Process):
 
         super(ToxinAntitoxin, self).__init__(ports, parameters)
 
-    def default_settings(self):
-        # default state
-        default_state = {
-            'internal': self.defaults['initial_state']}
+    def ports_schema(self):
+        default_state = {'internal': self.defaults['initial_state']}
+        emit_port = ['internal']
+        set_update_port = ['internal']
 
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': list(self.defaults['initial_state'].keys())}
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {state: {} for state in states}
+            if port in default_state:
+                for state_id, value in default_state[port].items():
+                    schema[port][state_id]['_default'] = value
+            if port in emit_port:
+                for state_id in states:
+                    schema[port][state_id]['_emit'] = True
+            if port in set_update_port:
+                for state_id in states:
+                    schema[port][state_id]['_updater'] = 'set'
 
-        # schema -- define how each state is updater, divided, and its units
-        schema = {
-            'internal': {
-                state_id : {
-                    'updater': 'set'}
-                for state_id in self.ports['internal']}}
-
-        default_settings = {
-            'process_id': 'template',
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'time_step': 1.0}
-
-        return default_settings
-
+        return schema
 
     def next_update(self, timestep, states):
         internal = states['internal']
@@ -183,19 +179,14 @@ class ToxinAntitoxin(Process):
 
 
 def test_toxin_antitoxin(time=10):
-
-    # load process
     toxin_antitoxin = ToxinAntitoxin({})
-
-    settings = {
-        'total_time': time}
-
+    settings = {'total_time': time}
     return simulate_process(toxin_antitoxin, settings)
 
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'toxin_antitoxin')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

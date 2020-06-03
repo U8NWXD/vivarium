@@ -2,6 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import multiprocessing as mp
 import vivarium.actor.event as event
+import vivarium.core.process
+import vivarium.core.experiment
 from vivarium.actor.actor import Actor
 
 class ActorShepherd(Actor):
@@ -80,7 +82,7 @@ class ActorShepherd(Actor):
 
         initializer = self.agent_initializers.get(agent_type, None)
         if initializer:
-            process = mp.Process(
+            process = vivarium.core.process.Process(
                 target=initializer,
                 name=agent_id,
                 args=(agent_id, agent_type, actor_config))

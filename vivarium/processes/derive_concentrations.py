@@ -1,75 +1,68 @@
 from __future__ import absolute_import, division, print_function
 
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.compartment.process import Process
-from vivarium.utils.units import units
+from vivarium.core.process import Deriver
+from vivarium.library.units import units
 
 
 
-class DeriveConcs(Process):
+class DeriveConcentrations(Deriver):
     """
     Process for deriving concentrations from counts
     """
+
+    defaults = {
+        'concentration_keys': []}
+
     def __init__(self, initial_parameters={}):
         self.avogadro = AVOGADRO
+        self.concentration_keys = self.or_default(
+            initial_parameters, 'concentration_keys')
 
-        source_ports = initial_parameters.get('source_ports')
-        target_ports = initial_parameters.get('target_ports')
-
-        assert len(target_ports) == 1, 'DeriveConcs too many target ports'
-        assert list(target_ports.keys())[0] == 'concentrations', 'DeriveConcs requires target port named concentrations'
-
-        ports = {'global': ['volume', 'mmol_to_counts']}
-        ports.update(source_ports)
-        ports.update(target_ports)
+        ports = {
+            'global': [
+                'volume', 'mmol_to_counts'],
+            'counts': self.concentration_keys,
+            'concentrations': self.concentration_keys}
 
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveConcs, self).__init__(ports, parameters)
+        super(DeriveConcentrations, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
         volume = 1.2 * units.fL
         mmol_to_counts = (self.avogadro * volume).to('L/mmol')
 
-        # default state
-        default_state = {
+        return {
             'global': {
-                'volume': volume.magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude}}
-
-        # default emitter keys
-        default_emitter_keys = {}
-
-        # schema
-        schema = {
+                'volume': {
+                    '_default': volume},
+                'mmol_to_counts': {
+                    '_default': mmol_to_counts}},
+            'counts': {
+                concentration: {
+                    '_divider': 'split'}
+                for concentration in self.concentration_keys},
             'concentrations': {
-                state_id : {
-                    'updater': 'set',
-                    'divide': 'set'}
-                for state_id in self.ports['concentrations']}}
-
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
-
-        return default_settings
+                concentration: {
+                    '_divider': 'set',
+                    '_updater': 'set'}
+                for concentration in self.concentration_keys}}
 
     def next_update(self, timestep, states):
 
         # states
         mmol_to_counts = states['global']['mmol_to_counts']
-        counts = {port: state for port, state in states.items() if port not in ['concentrations', 'global']}
+        counts = states['counts']
 
         # concentration update
         concentrations = {}
-        for port, states in counts.items():
-            for state_id, count in states.items():
-                concentrations[state_id] = count / mmol_to_counts
+        for molecule, count in counts.items():
+            concentrations[molecule] = count / mmol_to_counts
 
-        for mol_id, conc in concentrations.items():
-            assert conc >= 0, 'derived {} concentration < 0'.format(mol_id)
+        for molecule, concentration in concentrations.items():
+            assert concentration >= 0, 'derived {} concentration < 0'.format(molecule)
 
         return {
             'concentrations': concentrations}
