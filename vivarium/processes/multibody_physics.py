@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import argparse
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 import random
 import math
@@ -18,19 +17,8 @@ from matplotlib.colors import hsv_to_rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 
-# pymunk imports
-import pymunkoptions
-pymunkoptions.options["debug"] = False
-import pymunk
-import pymunk.pygame_util
-
-# pygame for debugging
-import pygame
-from pygame.key import *
-from pygame.locals import *
-from pygame.color import *
-
 # vivarium imports
+from vivarium.library.pymunk_multibody import MultiBody
 from vivarium.library.units import units
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.process import Process
@@ -46,7 +34,6 @@ from vivarium.processes.derive_globals import volume_from_length
 
 NAME = 'multibody'
 
-DEBUG_SIZE = 600  # size of the pygame debug screen
 DEFAULT_BOUNDS = [10, 10]
 
 # constants
@@ -108,61 +95,33 @@ class Multibody(Process):
 
     defaults = {
         'initial_agents': {},
-        'elasticity': 0.9,
-        'damping': 0.05, # simulates viscous forces to reduce velocity at low Reynolds number (1 = no damping, 0 = full damping)
-        'angular_damping': 0.7,  # less damping for angular velocity seems to improve behavior
-        'friction': 0.9,  # TODO -- does this do anything?
-        'physics_dt': 0.005,
-        'force_scaling': 100,  # scales from pN
         'jitter_force': 1e-3,  # pN
-        'time_step': 2,
         'bounds': DEFAULT_BOUNDS,
         'mother_machine': False,
         'animate': False,
         'debug': False,
+        'time_step': 2,
     }
-
 
     def __init__(self, initial_parameters={}):
 
-        # hardcoded parameters
-        self.elasticity = self.defaults['elasticity']
-        self.friction = self.defaults['friction']
-        self.damping = self.defaults['damping']
-        self.angular_damping = self.defaults['angular_damping']
-        self.force_scaling = self.defaults['force_scaling']
-        self.physics_dt = self.defaults['physics_dt']
-
-        # configured parameters
-        self.jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
-        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
-
-        # initialize pymunk space
-        self.space = pymunk.Space()
-
-        # debug screen with pygame
-        self.pygame_viz = initial_parameters.get('debug', self.defaults['debug'])
-        self.pygame_scale = 1  # pygame_scale scales the debug screen
-        if self.pygame_viz:
-            max_bound = max(self.bounds)
-            self.pygame_scale = DEBUG_SIZE / max_bound
-            self.force_scaling *= self.pygame_scale
-            pygame.init()
-            self._screen = pygame.display.set_mode((
-                int(self.bounds[0]*self.pygame_scale),
-                int(self.bounds[1]*self.pygame_scale)), RESIZABLE)
-            self._clock = pygame.time.Clock()
-            self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
-
-        # add static barriers
-        self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
-        self.add_barriers(self.bounds)
-
-        # initialize agents
-        self.agent_bodies = {}
+        # agents
         self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
-        for agent_id, specs in self.initial_agents.items():
-            self.add_body_from_center(agent_id, specs['global'])
+
+        # multibody parameters
+        jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
+        bounds = initial_parameters.get('bounds', self.defaults['bounds'])
+        debug = initial_parameters.get('debug', self.defaults['debug'])
+        self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
+
+        # make the multibody object
+        multibody_config = {
+            'jitter_force': jitter_force,
+            'bounds': bounds,
+            'barriers': self.mother_machine,
+            'initial_agents': self.initial_agents,
+            'debug': debug}
+        self.physics = MultiBody(multibody_config)
 
         # interactive plot for visualization
         self.animate = initial_parameters.get('animate', self.defaults['animate'])
@@ -173,8 +132,7 @@ class Multibody(Process):
             self.animate_frame(self.initial_agents)
 
         # all initial agents get a key under a single port
-        ports = {
-            'agents': ['*']}
+        ports = {'agents': ['*']}
 
         parameters = {'time_step': self.defaults['time_step']}
         parameters.update(initial_parameters)
@@ -255,6 +213,12 @@ class Multibody(Process):
             self.space.remove(body, shape)
             del self.agent_bodies[agent_id]
 
+
+
+        # TODO -- update the agents in self.physics
+        import ipdb; ipdb.set_trace()
+
+
         # update agents, add new agents
         for agent_id, specs in agents.items():
             if agent_id in self.agent_bodies:
@@ -263,209 +227,15 @@ class Multibody(Process):
                 self.add_body_from_center(agent_id, specs)
 
         # run simulation
-        self.run(timestep)
+        self.physics.run(timestep)
 
-        # get new agent position
+        # get new agent positions
         agent_position = {
             agent_id: {
-                'global': self.get_body_position(agent_id)}
+                'global': self.physics.get_body_position(agent_id)}
             for agent_id in self.agent_bodies.keys()}
 
         return {'agents': agent_position}
-
-    def run(self, timestep):
-        assert self.physics_dt < timestep
-
-        time = 0
-        while time < timestep:
-            time += self.physics_dt
-
-            # apply forces
-            for body in self.space.bodies:
-                self.apply_jitter_force(body)
-                self.apply_motile_force(body)
-                self.apply_viscous_force(body)
-
-            # run for a physics timestep
-            self.space.step(self.physics_dt)
-
-        if self.pygame_viz:
-            self._update_screen()
-
-    def apply_motile_force(self, body):
-        width, length = body.dimensions
-
-        # motile forces
-        motile_location = (width / 2, 0)  # apply force at back end of body
-        thrust = 0.0
-        torque = 0.0
-
-        if hasattr(body, 'thrust'):
-            thrust = body.thrust
-            torque = body.torque
-            motile_force = [thrust, 0.0]
-
-            # add directly to angular velocity
-            body.angular_velocity += torque
-            # force-based torque
-            # if torque != 0.0:
-            #     motile_force = get_force_with_angle(thrust, torque)
-
-        scaled_motile_force = [thrust * self.force_scaling for thrust in motile_force]
-        body.apply_force_at_local_point(scaled_motile_force, motile_location)
-
-    def apply_jitter_force(self, body):
-        jitter_location = random_body_position(body)
-        jitter_force = [
-            random.normalvariate(0, self.jitter_force),
-            random.normalvariate(0, self.jitter_force)]
-        scaled_jitter_force = [
-            force * self.force_scaling
-            for force in jitter_force]
-        body.apply_force_at_local_point(
-            scaled_jitter_force,
-            jitter_location)
-
-    def apply_viscous_force(self, body):
-        # dampen the velocity
-        body.velocity = body.velocity * self.damping + (body.force / body.mass) * self.physics_dt
-        body.angular_velocity = body.angular_velocity * self.angular_damping + body.torque / body.moment * self.physics_dt
-
-    def add_barriers(self, bounds):
-        """ Create static barriers """
-        thickness = 0.2
-
-        x_bound = bounds[0] * self.pygame_scale
-        y_bound = bounds[1] * self.pygame_scale
-
-        static_body = self.space.static_body
-        static_lines = [
-            pymunk.Segment(static_body, (0.0, 0.0), (x_bound, 0.0), thickness),
-            pymunk.Segment(static_body, (x_bound, 0.0), (x_bound, y_bound), thickness),
-            pymunk.Segment(static_body, (x_bound, y_bound), (0.0, y_bound), thickness),
-            pymunk.Segment(static_body, (0.0, y_bound), (0.0, 0.0), thickness),
-        ]
-
-        if self.mother_machine:
-            channel_height = self.mother_machine.get('channel_height') * self.pygame_scale
-            channel_space = self.mother_machine.get('channel_space') * self.pygame_scale
-
-            n_lines = math.floor(x_bound/channel_space)
-
-            machine_lines = [
-                pymunk.Segment(
-                    static_body,
-                    (channel_space * line, 0),
-                    (channel_space * line, channel_height), thickness)
-                for line in range(n_lines)]
-            static_lines += machine_lines
-
-        for line in static_lines:
-            line.elasticity = 0.0  # no bounce
-            line.friction = 0.9
-        self.space.add(static_lines)
-
-    def add_body_from_center(self, body_id, body):
-        width = body['width'] * self.pygame_scale
-        length = body['length'] * self.pygame_scale
-        mass = body['mass'].magnitude
-        center_position = body['location']
-        angle = body['angle']
-        angular_velocity = body.get('angular_velocity', 0.0)
-
-        half_length = length / 2
-        half_width = width / 2
-
-        shape = pymunk.Poly(None, (
-            (-half_length, -half_width),
-            (half_length, -half_width),
-            (half_length, half_width),
-            (-half_length, half_width)))
-
-        inertia = pymunk.moment_for_poly(mass, shape.get_vertices())
-        body = pymunk.Body(mass, inertia)
-        shape.body = body
-
-        body.position = (
-            center_position[0] * self.pygame_scale,
-            center_position[1] * self.pygame_scale)
-        body.angle = angle
-        body.dimensions = (width, length)
-        body.angular_velocity = angular_velocity
-
-        shape.elasticity = self.elasticity
-        shape.friction = self.friction
-
-        # add body and shape to space
-        self.space.add(body, shape)
-
-        # add body to agents dictionary
-        self.agent_bodies[body_id] = (body, shape)
-
-    def update_body(self, body_id, specs):
-        global_specs = specs['global']
-        boundary_specs = specs['boundary']
-
-        length = global_specs['length'] * self.pygame_scale
-        width = global_specs['width'] * self.pygame_scale
-        mass = global_specs['mass'].magnitude
-        thrust = boundary_specs['thrust']
-        torque = boundary_specs['torque']
-
-        body, shape = self.agent_bodies[body_id]
-        position = body.position
-        angle = body.angle
-
-        # make shape, moment of inertia, and add a body
-        half_length = length/2
-        half_width = width/2
-        new_shape = pymunk.Poly(None, (
-            (-half_length, -half_width),
-            (half_length, -half_width),
-            (half_length, half_width),
-            (-half_length, half_width)))
-
-        inertia = pymunk.moment_for_poly(mass, new_shape.get_vertices())
-        new_body = pymunk.Body(mass, inertia)
-        new_shape.body = new_body
-
-        new_body.position = position
-        new_body.angle = angle
-        new_body.angular_velocity = body.angular_velocity
-        new_body.dimensions = (width, length)
-        new_body.thrust = thrust
-        new_body.torque = torque
-
-        new_shape.elasticity = shape.elasticity
-        new_shape.friction = shape.friction
-
-        # swap bodies
-        self.space.remove(body, shape)
-        self.space.add(new_body, new_shape)
-
-        # update body
-        self.agent_bodies[body_id] = (new_body, new_shape)
-
-    def get_body_position(self, agent_id):
-        body, shape = self.agent_bodies[agent_id]
-        position = body.position
-        rescaled_position = [
-            position[0] / self.pygame_scale,
-            position[1] / self.pygame_scale]
-
-        # enforce bounds
-        rescaled_position = [
-            0 if pos<0 else pos
-            for idx, pos in enumerate(rescaled_position)]
-        rescaled_position = [
-            self.bounds[idx] if pos>self.bounds[idx] else pos
-            for idx, pos in enumerate(rescaled_position)]
-
-        return {
-            'location': rescaled_position,
-            'angle': body.angle,
-        }
-
 
     ## matplotlib interactive plot
     def animate_frame(self, agents):
@@ -497,30 +267,6 @@ class Multibody(Process):
         plt.ylim([0, self.bounds[1]])
         plt.draw()
         plt.pause(0.05)
-
-
-    ## pygame visualization (for debugging)
-    def _process_events(self):
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                self._running = False
-            elif event.type == KEYDOWN and event.key == K_ESCAPE:
-                self._running = False
-
-    def _clear_screen(self):
-        self._screen.fill(THECOLORS["white"])
-
-    def _draw_objects(self):
-        self.space.debug_draw(self._draw_options)
-
-    def _update_screen(self):
-        self._process_events()
-        self._clear_screen()
-        self._draw_objects()
-        pygame.display.flip()
-        # Delay fixed time between frames
-        self._clock.tick(5)
-
 
 
 # configs

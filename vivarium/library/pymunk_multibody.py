@@ -110,15 +110,17 @@ class MultiBody(object):
 
         # debug screen with pygame
         self.pygame_viz = config.get('debug', self.defaults['debug'])
-        self.pygame_scale = 1  # pygame_scale scales the debug screen
+        self.pygame_scale = 1  # scales the debug screen
         if self.pygame_viz:
             max_bound = max(self.bounds)
-            self.pygame_scale = DEBUG_SIZE / max_bound
-            self.force_scaling *= self.pygame_scale
+            screen_scale = DEBUG_SIZE / max_bound
+            # self.pygame_scale = DEBUG_SIZE / max_bound
+            # self.force_scaling *= self.pygame_scale
             pygame.init()
             self._screen = pygame.display.set_mode((
                 int(self.bounds[0]*self.pygame_scale),
-                int(self.bounds[1]*self.pygame_scale)), RESIZABLE)
+                int(self.bounds[1]*self.pygame_scale)),
+                RESIZABLE)
             self._clock = pygame.time.Clock()
             self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
 
@@ -190,7 +192,7 @@ class MultiBody(object):
 
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
-        thickness = 0.2
+        thickness = 0.2 * self.pygame_scale
 
         x_bound = bounds[0] * self.pygame_scale
         y_bound = bounds[1] * self.pygame_scale
@@ -224,13 +226,13 @@ class MultiBody(object):
             line.friction = 0.9
         self.space.add(static_lines)
 
-    def add_body_from_center(self, body_id, body):
-        width = body['width'] * self.pygame_scale
-        length = body['length'] * self.pygame_scale
-        mass = body['mass']
-        center_position = body['location']
-        angle = body['angle']
-        angular_velocity = body.get('angular_velocity', 0.0)
+    def add_body_from_center(self, body_id, specs):
+        width = specs['width'] * self.pygame_scale
+        length = specs['length'] * self.pygame_scale
+        mass = specs['mass']
+        center_position = specs['location']
+        angle = specs['angle']
+        angular_velocity = specs.get('angular_velocity', 0.0)
 
         half_length = length / 2
         half_width = width / 2
@@ -349,9 +351,10 @@ class MultiBody(object):
 
 def test_multibody(total_time=2, debug=False):
     bounds = [10, 10]
+    center_location = [0.5*loc for loc in bounds]
     agents = {
         '1': {
-            'location': [0.5, 0.5],
+            'location': center_location,
             'angle': PI/2,
             'volume': 1,
             'length': 2,
