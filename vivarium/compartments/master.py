@@ -112,7 +112,8 @@ class Master(Compartment):
                 'molecules': ('metabolites',),
                 'proteins': ('proteins',),
                 'transcripts': ('transcripts',),
-                'factors': ('concentrations',)},
+                'factors': ('concentrations',),
+                'global': global_path},
 
             'translation': {
                 'ribosomes': ('ribosomes',),
