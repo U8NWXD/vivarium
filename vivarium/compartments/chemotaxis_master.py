@@ -167,7 +167,7 @@ class ChemotaxisMaster(Compartment):
                 'global': boundary_path}}
 
 def run_chemotaxis_master(out_dir):
-    total_time = 100
+    total_time = 5
     compartment = ChemotaxisMaster({})
 
     # save the topology network
