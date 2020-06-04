@@ -110,16 +110,11 @@ class MultiBody(object):
 
         # debug screen with pygame
         self.pygame_viz = config.get('debug', self.defaults['debug'])
-        self.pygame_scale = 1  # scales the debug screen
         if self.pygame_viz:
-            max_bound = max(self.bounds)
-            screen_scale = DEBUG_SIZE / max_bound
-            # self.pygame_scale = DEBUG_SIZE / max_bound
-            # self.force_scaling *= self.pygame_scale
             pygame.init()
             self._screen = pygame.display.set_mode((
-                int(self.bounds[0]*self.pygame_scale),
-                int(self.bounds[1]*self.pygame_scale)),
+                int(self.bounds[0]),
+                int(self.bounds[1])),
                 RESIZABLE)
             self._clock = pygame.time.Clock()
             self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
@@ -192,10 +187,9 @@ class MultiBody(object):
 
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
-        thickness = 0.2 * self.pygame_scale
-
-        x_bound = bounds[0] * self.pygame_scale
-        y_bound = bounds[1] * self.pygame_scale
+        thickness = 0.2
+        x_bound = bounds[0]
+        y_bound = bounds[1]
 
         static_body = self.space.static_body
         static_lines = [
@@ -206,11 +200,8 @@ class MultiBody(object):
         ]
 
         if barriers:
-            import ipdb; ipdb.set_trace()
-
-            channel_height = barriers.get('channel_height') * self.pygame_scale
-            channel_space = barriers.get('channel_space') * self.pygame_scale
-
+            channel_height = barriers.get('channel_height')
+            channel_space = barriers.get('channel_space')
             n_lines = math.floor(x_bound/channel_space)
 
             machine_lines = [
@@ -227,8 +218,8 @@ class MultiBody(object):
         self.space.add(static_lines)
 
     def add_body_from_center(self, body_id, specs):
-        width = specs['width'] * self.pygame_scale
-        length = specs['length'] * self.pygame_scale
+        width = specs['width']
+        length = specs['length']
         mass = specs['mass']
         center_position = specs['location']
         angle = specs['angle']
@@ -248,8 +239,8 @@ class MultiBody(object):
         shape.body = body
 
         body.position = (
-            center_position[0] * self.pygame_scale,
-            center_position[1] * self.pygame_scale)
+            center_position[0],
+            center_position[1])
         body.angle = angle
         body.dimensions = (width, length)
         body.angular_velocity = angular_velocity
@@ -267,8 +258,8 @@ class MultiBody(object):
         global_specs = specs['global']
         boundary_specs = specs['boundary']
 
-        length = global_specs['length'] * self.pygame_scale
-        width = global_specs['width'] * self.pygame_scale
+        length = global_specs['length']
+        width = global_specs['width']
         mass = global_specs['mass'].magnitude
         thrust = boundary_specs['thrust']
         torque = boundary_specs['torque']
@@ -310,20 +301,17 @@ class MultiBody(object):
     def get_body_position(self, agent_id):
         body, shape = self.agent_bodies[agent_id]
         position = body.position
-        rescaled_position = [
-            position[0] / self.pygame_scale,
-            position[1] / self.pygame_scale]
 
         # enforce bounds
-        rescaled_position = [
+        position = [
             0 if pos<0 else pos
-            for idx, pos in enumerate(rescaled_position)]
-        rescaled_position = [
+            for idx, pos in enumerate(position)]
+        position = [
             self.bounds[idx] if pos>self.bounds[idx] else pos
-            for idx, pos in enumerate(rescaled_position)]
+            for idx, pos in enumerate(position)]
 
         return {
-            'location': rescaled_position,
+            'location': position,
             'angle': body.angle}
 
     ## pygame visualization (for debugging)
@@ -350,15 +338,15 @@ class MultiBody(object):
 
 
 def test_multibody(total_time=2, debug=False):
-    bounds = [10, 10]
+    bounds = [500, 500]
     center_location = [0.5*loc for loc in bounds]
     agents = {
         '1': {
             'location': center_location,
             'angle': PI/2,
-            'volume': 1,
-            'length': 2,
-            'width': 1,
+            'volume': 15,
+            'length': 30,
+            'width': 10,
             'mass': 1,
             'thrust': 1e3,
             'torque': 0.0}}
