@@ -60,9 +60,9 @@ def make_chemotaxis_experiment(config={}):
 # configurations
 def get_chemotaxis_experiment_config():
 
-    n_agents = 3
-    bounds = [20, 20]
-    n_bins = [10, 10]
+    n_agents = 1
+    bounds = [50, 50]
+    n_bins = [50, 50]
 
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
@@ -83,18 +83,18 @@ def get_chemotaxis_experiment_config():
         'agent_ids': agent_ids}
     multibody_config.update(random_body_config(body_config))
 
-
     # diffusion
+    field = 'glc'
     diffusion_config = {
-        'molecules': ['glc'],
-        # 'gradient': {
-        #     'type': 'gaussian',
-        #     'molecules': {
-        #         'glc':{
-        #             'center': [0.5, 0.5],
-        #             'deviation': 3},
-        #     }},
-        'diffusion': 5e-3,
+        'molecules': [field],
+        'gradient': {
+            'type': 'gaussian',
+            'molecules': {
+                field: {
+                    'center': [0.5, 0.5],
+                    'deviation': 3},
+            }},
+        'diffusion': 1e-1,
         'n_bins': n_bins,
         'size': bounds}
 
