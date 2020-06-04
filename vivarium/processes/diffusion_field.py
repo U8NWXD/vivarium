@@ -103,7 +103,6 @@ def make_gradient(gradient, n_bins, size):
                     added = distance * slope
                     # add gradient to basal concentration
                     field[x_bin][y_bin] += added
-            fields[fields <= 0.0] = 0.0
             fields[molecule_id] = field
 
     elif gradient.get('type') == 'exponential':
@@ -139,9 +138,7 @@ def make_gradient(gradient, n_bins, size):
 
                     # add to base concentration
                     field[x_bin][y_bin] += added
-            fields[fields <= 0.0] = 0.0
             fields[molecule_id] = field
-
     return fields
 
 

@@ -94,12 +94,11 @@ def get_chemotaxis_experiment_config():
     diffusion_config = {
         'molecules': [ligand_id],
         'gradient': {
-            'type': 'gaussian',
+            'type': 'exponential',
             'molecules': {
                 ligand_id: {
-                    'center': [0.5, 0.5],
-                    'deviation': 15},
-            }},
+                    'center': [0.0, 0.0],
+                    'base': 1+1e-1}}},
         'diffusion': 1e-1,
         'n_bins': n_bins,
         'size': bounds}
