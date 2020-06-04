@@ -60,7 +60,9 @@ def make_chemotaxis_experiment(config={}):
 # configurations
 def get_chemotaxis_experiment_config():
 
-    n_agents = 1
+    ligand_id = 'glc'
+    initial_ligand = 0.1
+    n_agents = 3
     bounds = [50, 50]
     n_bins = [50, 50]
 
@@ -68,6 +70,8 @@ def get_chemotaxis_experiment_config():
 
     ## minimal chemotaxis agent
     chemotaxis_config = {
+        'ligand_id': ligand_id,
+        'initial_ligand': initial_ligand,
         'external_path': ('global',),
         'agents_path': ('..', '..', 'agents')}
 
@@ -84,15 +88,14 @@ def get_chemotaxis_experiment_config():
     multibody_config.update(random_body_config(body_config))
 
     # diffusion
-    field = 'glc'
     diffusion_config = {
-        'molecules': [field],
+        'molecules': [ligand_id],
         'gradient': {
             'type': 'gaussian',
             'molecules': {
-                field: {
+                ligand_id: {
                     'center': [0.5, 0.5],
-                    'deviation': 3},
+                    'deviation': 15},
             }},
         'diffusion': 1e-1,
         'n_bins': n_bins,

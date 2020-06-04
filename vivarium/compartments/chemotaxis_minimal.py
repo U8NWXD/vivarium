@@ -27,7 +27,6 @@ class ChemotaxisMinimal(Compartment):
     defaults = {
         'ligand_id': 'MeAsp',
         'initial_ligand': 0.1,
-        'external_path': ('..', 'external',),
         'boundary_path': ('boundary',)
     }
 
@@ -39,16 +38,13 @@ class ChemotaxisMinimal(Compartment):
         self.initial_ligand = config.get(
             'initial_ligand',
             self.defaults['initial_ligand'])
-        self.external_path = self.config.get(
-            'external_path',
-            self.defaults['external_path'])
         self.boundary_path = self.config.get(
             'boundary_path',
             self.defaults['boundary_path'])
 
     def generate_processes(self, config):
         receptor_parameters = {
-            'ligand': self.ligand_id,
+            'ligand_id': self.ligand_id,
             'initial_ligand': self.initial_ligand}
 
         # declare the processes
@@ -62,10 +58,9 @@ class ChemotaxisMinimal(Compartment):
     def generate_topology(self, config):
         return {
             'receptor': {
-                'external': self.external_path,
+                'boundary': self.boundary_path,
                 'internal': ('cell',)},
             'motor': {
-                'external': self.external_path,
                 'boundary': self.boundary_path,
                 'internal': ('cell',)}}
 

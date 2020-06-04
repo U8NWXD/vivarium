@@ -73,7 +73,7 @@ class MotorActivity(Process):
             'boundary': [
                 'thrust',
                 'torque'],
-            'external': []}
+        }
 
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)

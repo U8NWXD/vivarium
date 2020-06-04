@@ -82,7 +82,7 @@ class ReceptorCluster(Process):
 
         ports = {
             'internal': ['n_methyl', 'chemoreceptor_activity', 'CheR', 'CheB'],
-            'external': [self.ligand_id]}
+            'boundary': [self.ligand_id]}
 
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
@@ -93,10 +93,10 @@ class ReceptorCluster(Process):
         set_keys = {'internal': ['chemoreceptor_activity', 'n_methyl']}
         default_states = {
             'internal': self.initial_state,
-            'external': {self.ligand_id: self.initial_ligand}}
+            'boundary': {self.ligand_id: self.initial_ligand}}
         set_emit = {
             'internal': list(self.initial_state.keys()),
-            'external': [self.ligand_id]}
+            'boundary': [self.ligand_id]}
 
         schema = {}
         for port, states in self.ports.items():
@@ -124,7 +124,7 @@ class ReceptorCluster(Process):
         P_on = copy.copy(states['internal']['chemoreceptor_activity'])
         CheR = copy.copy(states['internal']['CheR'] * (units.mmol / units.L))
         CheB = copy.copy(states['internal']['CheB'] * (units.mmol / units.L))
-        ligand_conc = states['external'][self.ligand_id]   # mmol/L
+        ligand_conc = states['boundary'][self.ligand_id]   # mmol/L
 
         # convert to umol / L
         CheR = CheR.to('umol/L').magnitude
@@ -186,14 +186,14 @@ class ReceptorCluster(Process):
 # tests and analyses of process
 def get_pulse_timeline(ligand='MeAsp'):
     timeline = [
-        (0, {('external', ligand): 0.0}),
-        (100, {('external', ligand): 0.01}),
-        (200, {('external', ligand): 0.0}),
-        (300, {('external', ligand): 0.1}),
-        (400, {('external', ligand): 0.0}),
-        (500, {('external', ligand): 1.0}),
-        (600, {('external', ligand): 0.0}),
-        (700, {('external', ligand): 0.0})]
+        (0, {('boundary', ligand): 0.0}),
+        (100, {('boundary', ligand): 0.01}),
+        (200, {('boundary', ligand): 0.0}),
+        (300, {('boundary', ligand): 0.1}),
+        (400, {('boundary', ligand): 0.0}),
+        (500, {('boundary', ligand): 1.0}),
+        (600, {('boundary', ligand): 0.0}),
+        (700, {('boundary', ligand): 0.0})]
     return timeline
 
 def get_linear_step_timeline(config):
@@ -202,7 +202,7 @@ def get_linear_step_timeline(config):
     speed = config.get('speed', 14)     # um/s
     conc_0 = config.get('initial_conc', 0)  # mM
     ligand = config.get('ligand', 'MeAsp')
-    env_port = config.get('environment_port', 'external')
+    env_port = config.get('environment_port', 'boundary')
 
     return [(t, {(env_port, ligand): conc_0 + slope*t*speed}) for t in range(time)]
 
@@ -212,7 +212,7 @@ def get_exponential_step_timeline(config):
     speed = config.get('speed', 14)     # um/s
     conc_0 = config.get('initial_conc', 0)  # mM
     ligand = config.get('ligand', 'MeAsp')
-    env_port = config.get('environment_port', 'external')
+    env_port = config.get('environment_port', 'boundary')
 
     return [(t, {(env_port, ligand): conc_0 + base**(t*speed) - 1}) for t in range(time)]
 
@@ -224,7 +224,7 @@ def get_exponential_random_timeline(config):
     speed = config.get('speed', 14)     # um/s
     conc_0 = config.get('initial_conc', 0)  # mM
     ligand = config.get('ligand', 'MeAsp')
-    env_port = config.get('environment_port', 'external')
+    env_port = config.get('environment_port', 'boundary')
 
     conc = conc_0
     timeline = [(0, {(env_port, ligand): conc})]
@@ -242,7 +242,7 @@ def test_receptor(timeline=get_pulse_timeline(), timestep = 1):
     ligand = 'MeAsp'
 
     # initialize process
-    initial_ligand = timeline[0][1][('external', ligand)]
+    initial_ligand = timeline[0][1][('boundary', ligand)]
     end_time = timeline[-1][0]
     process_config = {
         'initial_ligand': initial_ligand}
@@ -254,7 +254,7 @@ def test_receptor(timeline=get_pulse_timeline(), timestep = 1):
 
 
 def plot_output(output, out_dir='out', filename='response'):
-    ligand_vec = output['external']['MeAsp']  # TODO -- configure ligand name
+    ligand_vec = output['boundary']['MeAsp']  # TODO -- configure ligand name
     receptor_activity_vec = output['internal']['chemoreceptor_activity']
     n_methyl_vec = output['internal']['n_methyl']
     time_vec = output['time']

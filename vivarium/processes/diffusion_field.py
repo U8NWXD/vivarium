@@ -218,12 +218,16 @@ class DiffusionField(Process):
         super(DiffusionField, self).__init__(ports, parameters)
 
     def ports_schema(self):
+        local_concentration_schema = {
+            molecule: {
+                '_default': 0.0,
+                '_updater': 'set'}
+            for molecule in self.molecule_ids}
 
         schema = {'agents': {}}
         for agent_id, states in self.initial_agents.items():
             location = states[self.boundary_port].get('location', [])
             exchange = states[self.boundary_port].get('exchange', {})
-            # local_environment = states.get('local_environment', {})
             schema['agents'][agent_id] = {
                 self.boundary_port: {
                     'location': {
@@ -232,6 +236,7 @@ class DiffusionField(Process):
                         mol_id: {
                             '_value': value}
                         for mol_id, value in exchange.items()}}}
+            schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
 
         glob_schema = {
             '*': {
@@ -242,9 +247,8 @@ class DiffusionField(Process):
                     'exchange': {
                         molecule: {'_default': 0.0}
                         for molecule in self.molecule_ids},
-                    'local_environment': {
-                        molecule: {'_default': 0.0}
-                        for molecule in self.molecule_ids}}}}
+                    }}}
+        glob_schema['*'][self.boundary_port].update(local_concentration_schema)
         schema['agents'].update(glob_schema)
 
         fields_schema = {
@@ -271,13 +275,10 @@ class DiffusionField(Process):
 
         # get each agent's local environment
         local_environments = self.get_local_environments(agents, fields)
-        agent_update = {
-            agent_id: {'local_environment': local_env}
-                for agent_id, local_env in local_environments.items()}
 
         update = {'fields': delta_fields}
-        if agent_update:
-            update.update({'agents': agent_update})
+        if local_environments:
+            update.update({'agents': local_environments})
 
         return update
 
@@ -302,7 +303,8 @@ class DiffusionField(Process):
         local_environments = {}
         if agents:
             for agent_id, specs in agents.items():
-                local_environments[agent_id] = self.get_single_local_environments(specs[self.boundary_port], fields)
+                local_environments[agent_id] = {}
+                local_environments[agent_id][self.boundary_port] = self.get_single_local_environments(specs[self.boundary_port], fields)
         return local_environments
 
     def apply_single_exchange(self, delta_fields, specs):
