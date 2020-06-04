@@ -50,8 +50,6 @@ class MotorActivity(Process):
                 # motor activity
                 'ccw_motor_bias': 0.5,
                 'ccw_to_cw': 0.5,
-                # 'motile_force': 0,
-                # 'motile_torque': 0,
                 'motor_state': 1,  # motor_state 1 for tumble, 0 for run
             },
             'boundary': {
@@ -71,8 +69,6 @@ class MotorActivity(Process):
                 'CheY_P',
                 'ccw_motor_bias',
                 'ccw_to_cw',
-                # 'motile_force',
-                # 'motile_torque',
                 'motor_state'],
             'boundary': [
                 'thrust',
@@ -90,8 +86,6 @@ class MotorActivity(Process):
             'internal': [
                 'ccw_motor_bias',
                 'ccw_to_cw',
-                # 'motile_force',
-                # 'motile_torque',
                 'motor_state',
                 'CheA',
                 'CheY_P'],
@@ -102,8 +96,6 @@ class MotorActivity(Process):
             'internal': [
                 'ccw_motor_bias',
                 'ccw_to_cw',
-                # 'motile_force',
-                # 'motile_torque',
                 'motor_state',
                 'CheA',
                 'CheY_P'],
@@ -181,15 +173,10 @@ class MotorActivity(Process):
                 motor_state = 1
                 [thrust, torque] = tumble()
 
-
-        # import ipdb; ipdb.set_trace()
-
         return {
             'internal': {
                 'ccw_motor_bias': ccw_motor_bias,
                 'ccw_to_cw': ccw_to_cw,
-                # 'motile_force': thrust,
-                # 'motile_torque': torque,
                 'motor_state': motor_state,
                 'CheY_P': CheY_P},
             'boundary': {
