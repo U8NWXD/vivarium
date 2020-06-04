@@ -708,7 +708,6 @@ class Compartment(object):
             for process_id, process in processes.items()}
 
 
-# Experiment
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)

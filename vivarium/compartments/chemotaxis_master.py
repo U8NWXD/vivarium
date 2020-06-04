@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
@@ -13,10 +13,6 @@ from vivarium.compartments.gene_expression import plot_gene_expression_output
 from vivarium.compartments.flagella_expression import get_flagella_expression_config
 
 # processes
-from vivarium.processes.division import (
-    Division,
-    divide_condition
-)
 from vivarium.processes.metabolism import (
     Metabolism,
     get_iAF1260b_config
@@ -32,6 +28,7 @@ from vivarium.processes.complexation import Complexation
 from vivarium.processes.Endres2006_chemoreceptor import ReceptorCluster
 from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
 from vivarium.processes.membrane_potential import MembranePotential
+from vivarium.processes.division_volume import DivisionVolume
 
 
 NAME = 'chemotaxis_master'
@@ -41,21 +38,19 @@ class ChemotaxisMaster(Compartment):
 
     defaults = {
         'transport': get_glc_lct_config(),
-        'global_path': ('..', 'global'),
-        'external_path': ('..', 'external')
+        'boundary_path': ('boundary',)
     }
 
     def __init__(self, config):
         self.config = config
-        self.global_path = config.get('global_path', self.defaults['global_path'])
-        self.external_path = config.get('external_path', self.defaults['external_path'])
+        self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
 
         self.transport_config = self.config.get('transport', self.defaults['transport'])
         self.transport_config['global_deriver_config'] = {
             'type': 'globals',
-            'source_port': 'global',
-            'derived_port': 'global',
-            'global_port': self.global_path,
+            'source_port': self.boundary_path,
+            'derived_port': self.boundary_path,
+            'global_port': self.boundary_path,
             'keys': []}
 
     def generate_processes(self, config):
@@ -91,7 +86,7 @@ class ChemotaxisMaster(Compartment):
         # get initial volume from metabolism
         division_config = config.get('division', {})
         division_config.update({'initial_state': metabolism.initial_state})
-        division = Division(division_config)
+        division = DivisionVolume(division_config)
 
         return {
             'PMF': PMF,
@@ -107,31 +102,31 @@ class ChemotaxisMaster(Compartment):
 
 
     def generate_topology(self, config):
-        external_path = config.get('external_path', self.external_path)
-        global_path = config.get('global_path', self.global_path)
+        boundary_path = config.get('boundary_path', self.boundary_path)
 
         return {
             'transport': {
                 'internal': ('internal',),
-                'external': external_path,
+                'external': boundary_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
-                'global': global_path},
+                'global': boundary_path},
 
             'metabolism': {
                 'internal': ('internal',),
-                'external': external_path,
+                'external': boundary_path,
                 'reactions': ('reactions',),
                 'exchange': ('exchange',),
                 'flux_bounds': ('flux_bounds',),
-                'global': global_path},
+                'global': boundary_path},
 
             'transcription': {
                 'chromosome': ('chromosome',),
                 'molecules': ('internal',),
                 'proteins': ('proteins',),
                 'transcripts': ('transcripts',),
-                'factors': ('concentrations',)},
+                'factors': ('concentrations',),
+                'global': boundary_path},
 
             'translation': {
                 'ribosomes': ('ribosomes',),
@@ -139,21 +134,21 @@ class ChemotaxisMaster(Compartment):
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'concentrations': ('concentrations',),
-                'global': global_path},
+                'global': boundary_path},
 
             'degradation': {
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'molecules': ('internal',),
-                'global': global_path},
+                'global': boundary_path},
 
             'complexation': {
                 'monomers': ('proteins',),
                 'complexes': ('proteins',),
-                'global': global_path},
+                'global': boundary_path},
 
             'receptor': {
-                'external': external_path,
+                'boundary': boundary_path,
                 'internal': ('internal',)},
 
             'flagella': {
@@ -161,17 +156,18 @@ class ChemotaxisMaster(Compartment):
                 'membrane': ('membrane',),
                 'flagella_counts': ('proteins',),
                 'flagella_activity': ('flagella_activity',),
-                'external': external_path},
+                'external': boundary_path},
 
             'PMF': {
-                'external': external_path,
+                'external': boundary_path,
                 'membrane': ('membrane',),
                 'internal': ('internal',)},
 
             'division': {
-                'global': global_path}}
+                'global': boundary_path}}
 
 def run_chemotaxis_master(out_dir):
+    total_time = 100
     compartment = ChemotaxisMaster({})
 
     # save the topology network
@@ -181,8 +177,8 @@ def run_chemotaxis_master(out_dir):
         settings,
         out_dir)
 
-    timeseries = test_chemotaxis_master()
-    volume_ts = timeseries['global']['volume']
+    timeseries = test_chemotaxis_master(total_time)
+    volume_ts = timeseries['boundary']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
     # plots
@@ -204,7 +200,7 @@ def run_chemotaxis_master(out_dir):
         gene_exp_plot_config,
         out_dir)
 
-def test_chemotaxis_master():
+def test_chemotaxis_master(total_time=10):
     compartment_config = {
         'external_path': ('external',),
         'exchange_path': ('exchange',),
@@ -214,7 +210,7 @@ def test_chemotaxis_master():
 
     settings = {
         'timestep': 1,
-        'total_time': 100}
+        'total_time': total_time}
     return simulate_compartment_in_experiment(compartment, settings)
 
 
