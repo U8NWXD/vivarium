@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import uuid
 
+from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.experiment import (
     generate_state,
     Experiment)
@@ -26,7 +27,9 @@ from vivarium.compartments.chemotaxis_minimal import (
 # processes
 from vivarium.processes.multibody_physics import (
     plot_snapshots,
-    random_body_config
+    plot_trajectory,
+    plot_motility,
+    random_body_config,
 )
 
 
@@ -119,15 +122,17 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
+    # extract data
+    multibody_config = chemotaxis_config['environment']['multibody']
+    agents = {time: time_data['agents'] for time, time_data in data.items()}
+    fields = {time: time_data['fields'] for time, time_data in data.items()}
+
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
     plot_agent_data(data, plot_settings, out_dir)
 
     # snapshot plot
-    multibody_config = chemotaxis_config['environment']['multibody']
-    agents = {time: time_data['agents'] for time, time_data in data.items()}
-    fields = {time: time_data['fields'] for time, time_data in data.items()}
     data = {
         'agents': agents,
         'fields': fields,
@@ -137,6 +142,22 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
         'filename': 'snapshots'}
     plot_snapshots(data, plot_config)
 
+    # trajectory and motility plots
+    # make agents timeseries
+    agents_timeseries = {}
+    agents_timeseries['agents'] = {}
+    agents_timeseries['time'] = list(agents.keys())
+    for time, agents_data in agents.items():
+        for agent_id, agent_data in agents_data.items():
+            if agent_id not in agents_timeseries['agents']:
+                agents_timeseries['agents'][agent_id] = []
+            agents_timeseries['agents'][agent_id].append(agent_data)
+
+    # config for trajectory plot
+    trajectory_config = {'bounds': chemotaxis_config['environment']['multibody']['bounds']}
+
+    plot_motility(agents_timeseries, out_dir)
+    plot_trajectory(agents_timeseries, trajectory_config, out_dir)
 
 
 if __name__ == '__main__':

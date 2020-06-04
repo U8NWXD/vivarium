@@ -785,7 +785,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
             'angle': [],
             'thrust': [],
             'torque': []}
-        for agent_id in agents.keys()}
+        for agent_id in list(agents.keys())}
 
     for agent_id, agent_data in agents.items():
         previous_location = [0,0]
@@ -872,7 +872,7 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--motility', '-o', action='store_true', default=False)
+    parser.add_argument('--motility', '-m', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
