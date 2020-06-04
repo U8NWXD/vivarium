@@ -306,7 +306,7 @@ class MultiBody(object):
         for body_id in removed_bodies:
             body, shape = self.bodies[body_id]
             self.space.remove(body, shape)
-            del self.bodies[agent_id]
+            del self.bodies[body_id]
 
         # update agents, add new agents
         for body_id, specs in bodies.items():

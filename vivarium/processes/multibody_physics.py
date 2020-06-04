@@ -168,8 +168,6 @@ class Multibody(Process):
                         '_units': units.fg,
                         '_default': 1 * units.fg,
                         '_updater': 'set'},
-                },
-                'boundary': {
                     'thrust': {
                         '_default': 0.0,
                         '_updater': 'set'},
@@ -192,7 +190,6 @@ class Multibody(Process):
 
         schema = {'agents': initial_agents_schema}
         schema['agents'].update(glob_schema)
-
         return schema
 
     def next_update(self, timestep, states):
