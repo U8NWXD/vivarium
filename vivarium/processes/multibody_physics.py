@@ -19,7 +19,7 @@ from matplotlib.collections import LineCollection
 
 # vivarium imports
 from vivarium.library.pymunk_multibody import MultiBody
-from vivarium.library.units import units
+from vivarium.library.units import units, remove_units
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.process import Process
 from vivarium.core.composition import (
@@ -104,22 +104,21 @@ class Multibody(Process):
     }
 
     def __init__(self, initial_parameters={}):
-
         # agents
         self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
 
         # multibody parameters
         jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
-        bounds = initial_parameters.get('bounds', self.defaults['bounds'])
+        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
         debug = initial_parameters.get('debug', self.defaults['debug'])
         self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
 
         # make the multibody object
         multibody_config = {
             'jitter_force': jitter_force,
-            'bounds': bounds,
+            'bounds': self.bounds,
             'barriers': self.mother_machine,
-            'initial_agents': self.initial_agents,
+            'initial_agents': remove_units(self.initial_agents),
             'debug': debug}
         self.physics = MultiBody(multibody_config)
 
@@ -142,7 +141,7 @@ class Multibody(Process):
     def ports_schema(self):
         glob_schema = {
             '*': {
-                'global': {
+                'boundary': {
                     'location': {
                         '_emit': True,
                         '_default': [0.5, 0.5],
@@ -203,37 +202,14 @@ class Multibody(Process):
         if self.animate:
             self.animate_frame(agents)
 
-        # if an agent has been removed from the agents store,
-        # remove it from space and agent_bodies
-        removed_agents = [
-            agent_id for agent_id in self.agent_bodies.keys()
-            if agent_id not in agents.keys()]
-        for agent_id in removed_agents:
-            body, shape = self.agent_bodies[agent_id]
-            self.space.remove(body, shape)
-            del self.agent_bodies[agent_id]
-
-
-
-        # TODO -- update the agents in self.physics
-        import ipdb; ipdb.set_trace()
-
-
-        # update agents, add new agents
-        for agent_id, specs in agents.items():
-            if agent_id in self.agent_bodies:
-                self.update_body(agent_id, specs)
-            else:
-                self.add_body_from_center(agent_id, specs)
+        # update multibody with new agents
+        self.physics.update_bodies(remove_units(agents))
 
         # run simulation
         self.physics.run(timestep)
 
         # get new agent positions
-        agent_position = {
-            agent_id: {
-                'global': self.physics.get_body_position(agent_id)}
-            for agent_id in self.agent_bodies.keys()}
+        agent_position = self.physics.get_body_positions()
 
         return {'agents': agent_position}
 
@@ -242,7 +218,7 @@ class Multibody(Process):
         plt.cla()
         for agent_id, data in agents.items():
             # location, orientation, length
-            data = data['global']
+            data = data['boundary']
             x_center = data['location'][0]
             y_center = data['location'][1]
             angle = data['angle'] / PI * 180 + 90  # rotate 90 degrees to match field
@@ -276,7 +252,7 @@ def random_agent_config(bounds):
     length = 2
     volume = volume_from_length(length, width)
 
-    return {'global': {
+    return {'boundary': {
         'location': [
             np.random.uniform(0, bounds[0]),
             np.random.uniform(0, bounds[1])],
@@ -320,7 +296,7 @@ def mother_machine_body_config(config):
 
     agent_config = {
         agent_id: {
-            'global': {
+            'boundary': {
                 'location': possible_locations[index],
                 'angle': PI/2,
                 'volume': volume,
@@ -450,7 +426,7 @@ def run_motility(out_dir):
         'timestep': 0.05,
         'total_time': 2}
     motility_config = {
-        'animate': False,
+        'animate': True,
         'jitter_force': 0,
         'bounds': bounds}
     body_config = {
@@ -461,8 +437,6 @@ def run_motility(out_dir):
     # run motility sim
     motility_data = simulate_motility(motility_config, motility_sim_settings)
     motility_timeseries = timeseries_from_data(motility_data)
-
-    import ipdb; ipdb.set_trace()
 
     # make motility plot
     plot_motility(motility_timeseries, out_dir)
@@ -516,7 +490,7 @@ def simulate_growth_division(config, settings):
     experiment = process_in_experiment(multibody)
     experiment.state.update_subschema(
         ('agents',), {
-            'global': {
+            'boundary': {
                 'mass': {
                     '_divider': 'split'},
                 'length': {
@@ -545,11 +519,12 @@ def simulate_growth_division(config, settings):
         remove_agents = []
         add_agents = {}
         for agent_id, state in agents_state.items():
-            location = state['global']['location']
-            angle = state['global']['angle']
-            length = state['global']['length']
-            width = state['global']['width']
-            mass = state['global']['mass'].magnitude
+            state = state['boundary']
+            location = state['location']
+            angle = state['angle']
+            length = state['length']
+            width = state['width']
+            mass = state['mass'].magnitude
 
             # update
             growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
@@ -581,7 +556,7 @@ def simulate_growth_division(config, settings):
                 experiment.send_updates([{'agents': update}])
             else:
                 agent_updates[agent_id] = {
-                    'global': {
+                    'boundary': {
                         'volume': new_volume,
                         'length': new_length,
                         'mass': new_mass * units.fg}}
@@ -595,11 +570,11 @@ def simulate_growth_division(config, settings):
 # plotting
 def plot_agent(ax, data, color):
     # location, orientation, length
-    x_center = data['global']['location'][0]
-    y_center = data['global']['location'][1]
-    theta = data['global']['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
-    length = data['global']['length']
-    width = data['global']['width']
+    x_center = data['boundary']['location'][0]
+    y_center = data['boundary']['location'][1]
+    theta = data['boundary']['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
+    length = data['boundary']['length']
+    width = data['boundary']['width']
 
     # get bottom left position
     x_offset = (width / 2)

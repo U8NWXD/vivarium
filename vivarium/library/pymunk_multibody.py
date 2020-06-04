@@ -218,12 +218,13 @@ class MultiBody(object):
         self.space.add(static_lines)
 
     def add_body_from_center(self, body_id, specs):
-        width = specs['width']
-        length = specs['length']
-        mass = specs['mass']
-        center_position = specs['location']
-        angle = specs['angle']
-        angular_velocity = specs.get('angular_velocity', 0.0)
+        boundary = specs['boundary']
+        width = boundary['width']
+        length = boundary['length']
+        mass = boundary['mass']
+        center_position = boundary['location']
+        angle = boundary['angle']
+        angular_velocity = boundary.get('angular_velocity', 0.0)
 
         half_length = length / 2
         half_width = width / 2
@@ -255,16 +256,14 @@ class MultiBody(object):
         self.bodies[body_id] = (body, shape)
 
     def update_body(self, body_id, specs):
-        global_specs = specs['global']
-        boundary_specs = specs['boundary']
+        boundary = specs['boundary']
+        length = boundary['length']
+        width = boundary['width']
+        mass = boundary['mass']
+        thrust = boundary['thrust']
+        torque = boundary['torque']
 
-        length = global_specs['length']
-        width = global_specs['width']
-        mass = global_specs['mass'].magnitude
-        thrust = boundary_specs['thrust']
-        torque = boundary_specs['torque']
-
-        body, shape = self.agent_bodies[body_id]
+        body, shape = self.bodies[body_id]
         position = body.position
         angle = body.angle
 
@@ -296,10 +295,28 @@ class MultiBody(object):
         self.space.add(new_body, new_shape)
 
         # update body
-        self.agent_bodies[body_id] = (new_body, new_shape)
+        self.bodies[body_id] = (new_body, new_shape)
+
+    def update_bodies(self, bodies):
+        # if an agent has been removed from the agents store,
+        # remove it from space and bodies
+        removed_bodies = [
+            body_id for body_id in self.bodies.keys()
+            if body_id not in bodies.keys()]
+        for body_id in removed_bodies:
+            body, shape = self.bodies[body_id]
+            self.space.remove(body, shape)
+            del self.bodies[agent_id]
+
+        # update agents, add new agents
+        for body_id, specs in bodies.items():
+            if body_id in self.bodies:
+                self.update_body(body_id, specs)
+            else:
+                self.add_body_from_center(body_id, specs)
 
     def get_body_position(self, agent_id):
-        body, shape = self.agent_bodies[agent_id]
+        body, shape = self.bodies[agent_id]
         position = body.position
 
         # enforce bounds
@@ -313,6 +330,12 @@ class MultiBody(object):
         return {
             'location': position,
             'angle': body.angle}
+
+    def get_body_positions(self):
+        return {
+            body_id: {
+                'boundary': self.get_body_position(body_id)}
+            for body_id in self.bodies.keys()}
 
     ## pygame visualization (for debugging)
     def _process_events(self):
