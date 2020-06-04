@@ -46,7 +46,7 @@ def make_agents(agent_ids, compartment, config=None):
     processes = {}
     topology = {}
     for agent_id in agent_ids:
-        agent_config = config.copy()
+        agent_config = copy.deepcopy(config)
         agent = compartment.generate(dict(
             agent_config,
             agent_id=agent_id))

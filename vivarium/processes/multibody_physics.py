@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import argparse
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 import random
 import math
@@ -18,20 +17,9 @@ from matplotlib.colors import hsv_to_rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
 
-# pymunk imports
-import pymunkoptions
-pymunkoptions.options["debug"] = False
-import pymunk
-import pymunk.pygame_util
-
-# pygame for debugging
-import pygame
-from pygame.key import *
-from pygame.locals import *
-from pygame.color import *
-
 # vivarium imports
-from vivarium.library.units import units
+from vivarium.library.pymunk_multibody import MultiBody
+from vivarium.library.units import units, remove_units
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.process import Process
 from vivarium.core.composition import (
@@ -46,7 +34,6 @@ from vivarium.processes.derive_globals import volume_from_length
 
 NAME = 'multibody'
 
-DEBUG_SIZE = 600  # size of the pygame debug screen
 DEFAULT_BOUNDS = [10, 10]
 
 # constants
@@ -56,13 +43,6 @@ PI = math.pi
 HUES = [hue/360 for hue in np.linspace(0,360,30)]
 DEFAULT_HUE = HUES[0]
 DEFAULT_SV = [100.0/100.0, 70.0/100.0]
-
-# agent port keys
-AGENT_KEYS = ['location', 'angle', 'volume', 'length', 'width', 'mass', 'forces']
-NON_AGENT_KEYS = ['fields', 'time', 'global']
-
-
-
 
 
 def random_body_position(body):
@@ -86,6 +66,7 @@ def random_body_position(body):
             location = (width, random.uniform(0, length))
     return location
 
+
 def daughter_locations(parent_location, parent_values):
     parent_length = parent_values['length']
     parent_angle = parent_values['angle']
@@ -96,7 +77,6 @@ def daughter_locations(parent_location, parent_values):
         dy = parent_length * pos_ratios[daughter] * math.sin(parent_angle)
         location = [parent_location[0] + dx, parent_location[1] + dy]
         daughter_locations.append(location)
-
     return daughter_locations
 
 
@@ -115,61 +95,32 @@ class Multibody(Process):
 
     defaults = {
         'initial_agents': {},
-        'elasticity': 0.9,
-        'damping': 0.05, # simulates viscous forces to reduce velocity at low Reynolds number (1 = no damping, 0 = full damping)
-        'angular_damping': 0.7,  # less damping for angular velocity seems to improve behavior
-        'friction': 0.9,  # TODO -- does this do anything?
-        'physics_dt': 0.005,
-        'force_scaling': 100,  # scales from pN
         'jitter_force': 1e-3,  # pN
-        'time_step': 2,
         'bounds': DEFAULT_BOUNDS,
         'mother_machine': False,
         'animate': False,
         'debug': False,
+        'time_step': 2,
     }
 
-
     def __init__(self, initial_parameters={}):
-
-        # hardcoded parameters
-        self.elasticity = self.defaults['elasticity']
-        self.friction = self.defaults['friction']
-        self.damping = self.defaults['damping']
-        self.angular_damping = self.defaults['angular_damping']
-        self.force_scaling = self.defaults['force_scaling']
-        self.physics_dt = self.defaults['physics_dt']
-
-        # configured parameters
-        self.jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
-        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
-
-        # initialize pymunk space
-        self.space = pymunk.Space()
-
-        # debug screen with pygame
-        self.pygame_viz = initial_parameters.get('debug', self.defaults['debug'])
-        self.pygame_scale = 1  # pygame_scale scales the debug screen
-        if self.pygame_viz:
-            max_bound = max(self.bounds)
-            self.pygame_scale = DEBUG_SIZE / max_bound
-            self.force_scaling *= self.pygame_scale
-            pygame.init()
-            self._screen = pygame.display.set_mode((
-                int(self.bounds[0]*self.pygame_scale),
-                int(self.bounds[1]*self.pygame_scale)), RESIZABLE)
-            self._clock = pygame.time.Clock()
-            self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
-
-        # add static barriers
-        self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
-        self.add_barriers(self.bounds)
-
-        # initialize agents
-        self.agent_bodies = {}
+        # agents
         self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
-        for agent_id, specs in self.initial_agents.items():
-            self.add_body_from_center(agent_id, specs['global'])
+
+        # multibody parameters
+        jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
+        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
+        debug = initial_parameters.get('debug', self.defaults['debug'])
+        self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
+
+        # make the multibody object
+        multibody_config = {
+            'jitter_force': jitter_force,
+            'bounds': self.bounds,
+            'barriers': self.mother_machine,
+            'initial_agents': remove_units(self.initial_agents),
+            'debug': debug}
+        self.physics = MultiBody(multibody_config)
 
         # interactive plot for visualization
         self.animate = initial_parameters.get('animate', self.defaults['animate'])
@@ -180,8 +131,7 @@ class Multibody(Process):
             self.animate_frame(self.initial_agents)
 
         # all initial agents get a key under a single port
-        ports = {
-            'agents': ['*']}
+        ports = {'agents': ['*']}
 
         parameters = {'time_step': self.defaults['time_step']}
         parameters.update(initial_parameters)
@@ -191,7 +141,7 @@ class Multibody(Process):
     def ports_schema(self):
         glob_schema = {
             '*': {
-                'global': {
+                'boundary': {
                     'location': {
                         '_emit': True,
                         '_default': [0.5, 0.5],
@@ -218,9 +168,15 @@ class Multibody(Process):
                         '_units': units.fg,
                         '_default': 1 * units.fg,
                         '_updater': 'set'},
-                    'motile_force': {
-                        '_default': [0.0, 0.0],
-                        '_updater': 'set'}}}}
+                    'thrust': {
+                        '_default': 0.0,
+                        '_updater': 'set'},
+                    'torque': {
+                        '_default': 0.0,
+                        '_updater': 'set'},
+                }
+            }
+        }
 
         initial_agents_schema = {
             agent_id: {
@@ -234,7 +190,6 @@ class Multibody(Process):
 
         schema = {'agents': initial_agents_schema}
         schema['agents'].update(glob_schema)
-
         return schema
 
     def next_update(self, timestep, states):
@@ -244,226 +199,23 @@ class Multibody(Process):
         if self.animate:
             self.animate_frame(agents)
 
-        # if an agent has been removed from the agents store,
-        # remove it from space and agent_bodies
-        removed_agents = [
-            agent_id for agent_id in self.agent_bodies.keys()
-            if agent_id not in agents.keys()]
-        for agent_id in removed_agents:
-            body, shape = self.agent_bodies[agent_id]
-            self.space.remove(body, shape)
-            del self.agent_bodies[agent_id]
-
-        # update agents, add new agents
-        for agent_id, specs in agents.items():
-            if agent_id in self.agent_bodies:
-                self.update_body(agent_id, specs['global'])
-            else:
-                self.add_body_from_center(agent_id, specs['global'])
+        # update multibody with new agents
+        self.physics.update_bodies(remove_units(agents))
 
         # run simulation
-        self.run(timestep)
+        self.physics.run(timestep)
 
-        # get new agent position
-        agent_position = {
-            agent_id: {
-                'global': self.get_body_position(agent_id)}
-            for agent_id in self.agent_bodies.keys()}
+        # get new agent positions
+        agent_position = self.physics.get_body_positions()
 
         return {'agents': agent_position}
-
-    def run(self, timestep):
-        assert self.physics_dt < timestep
-
-        time = 0
-        while time < timestep:
-            time += self.physics_dt
-
-            # apply forces
-            for body in self.space.bodies:
-                self.apply_jitter_force(body)
-                self.apply_motile_force(body)
-                self.apply_viscous_force(body)
-
-            # run for a physics timestep
-            self.space.step(self.physics_dt)
-
-        if self.pygame_viz:
-            self._update_screen()
-
-    def apply_motile_force(self, body):
-        width, length = body.dimensions
-
-        # motile forces
-        motile_location = (width / 2, 0)  # apply force at back end of body
-        motile_force = [0.0, 0.0]
-        if hasattr(body, 'motile_force'):
-            thrust, torque = body.motile_force
-            motile_force = [thrust, 0.0]
-
-            # add directly to angular velocity
-            body.angular_velocity += torque
-            # force-based torque
-            # if torque != 0.0:
-            #     motile_force = get_force_with_angle(thrust, torque)
-
-        scaled_motile_force = [thrust * self.force_scaling for thrust in motile_force]
-        body.apply_force_at_local_point(scaled_motile_force, motile_location)
-
-    def apply_jitter_force(self, body):
-        jitter_location = random_body_position(body)
-        jitter_force = [
-            random.normalvariate(0, self.jitter_force),
-            random.normalvariate(0, self.jitter_force)]
-        scaled_jitter_force = [
-            force * self.force_scaling
-            for force in jitter_force]
-        body.apply_force_at_local_point(
-            scaled_jitter_force,
-            jitter_location)
-
-    def apply_viscous_force(self, body):
-        # dampen the velocity
-        body.velocity = body.velocity * self.damping + (body.force / body.mass) * self.physics_dt
-        body.angular_velocity = body.angular_velocity * self.angular_damping + body.torque / body.moment * self.physics_dt
-
-    def add_barriers(self, bounds):
-        """ Create static barriers """
-        thickness = 0.2
-
-        x_bound = bounds[0] * self.pygame_scale
-        y_bound = bounds[1] * self.pygame_scale
-
-        static_body = self.space.static_body
-        static_lines = [
-            pymunk.Segment(static_body, (0.0, 0.0), (x_bound, 0.0), thickness),
-            pymunk.Segment(static_body, (x_bound, 0.0), (x_bound, y_bound), thickness),
-            pymunk.Segment(static_body, (x_bound, y_bound), (0.0, y_bound), thickness),
-            pymunk.Segment(static_body, (0.0, y_bound), (0.0, 0.0), thickness),
-        ]
-
-        if self.mother_machine:
-            channel_height = self.mother_machine.get('channel_height') * self.pygame_scale
-            channel_space = self.mother_machine.get('channel_space') * self.pygame_scale
-
-            n_lines = math.floor(x_bound/channel_space)
-
-            machine_lines = [
-                pymunk.Segment(
-                    static_body,
-                    (channel_space * line, 0),
-                    (channel_space * line, channel_height), thickness)
-                for line in range(n_lines)]
-            static_lines += machine_lines
-
-        for line in static_lines:
-            line.elasticity = 0.0  # no bounce
-            line.friction = 0.9
-        self.space.add(static_lines)
-
-    def add_body_from_center(self, body_id, body):
-        width = body['width'] * self.pygame_scale
-        length = body['length'] * self.pygame_scale
-        mass = body['mass'].magnitude
-        center_position = body['location']
-        angle = body['angle']
-        angular_velocity = body.get('angular_velocity', 0.0)
-
-        half_length = length / 2
-        half_width = width / 2
-
-        shape = pymunk.Poly(None, (
-            (-half_length, -half_width),
-            (half_length, -half_width),
-            (half_length, half_width),
-            (-half_length, half_width)))
-
-        inertia = pymunk.moment_for_poly(mass, shape.get_vertices())
-        body = pymunk.Body(mass, inertia)
-        shape.body = body
-
-        body.position = (
-            center_position[0] * self.pygame_scale,
-            center_position[1] * self.pygame_scale)
-        body.angle = angle
-        body.dimensions = (width, length)
-        body.angular_velocity = angular_velocity
-
-        shape.elasticity = self.elasticity
-        shape.friction = self.friction
-
-        # add body and shape to space
-        self.space.add(body, shape)
-
-        # add body to agents dictionary
-        self.agent_bodies[body_id] = (body, shape)
-
-    def update_body(self, body_id, specs):
-        length = specs['length'] * self.pygame_scale
-        width = specs['width'] * self.pygame_scale
-        mass = specs['mass'].magnitude
-        motile_force = specs.get('motile_force', [0, 0])
-
-        body, shape = self.agent_bodies[body_id]
-        position = body.position
-        angle = body.angle
-
-        # make shape, moment of inertia, and add a body
-        half_length = length/2
-        half_width = width/2
-        new_shape = pymunk.Poly(None, (
-            (-half_length, -half_width),
-            (half_length, -half_width),
-            (half_length, half_width),
-            (-half_length, half_width)))
-
-        inertia = pymunk.moment_for_poly(mass, new_shape.get_vertices())
-        new_body = pymunk.Body(mass, inertia)
-        new_shape.body = new_body
-
-        new_body.position = position
-        new_body.angle = angle
-        new_body.angular_velocity = body.angular_velocity
-        new_body.dimensions = (width, length)
-        new_body.motile_force = motile_force
-
-        new_shape.elasticity = shape.elasticity
-        new_shape.friction = shape.friction
-
-        # swap bodies
-        self.space.remove(body, shape)
-        self.space.add(new_body, new_shape)
-
-        # update body
-        self.agent_bodies[body_id] = (new_body, new_shape)
-
-    def get_body_position(self, agent_id):
-        body, shape = self.agent_bodies[agent_id]
-        position = body.position
-        rescaled_position = [
-            position[0] / self.pygame_scale,
-            position[1] / self.pygame_scale]
-
-        # enforce bounds
-        rescaled_position = [
-            0 if pos<0 else pos
-            for idx, pos in enumerate(rescaled_position)]
-        rescaled_position = [
-            self.bounds[idx] if pos>self.bounds[idx] else pos
-            for idx, pos in enumerate(rescaled_position)]
-
-        return {
-            'location': rescaled_position,
-            'angle': body.angle,
-        }
-
 
     ## matplotlib interactive plot
     def animate_frame(self, agents):
         plt.cla()
         for agent_id, data in agents.items():
             # location, orientation, length
-            data = data['global']
+            data = data['boundary']
             x_center = data['location'][0]
             y_center = data['location'][1]
             angle = data['angle'] / PI * 180 + 90  # rotate 90 degrees to match field
@@ -490,30 +242,6 @@ class Multibody(Process):
         plt.pause(0.05)
 
 
-    ## pygame visualization (for debugging)
-    def _process_events(self):
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                self._running = False
-            elif event.type == KEYDOWN and event.key == K_ESCAPE:
-                self._running = False
-
-    def _clear_screen(self):
-        self._screen.fill(THECOLORS["white"])
-
-    def _draw_objects(self):
-        self.space.debug_draw(self._draw_options)
-
-    def _update_screen(self):
-        self._process_events()
-        self._clear_screen()
-        self._draw_objects()
-        pygame.display.flip()
-        # Delay fixed time between frames
-        self._clock.tick(5)
-
-
-
 # configs
 def random_agent_config(bounds):
     # cell dimensions
@@ -521,7 +249,7 @@ def random_agent_config(bounds):
     length = 2
     volume = volume_from_length(length, width)
 
-    return {'global': {
+    return {'boundary': {
         'location': [
             np.random.uniform(0, bounds[0]),
             np.random.uniform(0, bounds[1])],
@@ -565,7 +293,7 @@ def mother_machine_body_config(config):
 
     agent_config = {
         agent_id: {
-            'global': {
+            'boundary': {
                 'location': possible_locations[index],
                 'angle': PI/2,
                 'volume': volume,
@@ -613,8 +341,11 @@ def simulate_motility(config, settings):
     experiment = process_in_experiment(multibody)
     experiment.state.update_subschema(
         ('agents',), {
-            'global': {
-                'motile_force': {
+            'boundary': {
+                'thrust': {
+                    '_emit': True,
+                    '_updater': 'set'},
+                'torque': {
                     '_emit': True,
                     '_updater': 'set'}}})
     experiment.state.apply_subschemas()
@@ -623,16 +354,18 @@ def simulate_motility(config, settings):
     experiment.state.set_value({'agents': initial_agents_state})
     agents_store = experiment.state.get_path(['agents'])
 
-    # initialize hidden agent motile states, and update agent motile_forces in agent store
+    # initialize hidden agent motile states, and update agent motile forces in agent store
     agent_motile_states = {}
     motile_forces = {}
     for agent_id, specs in agents_store.get_value().items():
-        motile_force = run()
+        [thrust, torque] = run()
         agent_motile_states[agent_id] = {
             'motor_state': 1,  # 0 for run, 1 for tumble
             'time_in_motor_state': 0}
         motile_forces[agent_id] = {
-            'global': {'motile_force': motile_force}}
+            'boundary': {
+                'thrust': thrust,
+                'torque': torque}}
     experiment.send_updates([{'agents': motile_forces}])
 
     ## run simulation
@@ -650,21 +383,21 @@ def simulate_motility(config, settings):
 
             if motor_state == 1:  # tumble
                 if time_in_motor_state < tumble_time:
-                    motile_force = run()
+                    [thrust, torque] = tumble()
                     time_in_motor_state += timestep
                 else:
                     # switch
-                    motile_force = run()
+                    [thrust, torque] = run()
                     motor_state = 0
                     time_in_motor_state = 0
 
             elif motor_state == 0:  # run
                 if time_in_motor_state < run_time:
-                    motile_force = tumble()
+                    [thrust, torque] = run()
                     time_in_motor_state += timestep
                 else:
                     # switch
-                    motile_force = tumble()
+                    [thrust, torque] = tumble()
                     motor_state = 1
                     time_in_motor_state = 0
 
@@ -672,7 +405,9 @@ def simulate_motility(config, settings):
                 'motor_state': motor_state,  # 0 for run, 1 for tumble
                 'time_in_motor_state': time_in_motor_state}
             motile_forces[agent_id] = {
-                'global': {'motile_force': motile_force}}
+                'boundary': {
+                    'thrust': thrust,
+                    'torque': torque}}
 
         experiment.send_updates([{'agents': motile_forces}])
 
@@ -723,11 +458,11 @@ def run_growth_division():
         'growth_rate': 0.02,
         'growth_rate_noise': 0.02,
         'division_volume': 2.6,
-        'total_time': 100}
+        'total_time': 140}
 
     gd_config = {
         'animate': True,
-        'jitter_force': 1e-1,
+        'jitter_force': 1e-3,
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
@@ -752,7 +487,7 @@ def simulate_growth_division(config, settings):
     experiment = process_in_experiment(multibody)
     experiment.state.update_subschema(
         ('agents',), {
-            'global': {
+            'boundary': {
                 'mass': {
                     '_divider': 'split'},
                 'length': {
@@ -781,11 +516,12 @@ def simulate_growth_division(config, settings):
         remove_agents = []
         add_agents = {}
         for agent_id, state in agents_state.items():
-            location = state['global']['location']
-            angle = state['global']['angle']
-            length = state['global']['length']
-            width = state['global']['width']
-            mass = state['global']['mass'].magnitude
+            state = state['boundary']
+            location = state['location']
+            angle = state['angle']
+            length = state['length']
+            width = state['width']
+            mass = state['mass'].magnitude
 
             # update
             growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
@@ -817,7 +553,7 @@ def simulate_growth_division(config, settings):
                 experiment.send_updates([{'agents': update}])
             else:
                 agent_updates[agent_id] = {
-                    'global': {
+                    'boundary': {
                         'volume': new_volume,
                         'length': new_length,
                         'mass': new_mass * units.fg}}
@@ -829,13 +565,19 @@ def simulate_growth_division(config, settings):
 
 
 # plotting
+def check_plt_backend():
+    # reset matplotlib backend for non-interactive plotting
+    plt.close('all')
+    if plt.get_backend() == 'TkAgg':
+        matplotlib.use('Agg')
+
 def plot_agent(ax, data, color):
     # location, orientation, length
-    x_center = data['global']['location'][0]
-    y_center = data['global']['location'][1]
-    theta = data['global']['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
-    length = data['global']['length']
-    width = data['global']['width']
+    x_center = data['boundary']['location'][0]
+    y_center = data['boundary']['location'][1]
+    theta = data['boundary']['angle'] / PI * 180 + 90 # rotate 90 degrees to match field
+    length = data['boundary']['length']
+    width = data['boundary']['width']
 
     # get bottom left position
     x_offset = (width / 2)
@@ -873,6 +615,8 @@ def plot_snapshots(data, plot_config):
         - fields TODO
         - config (dict): the environment config for the simulation
     '''
+    check_plt_backend()
+
     n_snapshots = plot_config.get('n_snapshots', 6)
     out_dir = plot_config.get('out_dir', 'out')
     filename = plot_config.get('filename', 'snapshots')
@@ -972,6 +716,8 @@ def plot_snapshots(data, plot_config):
     plt.close(fig)
 
 def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
+    check_plt_backend()
+
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     x_length = bounds[0]
     y_length = bounds[1]
@@ -986,8 +732,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     for agent_id, data in agents.items():
         trajectories[agent_id] = []
         for time_data in data:
-            x, y = time_data['global']['location']
-            theta = time_data['global']['angle']
+            x, y = time_data['boundary']['location']
+            theta = time_data['boundary']['angle']
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
@@ -1025,6 +771,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     plt.close(fig)
 
 def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
+    check_plt_backend()
+
     expected_speed = 14.2  # um/s (Berg)
     expected_angle_between_runs = 68 # degrees (Berg)
 
@@ -1037,7 +785,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
             'angle': [],
             'thrust': [],
             'torque': []}
-        for agent_id in agents.keys()}
+        for agent_id in list(agents.keys())}
 
     for agent_id, agent_data in agents.items():
         previous_location = [0,0]
@@ -1045,9 +793,10 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
 
         # go through each time point for this agent
         for time, time_data in zip(times, agent_data):
-            angle = time_data['global']['angle']
-            thrust, torque = time_data['global']['motile_force']
-            location = time_data['global']['location']
+            angle = time_data['boundary']['angle']
+            location = time_data['boundary']['location']
+            thrust = time_data['boundary']['thrust']
+            torque = time_data['boundary']['torque']
 
             # get speed since last time
             if time != times[0]:
@@ -1123,7 +872,7 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--motility', '-o', action='store_true', default=False)
+    parser.add_argument('--motility', '-m', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)

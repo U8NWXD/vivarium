@@ -50,25 +50,30 @@ class MotorActivity(Process):
                 # motor activity
                 'ccw_motor_bias': 0.5,
                 'ccw_to_cw': 0.5,
-                'motile_force': 0,
-                'motile_torque': 0,
                 'motor_state': 1,  # motor_state 1 for tumble, 0 for run
-            }}}
+            },
+            'boundary': {
+                'thrust': 0,
+                'torque': 0,
+            }}
+    }
 
     def __init__(self, initial_parameters={}):
 
         ports = {
-            'internal': ['chemoreceptor_activity',
-                         'CheA',
-                         'CheZ',
-                         'CheY_tot',
-                         'CheY_P',
-                         'ccw_motor_bias',
-                         'ccw_to_cw',
-                         'motile_force',
-                         'motile_torque',
-                         'motor_state'],
-            'external': []}
+            'internal': [
+                'chemoreceptor_activity',
+                'CheA',
+                'CheZ',
+                'CheY_tot',
+                'CheY_P',
+                'ccw_motor_bias',
+                'ccw_to_cw',
+                'motor_state'],
+            'boundary': [
+                'thrust',
+                'torque'],
+        }
 
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
@@ -81,20 +86,22 @@ class MotorActivity(Process):
             'internal': [
                 'ccw_motor_bias',
                 'ccw_to_cw',
-                'motile_force',
-                'motile_torque',
                 'motor_state',
                 'CheA',
-                'CheY_P']}
+                'CheY_P'],
+            'boundary': [
+                'thrust',
+                'torque']}
         emitter_states = {
             'internal': [
                 'ccw_motor_bias',
                 'ccw_to_cw',
-                'motile_force',
-                'motile_torque',
                 'motor_state',
                 'CheA',
-                'CheY_P']}
+                'CheY_P'],
+            'boundary': [
+                'thrust',
+                'torque']}
 
         schema = {}
         for port, states in self.ports.items():
@@ -170,10 +177,12 @@ class MotorActivity(Process):
             'internal': {
                 'ccw_motor_bias': ccw_motor_bias,
                 'ccw_to_cw': ccw_to_cw,
-                'motile_force': thrust,
-                'motile_torque': torque,
                 'motor_state': motor_state,
-                'CheY_P': CheY_P}}
+                'CheY_P': CheY_P},
+            'boundary': {
+                'thrust': thrust,
+                'torque': torque
+            }}
 
 def tumble():
     thrust = 100  # pN
