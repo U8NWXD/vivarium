@@ -458,11 +458,11 @@ def run_growth_division():
         'growth_rate': 0.02,
         'growth_rate_noise': 0.02,
         'division_volume': 2.6,
-        'total_time': 100}
+        'total_time': 140}
 
     gd_config = {
         'animate': True,
-        'jitter_force': 1e-1,
+        'jitter_force': 1e-3,
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
@@ -565,6 +565,12 @@ def simulate_growth_division(config, settings):
 
 
 # plotting
+def check_plt_backend():
+    # reset matplotlib backend for non-interactive plotting
+    plt.close('all')
+    if plt.get_backend() == 'TkAgg':
+        matplotlib.use('Agg')
+
 def plot_agent(ax, data, color):
     # location, orientation, length
     x_center = data['boundary']['location'][0]
@@ -609,6 +615,8 @@ def plot_snapshots(data, plot_config):
         - fields TODO
         - config (dict): the environment config for the simulation
     '''
+    check_plt_backend()
+
     n_snapshots = plot_config.get('n_snapshots', 6)
     out_dir = plot_config.get('out_dir', 'out')
     filename = plot_config.get('filename', 'snapshots')
@@ -708,6 +716,8 @@ def plot_snapshots(data, plot_config):
     plt.close(fig)
 
 def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
+    check_plt_backend()
+
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     x_length = bounds[0]
     y_length = bounds[1]
@@ -722,8 +732,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     for agent_id, data in agents.items():
         trajectories[agent_id] = []
         for time_data in data:
-            x, y = time_data['global']['location']
-            theta = time_data['global']['angle']
+            x, y = time_data['boundary']['location']
+            theta = time_data['boundary']['angle']
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
@@ -761,6 +771,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     plt.close(fig)
 
 def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
+    check_plt_backend()
+
     expected_speed = 14.2  # um/s (Berg)
     expected_angle_between_runs = 68 # degrees (Berg)
 
@@ -781,8 +793,8 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
 
         # go through each time point for this agent
         for time, time_data in zip(times, agent_data):
-            angle = time_data['global']['angle']
-            location = time_data['global']['location']
+            angle = time_data['boundary']['angle']
+            location = time_data['boundary']['location']
             thrust = time_data['boundary']['thrust']
             torque = time_data['boundary']['torque']
 
@@ -806,8 +818,6 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
             # save previous location and time
             previous_location = location
             previous_time = time
-
-    import ipdb; ipdb.set_trace()
 
     # plot results
     cols = 1
