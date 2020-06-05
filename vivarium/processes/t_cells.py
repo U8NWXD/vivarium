@@ -60,7 +60,11 @@ class T_cell(Process):
             'internal': {
                 'cell_state': {
                     '_value': self.initial_state,
-                    '_updater': 'set'}}}
+                    '_emit': True,
+                    '_updater': 'set'}},
+            'boundary': {
+                'IFN-g': {}
+            }}
 
     def next_update(self, timestep, states):
         cell_state = states['internal']['cell_state']
