@@ -41,10 +41,6 @@ class T_cell(Process):
         else:
             self.initial_state = 'PD1+'
 
-        self.cell_states = [
-            'PD1+',
-            'PD1-']
-
         parameters = {
             'transition_PD1-_to_PD1+': 0.01,  # probability/sec
         }
