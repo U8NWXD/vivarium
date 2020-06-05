@@ -29,7 +29,7 @@ from vivarium.processes.ode_expression import (
     get_lacy_config)
 
 
-NAME = 'txp_mtb_ge'
+NAME = 'transport_metabolism'
 
 def default_metabolism_config():
     config = get_iAF1260b_config()
@@ -58,9 +58,9 @@ def default_expression_config():
 
     return config
 
-class TransportMetabolismExpression(Compartment):
+class TransportMetabolism(Compartment):
     """
-    TransportMetabolismExpression Compartment
+    Transport/Metabolism Compartment, with ODE expression
     """
 
     defaults = {
@@ -163,7 +163,7 @@ def test_txp_mtb_ge(total_time=10):
         'exchange_path': ('exchange',),
         'global_path': ('global',),
         'agents_path': ('agents',)}
-    compartment = TransportMetabolismExpression(compartment_config)
+    compartment = TransportMetabolism(compartment_config)
 
     # simulate
     settings = {
@@ -361,7 +361,7 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    # run scan with python vivarium/compartments/txp_mtb_ge.py --scan
+    # run scan with python vivarium/compartments/transport_metabolism.py --scan
     parser = argparse.ArgumentParser(description='transport metabolism composite')
     parser.add_argument('--scan', '-s', action='store_true', default=False, )
     parser.add_argument('--run', '-r', action='store_true', default=False, )
