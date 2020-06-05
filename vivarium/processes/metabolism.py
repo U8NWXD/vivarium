@@ -108,7 +108,7 @@ class Metabolism(Process):
     defaults = {
         'constrained_reaction_ids': [],
         'model_path': 'models/iAF1260b.json',
-        'default_upper_bound': 1000.0,
+        'default_upper_bound': 0.0,
         'regulation': {},
         'initial_state': {},
         'exchange_threshold': 1e-6, # external concs lower than exchange_threshold are considered depleted
@@ -249,7 +249,6 @@ class Metabolism(Process):
                     'global': 'global'},
                 'config': {
                     'from_path': ('..', '..'),
-                    'initial_mass': self.initial_mass
                 }}}
 
     def next_update(self, timestep, states):

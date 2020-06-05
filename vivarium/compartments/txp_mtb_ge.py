@@ -64,9 +64,8 @@ class TransportMetabolismExpression(Compartment):
     """
 
     defaults = {
-        'global_path': ('..', 'global'),
+        'boundary_path': ('boundary',),
         'agents_path': ('..', '..', 'agents',),
-        'external_path': ('..', 'external'),
         'daughter_path': tuple(),
         'transport': get_glc_lct_config(),
         'metabolism': default_metabolism_config(),
@@ -74,9 +73,10 @@ class TransportMetabolismExpression(Compartment):
         'division': {}}
 
     def __init__(self, config):
-        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.config = config
+
+        self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
-        self.external_path = config.get('external_path', self.defaults['external_path'])
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
         self.transport_config = config.get('transport', self.defaults['transport'])
@@ -126,35 +126,31 @@ class TransportMetabolismExpression(Compartment):
         }
 
     def generate_topology(self, config):
-        external_path = config.get('external_path', self.external_path)
-        global_path = config.get('global_path', self.global_path)
-        agents_path = config.get('agents_path', self.agents_path)
-
         return {
             'transport': {
                 'internal': ('cytoplasm',),
-                'external': external_path,
+                'external': self.boundary_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
-                'global': global_path,
+                'global': self.boundary_path,
             },
             'metabolism': {
                 'internal': ('cytoplasm',),
-                'external': external_path,
+                'external': self.boundary_path,
                 'reactions': ('reactions',),
                 'exchange': ('exchange',),
                 'flux_bounds': ('flux_bounds',),
-                'global': global_path,
+                'global': self.boundary_path,
             },
             'expression': {
                 'counts': ('cytoplasm_counts',),
                 'internal': ('cytoplasm',),
-                'external': external_path,
-                'global': global_path,
+                'external': self.boundary_path,
+                'global': self.boundary_path,
             },
             'division': {
-                'global': global_path,
-                'cells': agents_path,
+                'global': self.boundary_path,
+                'cells': self.agents_path,
             }
         }
 
@@ -178,7 +174,7 @@ def test_txp_mtb_ge(total_time=10):
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
     # run simulation
     timeseries = test_txp_mtb_ge(20)  # 2520 sec (42 min) is the expected doubling time in minimal media
-    volume_ts = timeseries['global']['volume']
+    volume_ts = timeseries['boundary']['volume']
     try:
         print('growth: {}'.format(volume_ts[-1] / volume_ts[0]))
     except:
@@ -188,7 +184,8 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
     # diauxic plot
     settings = {
         'internal_port': 'cytoplasm',
-        'external_port': 'external',
+        'external_port': 'boundary',
+        'global_port': 'boundary',
         'exchange_port': 'exchange',
         'environment_volume': 1e-13,  # L
         # 'timeline': timeline
