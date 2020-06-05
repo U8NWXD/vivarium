@@ -24,7 +24,9 @@ class CellularPotts(Process):
         'target_area': 10
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         grid_size = initial_parameters.get('grid_size', self.defaults['grid_size'])
         n_initial = initial_parameters.get('n_agents', self.defaults['n_agents'])

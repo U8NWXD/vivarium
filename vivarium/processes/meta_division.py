@@ -31,7 +31,10 @@ class MetaDivision(Deriver):
         'daughter_path': ('cell',),
         'id_function': CountForever(start=33).generate}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.division = 0
 
         # must provide a compartment to generate new daughters

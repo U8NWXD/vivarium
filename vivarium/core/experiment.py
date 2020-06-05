@@ -686,8 +686,17 @@ class Compartment(object):
         return {}
 
     def generate(self, config=None, path=tuple()):
+        '''
+        Generate processes and topology for the compartment
+        :param config: (dict) updates values in the configuration declared in the constructor
+        :param path: (tuple) with ('path', 'to', 'level') associates the processes and topology at this level
+        :return: (dict) with entries for 'processes' and 'topology'
+        '''
+
+        # config updates values in self.config
         if config is None:
             config = {}
+        config = deep_merge(dict(config), self.config)
 
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)

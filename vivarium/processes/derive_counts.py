@@ -24,7 +24,9 @@ class DeriveCounts(Deriver):
     defaults = {
         'concentration_keys': []}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         self.initial_state = initial_parameters.get('initial_state', get_default_state())
 

@@ -59,7 +59,9 @@ class DeriveGlobals(Deriver):
         'initial_mass': 1339 * units.fg,  # wet mass in fg
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         self.width = initial_parameters.get('width', self.defaults['width'])
         self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])

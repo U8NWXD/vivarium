@@ -29,7 +29,10 @@ class TreeMass(Deriver):
         'initial_mass': 0.0 * units.fg,
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.from_path = self.or_default(initial_parameters, 'from_path')
         self.initial_mass = self.or_default(initial_parameters, 'initial_mass')
 

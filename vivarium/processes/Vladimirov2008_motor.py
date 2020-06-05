@@ -58,8 +58,10 @@ class MotorActivity(Process):
             }}
     }
 
-    def __init__(self, initial_parameters={}):
-
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+            
         ports = {
             'internal': [
                 'chemoreceptor_activity',

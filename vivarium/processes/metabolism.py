@@ -107,6 +107,7 @@ class Metabolism(Process):
     """
     defaults = {
         'constrained_reaction_ids': [],
+        'model_path': 'models/iAF1260b.json',
         'default_upper_bound': 1000.0,
         'regulation': {},
         'initial_state': {},
@@ -123,6 +124,8 @@ class Metabolism(Process):
         time_step = initial_parameters.get('time_step', self.defaults['time_step'])
 
         # initialize FBA
+        if 'model_path' not in initial_parameters and 'stoichiometry' not in initial_parameters:
+            initial_parameters['model_path'] = self.defaults['model_path']
         self.fba = CobraFBA(initial_parameters)
         self.reaction_ids = self.fba.reaction_ids()
         self.exchange_threshold = self.defaults['exchange_threshold']

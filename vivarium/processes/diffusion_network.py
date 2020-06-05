@@ -86,7 +86,9 @@ class DiffusionNetwork(Process):
         'network': {},
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         # parameters
         molecule_ids = initial_parameters.get('molecules', self.defaults['molecules'])

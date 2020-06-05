@@ -166,7 +166,9 @@ class DiffusionField(Process):
         'boundary_port': BOUNDARY_PORT,
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         # initial state
         self.molecule_ids = initial_parameters.get('molecules', self.defaults['molecules'])

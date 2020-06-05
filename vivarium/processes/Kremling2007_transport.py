@@ -95,7 +95,10 @@ class Transport(Process):
     }
 
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.dt = 0.01  # timestep for ode integration (seconds)
         self.target_fluxes = initial_parameters.get('target_fluxes', self.defaults['target_fluxes'])
 

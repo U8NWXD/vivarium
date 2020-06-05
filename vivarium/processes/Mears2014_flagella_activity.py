@@ -84,7 +84,9 @@ class FlagellaActivity(Process):
         'time_step': 0.01,  # 0.001
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
         self.n_flagella = initial_parameters.get('flagella', self.defaults['flagella'])
         self.flagellum_thrust = initial_parameters.get('flagellum_thrust', self.defaults['flagellum_thrust'])

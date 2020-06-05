@@ -19,7 +19,9 @@ class HomogeneousEnvironment(Deriver):
         'exchange_port': 'exchange',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         volume = initial_parameters.get('volume', self.defaults['volume']) * units.L
         self.mmol_to_counts = (AVOGADRO.to('1/mmol') * volume).to('L/mmol').magnitude
