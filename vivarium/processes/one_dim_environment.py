@@ -49,11 +49,14 @@ class OneDimEnvironment(Deriver):
         for mol_id, delta_count in exchange.items():
             delta_concs = delta_count / self.mmol_to_counts
             if delta_concs != 0:
-                update['external'][mol_id] = delta_concs
+                update['external'][mol_id] = delta_concs.magnitude  # TODO -- remove magnitude
 
                 # reset exchange
                 update['exchange'][mol_id] = {
                     '_value': 0.0,
                     '_updater': 'set'}
+
+
+        # import ipdb; ipdb.set_trace()
 
         return update
