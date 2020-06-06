@@ -98,6 +98,7 @@ def process_in_experiment(process, settings={}):
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
+    timeline = settings.get('timeline', {})
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
 
@@ -105,24 +106,28 @@ def compartment_in_experiment(compartment, settings={}):
     processes = network['processes']
     topology = network['topology']
 
+    if timeline:
+        ports = timeline['ports']
+        timeline_process = TimelineProcess({'timeline': timeline})
+
     if environment:
-        # TODO -- make a compartment_in_environment
+        '''
+        environment requires ports for exchange and environment
+        '''
+        ports = environment['ports']
         environment_process = HomogeneousEnvironment(environment)
+        processes.update({'environment_process': environment_process})
+        topology.update({
+            'environment_process': {
+                port_id: ports[port_id]
+                for port_id in environment_process.ports}})
 
-        update_in(
-            processes,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': environment_process}))
+        # import ipdb;
+        # ipdb.set_trace()
 
-        update_in(
-            topology,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': {
-                    port: (port,) for port in environment_process.ports}}))
+
+
+
 
     return Experiment({
         'processes': processes,

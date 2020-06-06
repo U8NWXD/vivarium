@@ -204,6 +204,7 @@ class Metabolism(Process):
         emit = {
             'internal': self.internal_state_ids,
             'external': self.fba.external_molecules,
+            'exchange': self.fba.external_molecules,
             'reactions': self.reaction_ids,
             'flux_bounds': self.constrained_reaction_ids,
             'global': ['mass']}
