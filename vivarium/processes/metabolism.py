@@ -537,8 +537,8 @@ if __name__ == '__main__':
             'environment': {
                 'volume': 1e-5 * units.L,
                 'ports': {
-                    'exchange': ('boundary', 'exchange',),
-                    'external': ('boundary', 'external'),
+                    'exchange': ('exchange',),
+                    'external': ('external',),
                 }},
             # 'timestep': 1,
             'total_time': 100,  # 2520 sec (42 min) is the expected doubling time in minimal media
