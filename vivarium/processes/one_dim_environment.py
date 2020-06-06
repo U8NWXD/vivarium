@@ -56,7 +56,4 @@ class OneDimEnvironment(Deriver):
                     '_value': 0.0,
                     '_updater': 'set'}
 
-
-        # import ipdb; ipdb.set_trace()
-
         return update
