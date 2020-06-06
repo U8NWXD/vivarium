@@ -2,6 +2,9 @@ from __future__ import absolute_import, division, print_function
 
 import collections
 import copy
+from functools import reduce
+import operator
+
 
 tuple_separator = '___'
 
@@ -138,3 +141,44 @@ def str_to_tuple_keys(dictionary):
 
 def keys_list(d):
     return list(d.keys())
+
+
+def value_in_embedded_dict(data, timeseries={}):
+    '''converts data from a single time step into an embedded dictionary with lists of values'''
+    for key, value in data.items():
+        if isinstance(value, dict):
+            if key not in timeseries:
+                timeseries[key] = {}
+            timeseries[key] = value_in_embedded_dict(value, timeseries[key])
+        else:
+            if key not in timeseries:
+                timeseries[key] = []
+            timeseries[key].append(value)
+    return timeseries
+
+
+def get_path_list_from_dict(dictionary):
+    paths_list = []
+    for key, value in dictionary.items():
+        if isinstance(value, dict):
+            subpaths = get_path_list_from_dict(value)
+            for subpath in subpaths:
+                path = (key,) + subpath
+                paths_list.append(path)
+        else:
+            path = (key,)
+            paths_list.append(path)
+    return paths_list
+
+
+def get_value_from_path(dictionary, path):
+    return reduce(operator.getitem, path, dictionary)
+
+
+def make_path_dict(embedded_dict):
+    '''converts embedded dict to a flat dict with path names as keys'''
+    path_dict = {}
+    paths_list = get_path_list_from_dict(embedded_dict)
+    for path in paths_list:
+        path_dict[path] = get_value_from_path(embedded_dict, path)
+    return path_dict

@@ -5,9 +5,9 @@ import argparse
 
 import matplotlib.pyplot as plt
 
+from vivarium.library.dict_utils import get_value_from_path
 from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
-from vivarium.core.emitter import get_timeseries_from_path
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_simulation_output,
@@ -223,11 +223,11 @@ def plot_diauxic_shift(timeseries, settings={}, out_dir='out'):
 
     time = [t/60 for t in timeseries['time']]  # convert to minutes
 
-    environment = get_timeseries_from_path(timeseries, external_path)
-    cell = get_timeseries_from_path(timeseries, internal_path)
-    cell_counts = get_timeseries_from_path(timeseries, internal_counts_path)
-    reactions = get_timeseries_from_path(timeseries, reactions_path)
-    globals = get_timeseries_from_path(timeseries, global_path)
+    environment = get_value_from_path(timeseries, external_path)
+    cell = get_value_from_path(timeseries, internal_path)
+    cell_counts = get_value_from_path(timeseries, internal_counts_path)
+    reactions = get_value_from_path(timeseries, reactions_path)
+    globals = get_value_from_path(timeseries, global_path)
 
     # environment
     lactose = environment['lcts_e']

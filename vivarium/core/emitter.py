@@ -6,7 +6,9 @@ import json
 import copy
 
 from vivarium.actor.actor import delivery_report
-from vivarium.library.dict_utils import merge_dicts
+from vivarium.library.dict_utils import (
+    merge_dicts, value_in_embedded_dict, get_path_list_from_dict, \
+    get_value_from_path, make_path_dict)
 
 HISTORY_INDEXES = [
     'time',
@@ -59,36 +61,24 @@ def configure_emitter(config, processes, topology):
     emitter_config['simulation_id'] = config.get('simulation_id')
     return get_emitter(emitter_config)
 
-def get_timeseries_from_path(timeseries, path):
-    returned_timeseries = copy.deepcopy(timeseries)
-    for key in path:
-        try:
-            returned_timeseries = returned_timeseries[key]
-        except KeyError:
-            return None
-    return returned_timeseries
-
-def embedded_timeseries(data, timeseries={}):
-    for key, value in data.items():
-        if isinstance(value, dict):
-            if key not in timeseries:
-                timeseries[key] = {}
-            timeseries[key] = embedded_timeseries(value, timeseries[key])
-        else:
-            if key not in timeseries:
-                timeseries[key] = []
-            timeseries[key].append(value)
-    return timeseries
+def path_timeseries_from_data(data):
+    embedded_timeseries = timeseries_from_data(data)
+    times_vector = embedded_timeseries.pop('time')
+    path_timeseries = make_path_dict(embedded_timeseries)
+    path_timeseries['time'] = times_vector
+    return path_timeseries
 
 def timeseries_from_data(data):
-    timeseries = {}
-    timeseries['time'] = list(data.keys())
+    times_vector = list(data.keys())
+    embedded_timeseries = {}
     for time, value in data.items():
         if isinstance(value, dict):
-            timeseries = embedded_timeseries(value, timeseries)
+            embedded_timeseries = value_in_embedded_dict(value, embedded_timeseries)
         else:
             pass
-    return timeseries
+
+    embedded_timeseries['time'] = times_vector
+    return embedded_timeseries
 
 
 class Emitter(object):
@@ -127,6 +117,9 @@ class TimeSeriesEmitter(Emitter):
 
     def get_data(self):
         return self.saved_data
+
+    def get_path_timeseries(self):
+        return path_timeseries_from_data(self.saved_data)
 
     def get_timeseries(self):
         return timeseries_from_data(self.saved_data)
