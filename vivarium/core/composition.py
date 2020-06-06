@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
+from vivarium.core.emitter import path_timeseries_from_embedded_timeseries
 from vivarium.core.experiment import (
     Experiment,
     update_in,
@@ -283,6 +284,10 @@ def set_axes(ax, show_xaxis=False):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(right=False, top=False)
+
+    # move offset axis text (typically scientific notation)
+    t = ax.yaxis.get_offset_text()
+    t.set_x(-0.4)
     if not show_xaxis:
         ax.spines['bottom'].set_visible(False)
         ax.tick_params(bottom=False, labelbottom=False)
@@ -329,7 +334,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
             }
-    TODO -- some molecules have 'inf' concentrations for practical reasons. How should these be plotted?
     '''
 
     plot_fontsize = 8
@@ -339,51 +343,50 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     skip_keys = ['time']
 
     # get settings
-    timeseries = copy.deepcopy(timeseries_raw)
     max_rows = settings.get('max_rows', 25)
     remove_zeros = settings.get('remove_zeros', True)
     remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
-    overlay = settings.get('overlay', {})
-    top_ports = list(overlay.values())
-    bottom_ports = list(overlay.keys())
 
+    # make a flat 'path' timeseries, with keys being path
+    top_level = list(timeseries_raw.keys())
+    timeseries = path_timeseries_from_embedded_timeseries(timeseries_raw)
     time_vec = timeseries.pop('time')
 
-    ports = {}
-    for port_id, states in timeseries.items():
-        if port_id in skip_keys + skip_ports:
-            continue
-        if port_id not in ports and len(states) != 0:
-            ports[port_id] = []
-        for state_id in list(states.keys()):
-            if state_id not in ports[port_id]:
-                ports[port_id].append(state_id)
+    # remove select states from timeseries
+    removed_states = set()
+    for path, series in timeseries.items():
+        if path[0] in skip_ports:
+            removed_states.add(path)
+        elif remove_flat:
+            if series.count(series[0]) == len(series):
+                removed_states.add(path)
+        elif remove_zeros:
+            if all(v == 0 for v in series):
+                removed_states.add(path)
+    for path in removed_states:
+        del timeseries[path]
 
-    # remove selected states
-    removed_states = []
-    if remove_flat:
-        # find series with all the same value
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if series.count(series[0]) == len(series):
-                    removed_states.append((port, state_id))
-    elif remove_zeros:
-        # find series with all zeros
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if all(v == 0 for v in series):
-                    removed_states.append((port, state_id))
-
-    # remove from timeseries
-    for (port, state_id) in removed_states:
-        del timeseries[port][state_id]
-
-    # limit number of rows to max_rows by adding new columns
-    column_settings = {
-        'top_ports': top_ports,
-        'max_rows': max_rows}
-    columns = get_plot_columns(timeseries, column_settings)
+    ## get figure columns
+    # get length of each top-level port
+    port_lengths = {}
+    for path in timeseries.keys():
+        if path[0] in top_level:
+            if path[0] not in port_lengths:
+                port_lengths[path[0]] = 0
+            port_lengths[path[0]] += 1
+    n_data = [length for port, length in port_lengths.items() if length > 0]
+    columns = []
+    for n_states in n_data:
+        new_cols = n_states / max_rows
+        if new_cols > 1:
+            for col in range(int(new_cols)):
+                columns.append(max_rows)
+            mod_states = n_states % max_rows
+            if mod_states > 0:
+                columns.append(mod_states)
+        else:
+            columns.append(n_states)
 
     # make figure and plot
     n_cols = len(columns)
@@ -392,22 +395,14 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     grid = plt.GridSpec(n_rows, n_cols)
     row_idx = 0
     col_idx = 0
-    for port in ports:
-        top_timeseries = {}
-
-        # set up overlay
-        if port in bottom_ports:
-            top_port = overlay[port]
-            top_timeseries = timeseries[top_port]
-        elif port in top_ports + skip_ports:
-            # don't give this row its own plot
-            continue
-
-        for state_id, series in sorted(timeseries[port].items()):
+    for port in port_lengths.keys():
+        # get this port's states
+        port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
+        for state_id, series in sorted(port_timeseries.items()):
             ax = fig.add_subplot(grid[row_idx, col_idx])  # grid is (row, column)
 
-            # check if series is a list of ints or floats
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
+                # check if series is a list of ints or floats
                 ax.title.set_text(str(port) + ': ' + str(state_id) + ' (non numeric)')
             else:
                 # plot line at zero if series crosses the zero line
@@ -415,11 +410,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
                 ax.plot(time_vec, series)
-
-                # overlay
-                if state_id in top_timeseries.keys():
-                    ax.plot(time_vec, top_timeseries[state_id], 'm', label=top_port)
-                    ax.legend()
                 ax.title.set_text(str(port) + ': ' + str(state_id))
 
             if row_idx == columns[col_idx]-1:
@@ -434,7 +424,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
 
     # save figure
     fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.8, hspace=0.8)
+    plt.subplots_adjust(wspace=0.8, hspace=1.0)
     plt.savefig(fig_path, bbox_inches='tight')
 
 def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):

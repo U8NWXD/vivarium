@@ -63,6 +63,9 @@ def configure_emitter(config, processes, topology):
 
 def path_timeseries_from_data(data):
     embedded_timeseries = timeseries_from_data(data)
+    return path_timeseries_from_embedded_timeseries(embedded_timeseries)
+
+def path_timeseries_from_embedded_timeseries(embedded_timeseries):
     times_vector = embedded_timeseries.pop('time')
     path_timeseries = make_path_dict(embedded_timeseries)
     path_timeseries['time'] = times_vector
