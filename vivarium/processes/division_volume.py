@@ -12,7 +12,10 @@ class DivisionVolume(Process):
         'division_volume': 2.4 * units.fL,  # fL
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
+
         self.division = 0
         division_volume = initial_parameters.get('division_volume', self.defaults['division_volume'])
 

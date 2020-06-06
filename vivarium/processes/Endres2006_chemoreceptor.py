@@ -74,7 +74,9 @@ class ReceptorCluster(Process):
         'parameters': DEFAULT_PARAMETERS
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
         self.ligand_id = initial_parameters.get('ligand_id', self.defaults['ligand_id'])
         self.initial_ligand = initial_parameters.get('initial_ligand', self.defaults['initial_ligand'])

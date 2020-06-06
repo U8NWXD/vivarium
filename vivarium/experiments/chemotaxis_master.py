@@ -19,10 +19,7 @@ from vivarium.compartments.lattice import (
     Lattice,
     get_lattice_config
 )
-from vivarium.compartments.chemotaxis_minimal import (
-    ChemotaxisMinimal,
-    get_chemotaxis_config
-)
+from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.multibody_physics import (
@@ -46,7 +43,7 @@ def make_chemotaxis_experiment(config={}):
     processes = network['processes']
     topology = network['topology']
 
-    chemotaxis = ChemotaxisMinimal(config.get('chemotaxis', {}))
+    chemotaxis = ChemotaxisMaster(config.get('chemotaxis', {}))
     agents = make_agents(agent_ids, chemotaxis, config.get('chemotaxis', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
@@ -160,7 +157,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(EXPERIMENT_OUT_DIR, 'chemotaxis_minimal')
+    out_dir = os.path.join(EXPERIMENT_OUT_DIR, 'chemotaxis_master.py')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

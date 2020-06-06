@@ -14,7 +14,10 @@ class DeriveConcentrations(Deriver):
     defaults = {
         'concentration_keys': []}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.avogadro = AVOGADRO
         self.concentration_keys = self.or_default(
             initial_parameters, 'concentration_keys')

@@ -53,7 +53,10 @@ FLUX_UNITS = COUNTS_UNITS / VOLUME_UNITS / TIME_UNITS
 
 
 class TransportLookup(Process):
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.media_id = 'minimal' # initial_parameters.get('media_id', 'minimal')
         self.lookup_type = 'average' # initial_parameters.get('lookup', 'average')
         self.nAvogadro = constants.N_A * 1/units.mol

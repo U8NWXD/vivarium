@@ -103,7 +103,10 @@ class Multibody(Process):
         'time_step': 2,
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         # agents
         self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
 

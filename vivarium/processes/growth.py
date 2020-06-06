@@ -61,7 +61,10 @@ class Growth(Process):
         'global_deriver_key': 'global_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         ports = {
             'global': [
                 'mass',

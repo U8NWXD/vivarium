@@ -9,7 +9,10 @@ from vivarium.core.process import Process
 
 class TimelineProcess(Process):
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.timeline = copy.deepcopy(initial_parameters['timeline'])
 
         # get ports

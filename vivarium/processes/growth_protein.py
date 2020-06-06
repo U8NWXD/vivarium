@@ -23,7 +23,10 @@ class GrowthProtein(Process):
         'mass_deriver_key': 'mass_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         ports = {
             'internal': [
                 'protein'],

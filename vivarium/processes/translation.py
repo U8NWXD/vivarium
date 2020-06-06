@@ -406,9 +406,9 @@ class Translation(Process):
                 for protein in self.all_protein_keys},
 
             'concentrations': {
-                molecule: add_mass({
+                molecule: {
                     '_default': 0.0,
-                    '_updater': 'set'}, molecular_weight, molecule)
+                    '_updater': 'set'}
                 for molecule in self.protein_keys}}
 
     def derivers(self):
