@@ -491,9 +491,9 @@ def test_toy_metabolism():
     settings = {
         'environment': {
             'volume': 1e-8 * units.L,
-            'states': toy_metabolism.ports['external'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)}},
         'timestep': 1.0,
         'timeline': timeline}
     return simulate_process_in_experiment(toy_metabolism, settings)
