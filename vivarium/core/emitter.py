@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 from pymongo import MongoClient
 from confluent_kafka import Producer
 import json
+import copy
 
 from vivarium.actor.actor import delivery_report
 from vivarium.library.dict_utils import merge_dicts
@@ -58,24 +59,36 @@ def configure_emitter(config, processes, topology):
     emitter_config['simulation_id'] = config.get('simulation_id')
     return get_emitter(emitter_config)
 
-def timeseries_from_data(data):
-    time_vec = list(data.keys())
-    initial_state = data[time_vec[0]]
-    timeseries = {port: {state: []
-                         for state, initial in states.items()}
-                  for port, states in initial_state.items()}
-    timeseries['time'] = time_vec
+def get_timeseries_from_path(timeseries, path):
+    returned_timeseries = copy.deepcopy(timeseries)
+    for key in path:
+        try:
+            returned_timeseries = returned_timeseries[key]
+        except KeyError:
+            return None
+    return returned_timeseries
 
-    for time, all_states in data.items():
-        for port, states in all_states.items():
-            if port not in timeseries:
-                timeseries[port] = {}
-            for state_id, state in states.items():
-                if state_id not in timeseries[port]:
-                    timeseries[port][state_id] = []  # TODO -- record appearance of new states
-                timeseries[port][state_id].append(state)
+def embedded_timeseries(data, timeseries={}):
+    for key, value in data.items():
+        if isinstance(value, dict):
+            if key not in timeseries:
+                timeseries[key] = {}
+            timeseries[key] = embedded_timeseries(value, timeseries[key])
+        else:
+            if key not in timeseries:
+                timeseries[key] = []
+            timeseries[key].append(value)
     return timeseries
 
+def timeseries_from_data(data):
+    timeseries = {}
+    timeseries['time'] = list(data.keys())
+    for time, value in data.items():
+        if isinstance(value, dict):
+            timeseries = embedded_timeseries(value, timeseries)
+        else:
+            pass
+    return timeseries
 
 
 class Emitter(object):
@@ -117,6 +130,7 @@ class TimeSeriesEmitter(Emitter):
 
     def get_timeseries(self):
         return timeseries_from_data(self.saved_data)
+
 
 class KafkaEmitter(Emitter):
     '''
