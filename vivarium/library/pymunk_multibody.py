@@ -365,14 +365,15 @@ def test_multibody(total_time=2, debug=False):
     center_location = [0.5*loc for loc in bounds]
     agents = {
         '1': {
-            'location': center_location,
-            'angle': PI/2,
-            'volume': 15,
-            'length': 30,
-            'width': 10,
-            'mass': 1,
-            'thrust': 1e3,
-            'torque': 0.0}}
+            'boundary': {
+                'location': center_location,
+                'angle': PI/2,
+                'volume': 15,
+                'length': 30,
+                'width': 10,
+                'mass': 1,
+                'thrust': 1e3,
+                'torque': 0.0}}}
     config = {
         'jitter_force': 1e1,
         'bounds': bounds,

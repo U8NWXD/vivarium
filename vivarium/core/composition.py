@@ -79,11 +79,16 @@ def process_in_experiment(process, settings={}):
                 port: (port,) for port in timeline_process.ports}})
 
     if environment:
+        '''
+        environment requires ports for exchange and external
+        '''
+        ports = environment['ports']
         environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port: (port,) for port in environment_process.ports}})
+                port_id: ports[port_id]
+                for port_id in environment_process.ports}})
 
     # add derivers
     derivers = generate_derivers(processes, topology)
@@ -113,7 +118,7 @@ def compartment_in_experiment(compartment, settings={}):
 
     if environment:
         '''
-        environment requires ports for exchange and environment
+        environment requires ports for exchange and external
         '''
         ports = environment['ports']
         environment_process = OneDimEnvironment(environment)

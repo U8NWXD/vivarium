@@ -490,7 +490,7 @@ def test_toy_metabolism():
 
     settings = {
         'environment': {
-            'volume': 1e-8,
+            'volume': 1e-8 * units.L,
             'states': toy_metabolism.ports['external'],
             'environment_port': 'external',
             'exchange_port': 'exchange'},

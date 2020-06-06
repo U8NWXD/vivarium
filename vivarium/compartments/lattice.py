@@ -45,22 +45,19 @@ class Lattice(Compartment):
     }
 
     def __init__(self, config):
-        self.multibody_config = config.get('multibody', self.defaults['multibody'])
-        self.diffusion_config = config.get('diffusion', self.defaults['diffusion'])
+        self.config = config
+        # self.multibody_config = config.get('multibody', self.defaults['multibody'])
+        # self.diffusion_config = config.get('diffusion', self.defaults['diffusion'])
 
-    def generate_processes(self, config={}):
-        multibody = Multibody(config.get(
-            'multibody',
-            self.multibody_config))
-        diffusion = DiffusionField(config.get(
-            'diffusion_field',
-            self.diffusion_config))
+    def generate_processes(self, config=None):
+        multibody = Multibody(config['multibody'])
+        diffusion = DiffusionField(config['diffusion'])
 
         return {
             'multibody': multibody,
             'diffusion': diffusion}
 
-    def generate_topology(self, config={}):
+    def generate_topology(self, config=None):
         return {
             'multibody': {
                 'agents': ('agents',)},
