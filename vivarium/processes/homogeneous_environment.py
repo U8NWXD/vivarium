@@ -24,8 +24,8 @@ class HomogeneousEnvironment(Deriver):
         self.mmol_to_counts = (AVOGADRO.to('1/mmol') * volume).to('L/mmol')
 
         ports = {
-            'external': [],
-            'exchange': []}
+            'external': ['*'],
+            'exchange': ['*']}
 
         parameters = initial_parameters
         super(HomogeneousEnvironment, self).__init__(ports, parameters)
@@ -60,7 +60,5 @@ class HomogeneousEnvironment(Deriver):
                 update['exchange'][mol_id] = {
                     '_value': 0.0,
                     '_updater': 'set'}
-
-        import ipdb; ipdb.set_trace()
 
         return update
