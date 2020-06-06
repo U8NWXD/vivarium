@@ -28,7 +28,7 @@ from vivarium.processes.timeline import (
     TimelineCompartment,
     TimelineProcess
 )
-from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
+from vivarium.processes.one_dim_environment import OneDimEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
@@ -78,7 +78,7 @@ def process_in_experiment(process, settings={}):
                 port: (port,) for port in timeline_process.ports}})
 
     if environment:
-        environment_process = HomogeneousEnvironment(environment)
+        environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
@@ -115,7 +115,7 @@ def compartment_in_experiment(compartment, settings={}):
         environment requires ports for exchange and environment
         '''
         ports = environment['ports']
-        environment_process = HomogeneousEnvironment(environment)
+        environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {

@@ -9,12 +9,11 @@ from vivarium.core.process import Deriver
 from vivarium.processes.derive_globals import AVOGADRO
 
 
-class HomogeneousEnvironment(Deriver):
-    ''' A minimal, non-spatial environment with volume'''
+class OneDimEnvironment(Deriver):
+    '''A non-spatial environment with volume'''
 
     defaults = {
-        'volume': 1e-12 * units.L,
-    }
+        'volume': 1e-12 * units.L}
 
     def __init__(self, initial_parameters=None):
         if initial_parameters is None:
@@ -28,24 +27,20 @@ class HomogeneousEnvironment(Deriver):
             'exchange': ['*']}
 
         parameters = initial_parameters
-        super(HomogeneousEnvironment, self).__init__(ports, parameters)
+        super(OneDimEnvironment, self).__init__(ports, parameters)
 
     def ports_schema(self):
         return {
             'external': {
                 '*': {
-                    '_default': 0.0
-                },  # glob should get all molecules names
-            },
+                    '_default': 0.0}},
             'exchange': {
                 '*': {
-                    '_default': 0
-                }}}
+                    '_default': 0}}}
 
     def next_update(self, timestep, states):
-        exchange = states['exchange']  # units: counts
+        exchange = states['exchange']
 
-        ## apply exchange to environment
         # get counts, convert to concentration change
         update = {
             'external': {},
