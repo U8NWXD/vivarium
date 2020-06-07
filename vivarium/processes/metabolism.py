@@ -495,7 +495,8 @@ def test_toy_metabolism():
                 'external': ('external',),
                 'exchange': ('exchange',)}},
         'timestep': 1.0,
-        'timeline': timeline}
+        'timeline': {
+            'timeline': timeline}}
     return simulate_process_in_experiment(toy_metabolism, settings)
 
 def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):

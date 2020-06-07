@@ -312,7 +312,7 @@ default_params = {'flagella': 5}
 default_timeline = [(10, {})]
 def test_activity(parameters=default_params, timeline=default_timeline):
     motor = FlagellaActivity(parameters)
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(motor, settings)
 
 def test_motor_PMF():

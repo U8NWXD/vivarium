@@ -25,10 +25,7 @@ from vivarium.library.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.processes.timeline import (
-    TimelineCompartment,
-    TimelineProcess
-)
+from vivarium.processes.timeline import TimelineProcess
 from vivarium.processes.one_dim_environment import OneDimEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
@@ -72,7 +69,10 @@ def process_in_experiment(process, settings={}):
             port: (port,) for port in process.ports_schema().keys()}}
 
     if timeline:
-        timeline_process = TimelineProcess({'timeline': timeline})
+        '''
+        adding a timeline to a process requires only the timeline
+        '''
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
         processes.update({'timeline_process': timeline_process})
         topology.update({
             'timeline_process': {
@@ -115,8 +115,18 @@ def compartment_in_experiment(compartment, settings={}):
     topology = network['topology']
 
     if timeline:
+        '''
+        environment requires ports for all states defined in the timeline
+        '''
         ports = timeline['ports']
-        timeline_process = TimelineProcess({'timeline': timeline})
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
+        processes.update({'timeline_process': timeline_process})
+        topology.update({
+            'timeline_process': {'global': ('global',)}
+        })
+        topology['timeline_process'].update({
+                port_id: ports[port_id]
+                for port_id in timeline_process.ports if port_id is not 'global'})
 
     if environment:
         '''
@@ -130,26 +140,11 @@ def compartment_in_experiment(compartment, settings={}):
                 port_id: ports[port_id]
                 for port_id in environment_process.ports}})
 
-        # import ipdb;
-        # ipdb.set_trace()
-
-
-
-
-
     return Experiment({
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
         'initial_state': settings.get('initial_state', {})})
-
-def add_timeline_to_compartment(compartment, settings={}):
-    timeline = settings['timeline']
-    path = settings['path']
-    return TimelineCompartment({
-        'timeline': timeline,
-        'compartment': compartment,
-        'path': path})
 
 
 # simulation functions
@@ -180,7 +175,7 @@ def simulate_experiment(experiment, settings={}):
     return_raw_data = settings.get('return_raw_data', False)
 
     if 'timeline' in settings:
-        total_time = settings['timeline'][-1][0]
+        total_time = settings['timeline']['timeline'][-1][0]
 
     # run simulation
     experiment.update_interval(total_time, timestep)
