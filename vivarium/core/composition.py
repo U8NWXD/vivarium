@@ -173,6 +173,7 @@ def simulate_experiment(experiment, settings={}):
     timestep = settings.get('timestep', 1)
     total_time = settings.get('total_time', 10)
     return_raw_data = settings.get('return_raw_data', False)
+    return_old_timeseries = settings.get('return_old_timeseries', False)
 
     if 'timeline' in settings:
         total_time = settings['timeline']['timeline'][-1][0]
@@ -182,6 +183,8 @@ def simulate_experiment(experiment, settings={}):
 
     if return_raw_data:
         return experiment.emitter.get_data()
+    elif return_old_timeseries:
+        return experiment.emitter.get_timeseries_old()
     else:
         return experiment.emitter.get_timeseries()
 

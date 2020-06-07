@@ -83,6 +83,23 @@ def timeseries_from_data(data):
     embedded_timeseries['time'] = times_vector
     return embedded_timeseries
 
+def timeseries_from_data_old(data):
+    time_vec = list(data.keys())
+    initial_state = data[time_vec[0]]
+    timeseries = {port: {state: []
+                         for state, initial in states.items()}
+                  for port, states in initial_state.items()}
+    timeseries['time'] = time_vec
+
+    for time, all_states in data.items():
+        for port, states in all_states.items():
+            if port not in timeseries:
+                timeseries[port] = {}
+            for state_id, state in states.items():
+                if state_id not in timeseries[port]:
+                    timeseries[port][state_id] = []  # TODO -- record appearance of new states
+                timeseries[port][state_id].append(state)
+    return timeseries
 
 class Emitter(object):
     '''
@@ -126,6 +143,9 @@ class TimeSeriesEmitter(Emitter):
 
     def get_timeseries(self):
         return timeseries_from_data(self.saved_data)
+
+    def get_timeseries_old(self):
+        return timeseries_from_data_old(self.saved_data)
 
 
 class KafkaEmitter(Emitter):
