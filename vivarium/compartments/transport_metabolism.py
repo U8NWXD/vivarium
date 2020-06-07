@@ -161,7 +161,18 @@ class TransportMetabolism(Compartment):
 
 
 # simulate
-def test_txp_mtb_ge(total_time=10):
+default_test_setting = {
+        'environment': {
+            'volume': 1e-12 * units.L,
+            'ports': {
+                'exchange': ('boundary', 'exchange',),
+                'external': ('boundary', 'external'),
+            }},
+        'timestep': 1,
+        'total_time': 10}
+
+def test_txp_mtb_ge(settings=default_test_setting):
+
     # configure the compartment
     compartment_config = {
         'external_path': ('external',),
@@ -171,20 +182,25 @@ def test_txp_mtb_ge(total_time=10):
     compartment = TransportMetabolism(compartment_config)
 
     # simulate
-    settings = {
-        'environment': {
-            'volume': 1e-12 * units.L,
-            'ports': {
-                'exchange': ('boundary', 'exchange',),
-                'external': ('boundary', 'external'),
-            }},
-        'timestep': 1,
-        'total_time': total_time}
     return simulate_compartment_in_experiment(compartment, settings)
 
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
+
+    end_time = 200  # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeline = [
+        (0, {
+            ('external', 'glc__D_e'): 3.0,
+            ('external', 'lcts_e'): 3.0,
+        }),
+        (end_time, {})]
+    glc_lct_settings = {
+        'timeline': {
+            'timeline': timeline,
+            'ports': {
+                'external': ('boundary', 'external')}}}
+
     # run simulation
-    timeseries = test_txp_mtb_ge(20)  # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeseries = test_txp_mtb_ge(glc_lct_settings)
 
     # calculate growth
     volume_ts = timeseries['boundary']['volume']
