@@ -23,12 +23,9 @@ from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.multibody_physics import (
-    plot_snapshots,
-    plot_trajectory,
-    plot_motility,
     random_body_config,
 )
-
+from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
 
 
 def make_chemotaxis_experiment(config={}):

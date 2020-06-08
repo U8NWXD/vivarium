@@ -12,8 +12,8 @@ from vivarium.core.composition import (
 from vivarium.processes.multibody_physics import (
     Multibody,
     random_body_config,
-    plot_snapshots,
 )
+from vivarium.plots.multibody_physics import plot_snapshots
 from vivarium.processes.diffusion_field import (
     DiffusionField,
     get_gaussian_config,

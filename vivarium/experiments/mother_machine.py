@@ -21,10 +21,9 @@ from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 # processes
 from vivarium.processes.multibody_physics import (
-    plot_snapshots,
     mother_machine_body_config,
     volume_from_length)
-
+from vivarium.plots.multibody_physics import plot_snapshots
 
 
 def mother_machine_experiment(config):

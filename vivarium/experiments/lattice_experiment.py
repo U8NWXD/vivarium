@@ -12,7 +12,7 @@ from vivarium.core.composition import (
     simulate_experiment,
 )
 
-from vivarium.processes.multibody_physics import plot_snapshots
+from vivarium.plots.multibody_physics import plot_snapshots
 
 # compartments
 from vivarium.compartments.lattice import Lattice

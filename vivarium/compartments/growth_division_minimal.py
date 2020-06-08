@@ -16,7 +16,6 @@ from vivarium.processes.meta_division import MetaDivision
 from vivarium.library.dict_utils import deep_merge
 
 
-
 NAME = 'growth_division_minimal'
 
 class GrowthDivisionMinimal(Compartment):

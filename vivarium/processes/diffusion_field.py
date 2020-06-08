@@ -15,8 +15,7 @@ from vivarium.core.composition import (
     PROCESS_OUT_DIR
 )
 
-from vivarium.processes.multibody_physics import plot_snapshots
-
+from vivarium.plots.multibody_physics import plot_snapshots
 
 NAME = 'diffusion_field'
 
