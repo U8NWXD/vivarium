@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import uuid
+import argparse
 
 from vivarium.core.experiment import (
     generate_state,
@@ -26,21 +27,23 @@ NAME = 'lattice'
 
 
 def lattice_experiment(config):
-    # # configure the experiment
-    count = config.get('count')
-
+    # configure the experiment
+    n_agents = config.get('n_agents')
     emitter = config.get('emitter', {'type': 'timeseries'})
 
-    # get the environment
+    # make lattice environment
     environment = Lattice(config.get('environment', {}))
     network = environment.generate()
     processes = network['processes']
     topology = network['topology']
 
-    # get the agents
-    agent_ids = [str(agent_id) for agent_id in range(count)]
-    growth_division = GrowthDivisionMinimal(config.get('growth_division', {}))
-    agents = make_agents(agent_ids, growth_division, {})
+    # add the agents
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    agent_config = config['agent']
+    agent_compartment = agent_config['compartment']
+    compartment_config = agent_config['config']
+    agent = agent_compartment(compartment_config)
+    agents = make_agents(agent_ids, agent, {})
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
 
@@ -53,6 +56,25 @@ def lattice_experiment(config):
 
 
 # configs
+def get_gd_config():
+    return {
+        'compartment': GrowthDivision,
+        'config': {
+            'agents_path': ('..', '..', 'agents'),
+        }
+    }
+
+def get_gd_minimal_config():
+    return {
+        'compartment': GrowthDivisionMinimal,
+        'config': {
+            'agents_path': ('..', '..', 'agents'),
+            'growth_rate': 0.03,
+            'growth_rate_noise': 0.02,
+            'division_volume': 2.6
+        }
+    }
+
 def get_lattice_config():
     bounds = [10, 10]
     n_bins = [10, 10]
@@ -71,31 +93,24 @@ def get_lattice_config():
         }
     }
 
-    growth_division_config = {
-        'agents_path': ('..', '..', 'agents'),
-        'growth_rate': 0.03,
-        'growth_rate_noise': 0.02,
-        'division_volume': 2.6}
-
     return {
-        'count': 3,
-        'environment': environment_config,
-        'agents': growth_division_config}
+        'n_agents': 3,
+        'environment': environment_config}
 
-def run_lattice_experiment():
-    config = get_lattice_config()
-    experiment = lattice_experiment(config)
+def run_lattice_experiment(agent_config=get_gd_minimal_config):
+    experiment_config = get_lattice_config()
+    experiment_config['agent'] = agent_config()
+    experiment = lattice_experiment(experiment_config)
 
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 500,
+        'total_time': 200,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
-
     # extract data
-    multibody_config = config['environment']['multibody']
+    multibody_config = experiment_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
 
@@ -120,4 +135,12 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_lattice_experiment()
+    parser = argparse.ArgumentParser(description='lattice_experiment')
+    parser.add_argument('--gd', '-g', action='store_true', default=False)
+    parser.add_argument('--gd_minimal', '-m', action='store_true', default=False)
+    args = parser.parse_args()
+
+    if args.gd_minimal or no_args:
+        run_lattice_experiment(get_gd_minimal_config)
+    elif args.gd:
+        run_lattice_experiment(get_gd_config)

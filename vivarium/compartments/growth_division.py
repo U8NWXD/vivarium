@@ -1,15 +1,14 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import uuid
 
-from vivarium.core.experiment import (
-    Compartment,
-)
-
+from vivarium.library.units import units
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,
-    plot_simulation_output,
+    plot_agent_data,
 )
 
 # processes
@@ -30,7 +29,7 @@ NAME = 'growth_division'
 class GrowthDivision(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global',),
+        'boundary_path': ('..', 'boundary',),
         'external_path': ('..', 'external',),
         'exchange_path': ('..', 'exchange',),
         'agents_path': ('..', '..', 'cells',),
@@ -41,7 +40,7 @@ class GrowthDivision(Compartment):
         self.config = config
 
         # paths
-        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
         self.external_path = config.get('external_path', self.defaults['external_path'])
         self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
@@ -53,12 +52,12 @@ class GrowthDivision(Compartment):
             'type': 'globals',
             'source_port': 'global',
             'derived_port': 'global',
-            'global_port': self.global_path,
+            'global_port': self.boundary_path,
             'keys': []}
 
     def generate_processes(self, config):
         # declare the processes
-        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
+        agent_id = config.get('agent_id', str(uuid.uuid1()))
 
         transport_config = deep_merge(
             config.get('transport', {}),
@@ -88,7 +87,7 @@ class GrowthDivision(Compartment):
         # for each process, map process ports to store ids
         external_path = config.get('external_path', self.external_path)
         exchange_path = config.get('external_path', self.exchange_path)
-        global_path = config.get('global_path', self.global_path)
+        boundary_path = config.get('boundary_path', self.boundary_path)
         agents_path = config.get('agents_path', self.agents_path)
 
         return {
@@ -97,20 +96,20 @@ class GrowthDivision(Compartment):
                 'external': external_path,
                 'exchange': exchange_path,
                 'fluxes': ('fluxes',),
-                'global': global_path},
+                'global': boundary_path},
             'growth': {
                 'internal': ('internal',),
-                'global': global_path},
+                'global': boundary_path},
             'mass': {
-                'global': global_path},
+                'global': boundary_path},
             'division': {
-                'global': global_path,
+                'global': boundary_path,
                 'cells': agents_path},
             'expression': {
                 'internal': ('internal',),
                 'external': external_path,
                 'concentrations': ('internal_concentrations',),
-                'global': global_path}}
+                'global': boundary_path}}
 
 
 
@@ -122,19 +121,23 @@ if __name__ == '__main__':
     compartment_config = {
         'external_path': ('external',),
         'exchange_path': ('exchange',),
-        'global_path': ('global',),
+        'boundary_path': ('boundary',),
         'agents_path': ('..', '..', 'cells',)}
     compartment = GrowthDivision(compartment_config)
 
     # settings for simulation and plot
     settings = {
         'environment': {
-            'volume': 1e-6,  # L
-            'environment_port': 'external',
-            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+            'volume': 1e-6 * units.L,  # L
+            'ports': {
+                'exchange': ('exchange',),
+                'external': ('external',)}
         },
         'outer_path': ('cells', '0'),
         'return_raw_data': True,
         'timestep': 1,
         'total_time': 100}
-    data = simulate_compartment_in_experiment(compartment, settings)
+    output_data = simulate_compartment_in_experiment(compartment, settings)
+
+    plot_settings = {}
+    plot_agent_data(output_data, plot_settings, out_dir)

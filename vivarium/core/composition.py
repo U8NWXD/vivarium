@@ -297,31 +297,6 @@ def set_axes(ax, show_xaxis=False):
         ax.spines['bottom'].set_visible(False)
         ax.tick_params(bottom=False, labelbottom=False)
 
-def get_plot_columns(ports, settings={}):
-    top_ports = settings.get('top_ports', [])
-    max_rows = settings.get('max_rows', 30)
-
-    n_data = [len(ports[key]) for key in ports if key not in top_ports]
-    if 0 in n_data:
-        n_data.remove(0)
-
-    # limit number of rows to max_rows by adding new columns
-    columns = []
-    for n_states in n_data:
-        if n_states == 0:
-            continue
-        new_cols = n_states / max_rows
-        if new_cols > 1:
-            for col in range(int(new_cols)):
-                columns.append(max_rows)
-            mod_states = n_states % max_rows
-            if mod_states > 0:
-                columns.append(mod_states)
-        else:
-            columns.append(n_states)
-
-    return columns
-
 def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename='simulation'):
     '''
     plot simulation output, with rows organized into separate columns.
@@ -439,6 +414,7 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
     '''
 
     agents_key = settings.get('agents_key', 'cells')
+    max_rows = settings.get('max_rows', 25)
 
     time_vec = list(data.keys())
     agents_timeseries = agent_timeseries_from_data(data, agents_key)
@@ -454,8 +430,19 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
                 if state_id not in ports[port_id]:
                     ports[port_id].append(state_id)
 
-    # get the column sizes
-    columns = get_plot_columns(ports)
+    ## get figure columns
+    n_data = [len(states) for states in ports.values()]
+    columns = []
+    for n_states in n_data:
+        new_cols = n_states / max_rows
+        if new_cols > 1:
+            for col in range(int(new_cols)):
+                columns.append(max_rows)
+            mod_states = n_states % max_rows
+            if mod_states > 0:
+                columns.append(mod_states)
+        else:
+            columns.append(n_states)
 
     # make figure
     n_rows = max(columns)
