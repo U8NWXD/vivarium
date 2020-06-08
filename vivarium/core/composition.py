@@ -137,7 +137,7 @@ def compartment_in_experiment(compartment, settings={}):
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port_id: ports[port_id]
+                port_id: outer_path + ports[port_id]
                 for port_id in environment_process.ports}})
 
     return Experiment({

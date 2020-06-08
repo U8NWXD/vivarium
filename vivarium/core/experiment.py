@@ -696,7 +696,8 @@ class Compartment(object):
         # merge config with self.config
         if config is None:
             config = {}
-        config = deep_merge(dict(config), self.config)
+        default = copy.deepcopy(self.config)
+        config = deep_merge(default, config)
 
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)

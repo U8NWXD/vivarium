@@ -122,8 +122,8 @@ if __name__ == '__main__':
         'environment': {
             'volume': 1e-6 * units.L,  # L
             'ports': {
-                'exchange': ('exchange',),
-                'external': ('external',)}
+                'exchange': ('boundary', 'exchange',),
+                'external': ('boundary', 'external',)}
         },
         'outer_path': ('agents', agent_id),  # TODO -- need to set the agent_id through here?
         'return_raw_data': True,
