@@ -23,8 +23,6 @@ NAME = 'diffusion_field'
 LAPLACIAN_2D = np.array([[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]])
 AVOGADRO = constants.N_A
 
-AGENT_KEYS = ['location', 'exchange', 'local_environment']
-BOUNDARY_PORT = 'boundary'
 
 def gaussian(deviation, distance):
     return np.exp(-np.power(distance, 2.) / (2 * np.power(deviation, 2.)))
@@ -141,7 +139,6 @@ def make_gradient(gradient, n_bins, size):
     return fields
 
 
-
 class DiffusionField(Process):
     '''
     Diffusion in 2-dimensional fields of molecules, with agent locations for uptake and secretion.
@@ -162,7 +159,8 @@ class DiffusionField(Process):
         'diffusion': 5e-1,
         'gradient': {},
         'agents': {},
-        'boundary_port': BOUNDARY_PORT,
+        'boundary_port': 'boundary',
+        'exchange_port': 'exchange',
     }
 
     def __init__(self, initial_parameters=None):
@@ -178,6 +176,7 @@ class DiffusionField(Process):
         self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
         depth = initial_parameters.get('depth', self.defaults['depth'])
         self.boundary_port = initial_parameters.get('boundary_port', self.defaults['boundary_port'])
+        self.exchange_port = initial_parameters.get('exchange_port', self.defaults['exchange_port'])
 
         # diffusion
         diffusion = initial_parameters.get('diffusion', self.defaults['diffusion'])
@@ -234,7 +233,7 @@ class DiffusionField(Process):
                         mol_id: {
                             '_value': value}
                         for mol_id, value in exchange.items()}}}
-            schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
+            # schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
 
         glob_schema = {
             '*': {
@@ -242,11 +241,8 @@ class DiffusionField(Process):
                     'location': {
                         '_default': [0.5, 0.5],
                         '_updater': 'set'},
-                    'exchange': {
-                        molecule: {'_default': 0.0}
-                        for molecule in self.molecule_ids},
-                    }}}
-        glob_schema['*'][self.boundary_port].update(local_concentration_schema)
+                    'exchange': local_concentration_schema,
+                    'local_environment': local_concentration_schema}}}
         schema['agents'].update(glob_schema)
 
         fields_schema = {
@@ -314,7 +310,7 @@ class DiffusionField(Process):
             delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
 
     def empty_field(self):
-        return np.zeros((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
+        return np.ones((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
 
     def apply_exchanges(self, agents):
         # initialize delta_fields with zero array
@@ -397,14 +393,14 @@ def get_secretion_agent_config(config={}):
     for agent in range(n_agents):
         agent_id = str(agent)
         agents[agent_id] = {
-            BOUNDARY_PORT: {
+            'boundary': {
                 'location': [
                         np.random.uniform(0, bounds[0]),
                         np.random.uniform(0, bounds[1])],
                 'exchange': {
                     mol_id: 1e3 for mol_id in molecules},
                 'local_environment': {
-                        mol_id: 0 for mol_id in molecules}}}
+                    mol_id: 0 for mol_id in molecules}}}
     config = {
         'molecules': molecules,
         'n_bins': n_bins,

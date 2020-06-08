@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import sys
 import uuid
 import argparse
 
@@ -78,6 +79,7 @@ def get_gd_minimal_config():
 def get_lattice_config():
     bounds = [10, 10]
     n_bins = [10, 10]
+    molecules = ['glc__D_e', 'lcts_e']
 
     environment_config = {
         'multibody': {
@@ -85,20 +87,21 @@ def get_lattice_config():
             'agents': {}
         },
         'diffusion': {
-            'molecules': ['glc'],
+            'molecules': molecules,
             'n_bins': n_bins,
             'bounds': bounds,
             'depth': 3000.0,
             'diffusion': 1e-2,
         }
     }
-
     return {
-        'n_agents': 3,
         'environment': environment_config}
 
 def run_lattice_experiment(agent_config=get_gd_minimal_config):
+    n_agents = 1
+
     experiment_config = get_lattice_config()
+    experiment_config['n_agents'] = n_agents
     experiment_config['agent'] = agent_config()
     experiment = lattice_experiment(experiment_config)
 
@@ -139,6 +142,7 @@ if __name__ == '__main__':
     parser.add_argument('--gd', '-g', action='store_true', default=False)
     parser.add_argument('--gd_minimal', '-m', action='store_true', default=False)
     args = parser.parse_args()
+    no_args = (len(sys.argv) == 1)
 
     if args.gd_minimal or no_args:
         run_lattice_experiment(get_gd_minimal_config)
