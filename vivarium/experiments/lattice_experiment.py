@@ -97,7 +97,7 @@ def get_lattice_config():
     return {
         'environment': environment_config}
 
-def run_lattice_experiment(agent_config=get_gd_minimal_config):
+def run_lattice_experiment(agent_config=get_gd_minimal_config, filename='agents'):
     n_agents = 1
 
     experiment_config = get_lattice_config()
@@ -120,7 +120,7 @@ def run_lattice_experiment(agent_config=get_gd_minimal_config):
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
-    plot_agent_data(data, plot_settings, out_dir)
+    plot_agent_data(data, plot_settings, out_dir, filename)
 
     # snapshot plot
     data = {
@@ -129,7 +129,7 @@ def run_lattice_experiment(agent_config=get_gd_minimal_config):
         'config': multibody_config}
     plot_config = {
         'out_dir': out_dir,
-        'filename': 'snapshots'}
+        'filename': filename + '_snapshots'}
     plot_snapshots(data, plot_config)
 
 
@@ -145,6 +145,6 @@ if __name__ == '__main__':
     no_args = (len(sys.argv) == 1)
 
     if args.gd_minimal or no_args:
-        run_lattice_experiment(get_gd_minimal_config)
+        run_lattice_experiment(get_gd_minimal_config, 'minimal_growth_division')
     elif args.gd:
-        run_lattice_experiment(get_gd_config)
+        run_lattice_experiment(get_gd_config, 'growth_division')
