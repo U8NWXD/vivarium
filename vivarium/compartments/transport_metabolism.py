@@ -182,7 +182,7 @@ def test_txp_mtb_ge():
 
 def simulate_txp_mtb_ge(config=default_compartment_config, out_dir='out'):
 
-    end_time = 400  # 2520 sec (42 min) is the expected doubling time in minimal media
+    end_time = 2520  # 2520 sec (42 min) is the expected doubling time in minimal media
     timeline = [
         (0, {
             ('external', 'glc__D_e'): 3.0,

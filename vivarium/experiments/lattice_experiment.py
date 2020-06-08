@@ -7,14 +7,17 @@ from vivarium.core.experiment import (
     generate_state,
     Experiment
 )
-from vivarium.core.composition import make_agents
+from vivarium.core.composition import (
+    make_agents,
+    simulate_experiment,
+)
 
 from vivarium.processes.multibody_physics import plot_snapshots
 
 # compartments
 from vivarium.compartments.lattice import Lattice
 from vivarium.compartments.growth_division import GrowthDivision
-
+from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 
 def lattice_experiment(config):
@@ -23,51 +26,67 @@ def lattice_experiment(config):
 
     # get the environment
     environment = Lattice(config.get('environment', {}))
-    processes = environment.generate_processes()
-    topology = environment.generate_topology()
+    network = environment.generate()
+    processes = network['processes']
+    topology = network['topology']
 
     # get the agents
-    growth_division = GrowthDivision({
+    growth_division = GrowthDivisionMinimal({
         'agents_path': ('..', 'agents')})
     agents = make_agents(range(count), growth_division, {})
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
 
-    experiment = Experiment({
+    return Experiment({
         'processes': processes,
         'topology': topology,
         'initial_state': config.get('initial_state', {})})
 
-    print('processes ------------------------')
-    print(experiment.processes)
-
-    print('topology ------------------------')
-    print(experiment.topology)
-
-    print('before ------------------------')
-    print(experiment.state.get_value())
-
-    experiment.update(10.0)
-
-    print('after ----------------------------------')
-    print(experiment.state.get_value())
-
-    import ipdb; ipdb.set_trace()
 
 
-# toy functions/ defaults
+# configs
 def get_lattice_config():
-    environment_config = {
-        'molecules': ['glc'],
-        'bounds': [10, 10],
-        'size': [10, 10]}
+    bounds = [10, 10]
+    n_bins = [10, 10]
 
-    agent_config = {}
+    environment_config = {
+        'multibody': {
+            'bounds': bounds,
+            'agents': {}
+        },
+        'diffusion': {
+            'molecules': ['glc'],
+            'n_bins': n_bins,
+            'bounds': bounds,
+            'depth': 3000.0,
+            'diffusion': 1e-2,
+        }
+    }
+
+    growth_division_config = {
+        'agents_path': ('..', '..', 'agents'),
+        'global_path': ('global',),
+        'growth_rate': 0.03,
+        'growth_rate_noise': 0.02,
+        'division_volume': 2.6}
 
     return {
         'count': 3,
         'environment': environment_config,
-        'agents': agent_config}
+        'agents': growth_division_config}
+
+def run_lattice_experiment():
+    config = get_lattice_config()
+    experiment = lattice_experiment(config)
+
+    # simulate
+    settings = {
+        'timestep': 1,
+        'total_time': 100}
+    data = simulate_experiment(experiment, settings)
+
+    import ipdb;
+    ipdb.set_trace()
 
 
 
@@ -76,5 +95,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    config = get_lattice_config()
-    lattice_experiment(config)
+    run_lattice_experiment()

@@ -32,13 +32,12 @@ class Lattice(Compartment):
     defaults = {
         'multibody': {
             'bounds': [10, 10],
-            'size': [10, 10],
             'agents': {}
         },
         'diffusion': {
             'molecules': ['glc'],
             'n_bins': [10, 10],
-            'size': [10, 10],
+            'bounds': [10, 10],
             'depth': 3000.0,
             'diffusion': 1e-2,
         }
@@ -46,8 +45,6 @@ class Lattice(Compartment):
 
     def __init__(self, config):
         self.config = config
-        # self.multibody_config = config.get('multibody', self.defaults['multibody'])
-        # self.diffusion_config = config.get('diffusion', self.defaults['diffusion'])
 
     def generate_processes(self, config=None):
         multibody = Multibody(config['multibody'])
@@ -90,7 +87,7 @@ def get_lattice_config(config={}):
     dff_config = get_gaussian_config({
         'molecules': molecules,
         'n_bins': n_bins,
-        'size': bounds,
+        'bounds': bounds,
         'diffusion': diffusion,
         'center': center,
         'deviation': deviation})
