@@ -112,7 +112,7 @@ class TransportMetabolism(Compartment):
         division_config = dict(
             config.get('division', {}),
             daughter_path=self.daughter_path,
-            cell_id=agent_id,
+            agent_id=agent_id,
             compartment=self)
         # initial_mass = metabolism.initial_mass
         # division_config.update({'constrained_reaction_ids': target_fluxes})

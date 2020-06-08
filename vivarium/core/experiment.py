@@ -16,7 +16,7 @@ def pp(x):
     pretty.pprint(x)
 
 def pf(x):
-    pretty.pformat(x)
+    return pretty.pformat(x)
 
 from vivarium.library.units import Quantity
 from vivarium.library.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -446,7 +446,7 @@ class Store(object):
                 mother = divide['mother']
                 daughters = divide['daughters']
                 initial_state = self.inner[mother].get_value(
-                    condition=lambda child: not(isinstance(child.value, Process)),
+                    condition=lambda child: not (isinstance(child.value, Process)),
                     f=lambda child: copy.deepcopy(child))
                 states = self.inner[mother].divide_value()
 
@@ -693,7 +693,7 @@ class Compartment(object):
         :return: (dict) with entries for 'processes' and 'topology'
         '''
 
-        # config updates values in self.config
+        # merge config with self.config
         if config is None:
             config = {}
         config = deep_merge(dict(config), self.config)

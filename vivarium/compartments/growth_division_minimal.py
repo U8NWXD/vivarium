@@ -42,7 +42,7 @@ class GrowthDivisionMinimal(Compartment):
         division_config = dict(
             config.get('division', {}),
             daughter_path=self.daughter_path,
-            cell_id=agent_id,
+            agent_id=agent_id,
             compartment=self)
 
         growth = GrowthProtein(config.get('growth', {}))
