@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
+from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
@@ -21,15 +22,15 @@ NAME = 'growth_division_minimal'
 class GrowthDivisionMinimal(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global',),
-        'agents_path': ('..', '..', 'cells',),
+        'boundary_path': ('boundary',),
+        'agents_path': ('..', '..', 'agents',),
         'daughter_path': tuple()}
 
     def __init__(self, config):
         self.config = config
 
         # paths
-        self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
@@ -52,16 +53,13 @@ class GrowthDivisionMinimal(Compartment):
             'division': division}
 
     def generate_topology(self, config):
-        global_path = config.get('global_path', self.global_path)
-        agents_path = config.get('agents_path', self.agents_path)
-
         return {
             'growth': {
                 'internal': ('internal',),
-                'global': global_path},
+                'global': self.boundary_path},
             'division': {
-                'global': global_path,
-                'cells': agents_path},
+                'global': self.boundary_path,
+                'cells': self.agents_path},
             }
 
 
@@ -70,16 +68,16 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment_config = {
-        'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
+    compartment_config = {}
     compartment = GrowthDivisionMinimal(compartment_config)
 
     # settings for simulation and plot
     settings = {
         'environment': {
-            'volume': 1e-6,  # L
-            'environment_port': 'external',
+            'volume': 1e-6 * units.L,
+            'ports': {
+                'exchange': ('exchange',),
+                'external': ('external',)}
             # 'states': list(compartment.transport_config['initial_state']['external'].keys()),
         },
         'outer_path': ('cells', '0'),
