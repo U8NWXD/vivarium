@@ -32,7 +32,7 @@ class GrowthDivision(Compartment):
     defaults = {
         'boundary_path': ('boundary',),
         'agents_path': ('..', '..', 'agents',),
-        'transport_config': get_glc_lct_config(),
+        'transport': get_glc_lct_config(),
         'daughter_path': tuple()}
 
     def __init__(self, config):
@@ -46,9 +46,9 @@ class GrowthDivision(Compartment):
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
         # self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
-        # process configs
-        self.transport_config = self.config.get('transport_config', self.defaults['transport_config'])
-        self.transport_config['global_deriver_config'] = {
+        # # process configs
+        self.config['transport'] = self.config.get('transport', self.defaults['transport'])
+        self.config['transport']['global_deriver_config'] = {
             'type': 'globals',
             'source_port': 'global',
             'derived_port': 'global',
@@ -59,10 +59,6 @@ class GrowthDivision(Compartment):
         daughter_path = config['daughter_path']
         agent_id = config['agent_id']
 
-        transport_config = deep_merge(
-            config.get('transport', {}),
-            self.transport_config)
-
         division_config = dict(
             config.get('division', {}),
             daughter_path=daughter_path,
@@ -70,7 +66,7 @@ class GrowthDivision(Compartment):
             compartment=self)
 
         growth = GrowthProtein(config.get('growth', {}))
-        transport = ConvenienceKinetics(transport_config)
+        transport = ConvenienceKinetics(config.get('transport', {}))
         division = MetaDivision(division_config)
         expression = MinimalExpression(config.get('expression', {}))
         mass = TreeMass(config.get('mass', {}))

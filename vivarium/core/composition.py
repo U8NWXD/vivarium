@@ -413,7 +413,7 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
     TODO -- add agent color
     '''
 
-    agents_key = settings.get('agents_key', 'cells')
+    agents_key = settings.get('agents_key', 'agents')
     max_rows = settings.get('max_rows', 25)
 
     time_vec = list(data.keys())
