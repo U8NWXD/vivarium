@@ -247,6 +247,7 @@ class DiffusionField(Process):
                     'external': local_concentration_schema}}}
         schema['agents'].update(glob_schema)
 
+        # fields
         fields_schema = {
              'fields': {
                  field: {
@@ -254,12 +255,22 @@ class DiffusionField(Process):
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
+        glob_fields_schema = {
+                 '*': {
+                     '_default': self.empty_field,
+                     '_updater': 'accumulate',
+                     '_emit': True}}
+        fields_schema['fields'].update(glob_fields_schema)
         schema.update(fields_schema)
         return schema
 
     def next_update(self, timestep, states):
         fields = states['fields'].copy()
         agents = states['agents']
+
+        # import ipdb; ipdb.set_trace()
+        # TODO -- any unexpected fields?
+        # agents['*']['boundary']['external']
 
         # uptake/secretion from agents
         delta_exchanges = self.apply_exchanges(agents)
