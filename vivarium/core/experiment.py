@@ -123,6 +123,7 @@ class Store(object):
         self.outer = outer
         self.inner = {}
         self.subschema = {}
+        self.subtopology = {}
         self.properties = {}
         self.default = None
         self.updater = None
@@ -150,6 +151,9 @@ class Store(object):
         if self.value is not None and new_value != self.value:
             raise Exception('_value schema conflict: {} and {}'.format(new_value, self.value))
         return new_value
+
+    def merge_subtopology(self, subtopology):
+        self.subtopology = deep_merge(self.subtopology, subtopology)
 
     def apply_subschema_config(self, config, subschema_key):
         self.subschema = deep_merge(
@@ -552,6 +556,28 @@ class Store(object):
             for path, state in self.depth()
             if state.value and isinstance(state.value, Process)}
 
+    def apply_subschema(self, subschema=None):
+        if subschema is None:
+            subschema = self.subschema
+        for child_key, child in self.inner.items():
+            child.apply_config(subschema)
+
+    def apply_subschemas(self):
+        if self.subschema:
+            self.apply_subschema()
+        for child in self.inner.values():
+            child.apply_subschemas()
+
+    def update_subschema(self, path, subschema):
+        target = self.get_path(path)
+        if target.subschema is None:
+            target.subschema = subschema
+        else:
+            target.subschema = deep_merge(
+                target.subschema,
+                subschema)
+        return target
+
     def establish_path(self, path, config, initial=None, source=None):
         if len(path) > 0:
             path_step = path[0]
@@ -581,62 +607,56 @@ class Store(object):
                 self.value = initial
             return self
 
-    def apply_subschema(self, subschema=None):
-        if subschema is None:
-            subschema = self.subschema
-        for child_key, child in self.inner.items():
-            child.apply_config(subschema)
-
-    def apply_subschemas(self):
-        if self.subschema:
-            self.apply_subschema()
-        for child in self.inner.values():
-            child.apply_subschemas()
-
-    def update_subschema(self, path, subschema):
-        target = self.get_path(path)
-        if target.subschema is None:
-            target.subschema = subschema
-        else:
-            target.subschema = deep_merge(
-                target.subschema,
-                subschema)
-        return target
-
     def topology_ports(self, key, schema, topology, initial_state=None):
-        for port, targets in schema.items():
+        source = self.path_for() + (key,)
+
+        for port, subschema in schema.items():
             if port not in topology:
                 raise Exception(
                     'topology conflict: {} process does not have {} port'.format(
                         key, port))
 
+            import ipdb; ipdb.set_trace()
+
             path = topology[port]
             if path and isinstance(path, dict):
                 for subport, subtopology in path.items():
-                    self.inner[subport].topology_ports(
-                        subport,
-                        targets[subport],
-                        subtopology)
+                    if subport == '*':
+                        self.subtopology = subtopology
+                    elif not subport in self.inner:
+                        self.inner[subport] = Store(
+                            {}, outer=self, source=source)
+
+                        self.inner[subport].topology_ports(
+                            subport,
+                            subschema[subport],
+                            subtopology)
             else:
                 initial = get_in(initial_state, path) if initial_state else {}
-                for target, schema in targets.items():
-                    source = self.path_for() + (key,)
-                    if target == '*':
-                        glob = self.establish_path(
-                            path, {
-                                '_subschema': schema},
-                            source=source)
-                        glob.apply_subschema()
-                        glob.apply_defaults()
-                    else:
-                        subpath = tuple(path) + (target,)
-                        self.establish_path(
-                            subpath,
-                            schema,
-                            initial=initial.get(
-                                target) if initial and isinstance(
-                                    initial, dict) else None,
-                            source=source)
+                self.establish_path(
+                    path,
+                    subschema,
+                    initial=initial,
+                    source=source)
+
+                # initial = get_in(initial_state, path) if initial_state else {}
+                # for target, subsubschema in subschema.items():
+                #     if target == '*':
+                #         glob = self.establish_path(
+                #             path, {
+                #                 '_subschema': subsubschema},
+                #             source=source)
+                #         glob.apply_subschema()
+                #         glob.apply_defaults()
+                #     else:
+                #         subpath = tuple(path) + (target,)
+                #         self.establish_path(
+                #             subpath,
+                #             subsubschema,
+                #             initial=initial.get(
+                #                 target) if initial and isinstance(
+                #                     initial, dict) else None,
+                #             source=source)
 
     def generate_paths(self, processes, topology, initial_state):
         for key, subprocess in processes.items():
@@ -1171,24 +1191,27 @@ def test_topology_ports():
                 'electron': Electron()}}}
 
     spin_path = ('internal', 'spin')
+    radius_path = ('internal', 'radius')
 
     topology = {
         'proton': {
-            'quarks': ('proton', 'quarks'),
-            'electrons': {
-                '*': {
-                    'orbital': ('shell', 'orbital'),
-                    'spin': spin_path}},
-            'radius': ('proton', 'radius')},
+            'radius': radius_path,
+            'quarks': ('internal', 'quarks'),
+            'electrons': ('..', 'electrons'),
+            ('electrons', '*', 'orbital'): ('shell', 'orbital'),
+            ('electrons', '*', 'spin'): spin_path},
         'electrons': {
             'a': {
                 'electron': {
                     'spin': spin_path,
-                    'proton': ('..',)}},
+                    'proton': ('..',),
+                    ('proton', 'radius'): ('internal', 'radius')}},
             'b': {
                 'electron': {
                     'spin': spin_path,
-                    'proton': ('..',)}}}}
+                    'proton': ('..',),
+                    ('proton', 'radius'): ('internal', 'radius')}}}}
+
     experiment = Experiment({
         'processes': processes,
         'topology': topology,
