@@ -55,12 +55,13 @@ class ChemotaxisMinimal(Compartment):
             'motor': motor}
 
     def generate_topology(self, config):
+        external_path = self.boundary_path + ('external',)
         return {
             'receptor': {
-                'boundary': self.boundary_path,
+                'external': external_path,
                 'internal': ('cell',)},
             'motor': {
-                'boundary': self.boundary_path,
+                'external': self.boundary_path,
                 'internal': ('cell',)}}
 
 
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     experiment_settings = {
         'timeline': {
             'timeline': get_exponential_random_timeline(exponential_random_config),
-            'ports': {'external': ('boundary',)}},
+            'ports': {'external': ('boundary', 'external')}},
         'timestep': 1,
         'total_time': 100}
     timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
