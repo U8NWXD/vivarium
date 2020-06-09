@@ -48,24 +48,3 @@ class TimelineProcess(Process):
                         '_updater': 'set'}
                 self.timeline.pop(0)
         return update
-
-
-class TimelineCompartment(Compartment):
-
-    def __init__(self, config):
-        self.timeline = config['timeline']
-        self.compartment = config['compartment']
-        self.topology = self.compartment.generate_topology({})
-        self.path = config['path']
-
-    def generate_processes(self, config):
-        processes = self.compartment.generate_processes({})
-        processes.update({
-            'timeline': TimelineProcess({'timeline': self.timeline})})
-        return processes
-
-    def generate_topology(self, config):
-        topology = {'timeline': self.path}
-        topology['timeline'].update({'global': ('global',)})
-        topology.update(self.topology)
-        return topology

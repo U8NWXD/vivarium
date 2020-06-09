@@ -251,7 +251,9 @@ def test_receptor(timeline=get_pulse_timeline(), timestep = 1):
     receptor = ReceptorCluster(process_config)
 
     # run experiment
-    experiment_settings = {'timeline': timeline}
+    experiment_settings = {
+        'timeline': {
+            'timeline': timeline}}
     return simulate_process_in_experiment(receptor, experiment_settings)
 
 

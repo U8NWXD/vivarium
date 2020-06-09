@@ -192,7 +192,7 @@ def run_chemotaxis_master(out_dir):
         gene_exp_plot_config,
         out_dir)
 
-def test_chemotaxis_master(total_time=10):
+def test_chemotaxis_master(total_time=2):
     compartment_config = {
         'external_path': ('external',),
         'exchange_path': ('exchange',),

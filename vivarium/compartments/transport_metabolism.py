@@ -5,6 +5,8 @@ import argparse
 
 import matplotlib.pyplot as plt
 
+from vivarium.library.dict_utils import get_value_from_path
+from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
@@ -126,26 +128,29 @@ class TransportMetabolism(Compartment):
         }
 
     def generate_topology(self, config):
+        exchange_path =  self.boundary_path + ('exchange',)
+        external_path = self.boundary_path + ('external',)
+        # properties_path = self.boundary_path + ('properties',)
         return {
             'transport': {
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
                 'global': self.boundary_path,
             },
             'metabolism': {
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'reactions': ('reactions',),
-                'exchange': ('exchange',),
+                'exchange': exchange_path,
                 'flux_bounds': ('flux_bounds',),
                 'global': self.boundary_path,
             },
             'expression': {
                 'counts': ('cytoplasm_counts',),
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'global': self.boundary_path,
             },
             'division': {
@@ -167,6 +172,12 @@ def test_txp_mtb_ge(total_time=10):
 
     # simulate
     settings = {
+        'environment': {
+            'volume': 1e-12 * units.L,
+            'ports': {
+                'exchange': ('boundary', 'exchange',),
+                'external': ('boundary', 'external'),
+            }},
         'timestep': 1,
         'total_time': total_time}
     return simulate_compartment_in_experiment(compartment, settings)
@@ -174,6 +185,8 @@ def test_txp_mtb_ge(total_time=10):
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
     # run simulation
     timeseries = test_txp_mtb_ge(20)  # 2520 sec (42 min) is the expected doubling time in minimal media
+
+    # calculate growth
     volume_ts = timeseries['boundary']['volume']
     try:
         print('growth: {}'.format(volume_ts[-1] / volume_ts[0]))
@@ -183,10 +196,10 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
     ## plot
     # diauxic plot
     settings = {
-        'internal_port': 'cytoplasm',
-        'external_port': 'boundary',
-        'global_port': 'boundary',
-        'exchange_port': 'exchange',
+        'internal_path': ('cytoplasm',),
+        'external_path': ('boundary', 'external'),
+        'global_path': ('boundary',),
+        'exchange_path': ('boundary', 'exchange'),
         'environment_volume': 1e-13,  # L
         # 'timeline': timeline
     }
@@ -196,28 +209,25 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
     plot_settings = {
         'max_rows': 30,
         'remove_zeros': True,
-        'overlay': {
-            'reactions': 'flux_bounds'},
-        'skip_ports': ['null', 'exchange'],
-        'show_state': [
-            ('reactions', 'EX_glc__D_e'),
-            ('reactions', 'EX_lcts_e')]}
+        'skip_ports': ['null', 'reactions'],
+    }
     plot_simulation_output(timeseries, plot_settings, out_dir)
 
 # plots
 def plot_diauxic_shift(timeseries, settings={}, out_dir='out'):
-    external_port = settings.get('external_port', 'environment')
-    internal_port = settings.get('internal_port', 'cytoplasm')
-    internal_counts_port = settings.get('internal_counts_port', 'cytoplasm_counts')
-    reactions_port = settings.get('reactions_port', 'reactions')
-    global_port = settings.get('global_port', 'global')
+    external_path = settings.get('external_path', ('environment',))
+    internal_path = settings.get('internal_path', ('cytoplasm',))
+    internal_counts_path = settings.get('internal_counts_path', ('cytoplasm_counts',))
+    reactions_path = settings.get('reactions_path', ('reactions',))
+    global_path = settings.get('global_path', ('global',))
 
     time = [t/60 for t in timeseries['time']]  # convert to minutes
-    environment = timeseries[external_port]
-    cell = timeseries[internal_port]
-    cell_counts = timeseries[internal_counts_port]
-    reactions = timeseries[reactions_port]
-    globals = timeseries[global_port]
+
+    environment = get_value_from_path(timeseries, external_path)
+    cell = get_value_from_path(timeseries, internal_path)
+    cell_counts = get_value_from_path(timeseries, internal_counts_path)
+    reactions = get_value_from_path(timeseries, reactions_path)
+    globals = get_value_from_path(timeseries, global_path)
 
     # environment
     lactose = environment['lcts_e']

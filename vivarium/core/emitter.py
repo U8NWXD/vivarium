@@ -3,9 +3,12 @@ from __future__ import absolute_import, division, print_function
 from pymongo import MongoClient
 from confluent_kafka import Producer
 import json
+import copy
 
 from vivarium.actor.actor import delivery_report
-from vivarium.library.dict_utils import merge_dicts
+from vivarium.library.dict_utils import (
+    merge_dicts, value_in_embedded_dict, get_path_list_from_dict, \
+    get_value_from_path, make_path_dict)
 
 HISTORY_INDEXES = [
     'time',
@@ -58,7 +61,29 @@ def configure_emitter(config, processes, topology):
     emitter_config['simulation_id'] = config.get('simulation_id')
     return get_emitter(emitter_config)
 
+def path_timeseries_from_data(data):
+    embedded_timeseries = timeseries_from_data(data)
+    return path_timeseries_from_embedded_timeseries(embedded_timeseries)
+
+def path_timeseries_from_embedded_timeseries(embedded_timeseries):
+    times_vector = embedded_timeseries.pop('time')
+    path_timeseries = make_path_dict(embedded_timeseries)
+    path_timeseries['time'] = times_vector
+    return path_timeseries
+
 def timeseries_from_data(data):
+    times_vector = list(data.keys())
+    embedded_timeseries = {}
+    for time, value in data.items():
+        if isinstance(value, dict):
+            embedded_timeseries = value_in_embedded_dict(value, embedded_timeseries)
+        else:
+            pass
+
+    embedded_timeseries['time'] = times_vector
+    return embedded_timeseries
+
+def timeseries_from_data_old(data):
     time_vec = list(data.keys())
     initial_state = data[time_vec[0]]
     timeseries = {port: {state: []
@@ -75,8 +100,6 @@ def timeseries_from_data(data):
                     timeseries[port][state_id] = []  # TODO -- record appearance of new states
                 timeseries[port][state_id].append(state)
     return timeseries
-
-
 
 class Emitter(object):
     '''
@@ -115,8 +138,15 @@ class TimeSeriesEmitter(Emitter):
     def get_data(self):
         return self.saved_data
 
+    def get_path_timeseries(self):
+        return path_timeseries_from_data(self.saved_data)
+
     def get_timeseries(self):
         return timeseries_from_data(self.saved_data)
+
+    def get_timeseries_old(self):
+        return timeseries_from_data_old(self.saved_data)
+
 
 class KafkaEmitter(Emitter):
     '''
