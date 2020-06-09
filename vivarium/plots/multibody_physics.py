@@ -170,8 +170,9 @@ def plot_snapshots(data, plot_config):
         else:
             row_idx = 0
             ax = init_axes(fig, bounds[0], bounds[1], grid, row_idx, col_idx, time)
-            agents_now = agents[time]
-            plot_agents(ax, agents_now, agent_colors)
+            if agents:
+                agents_now = agents[time]
+                plot_agents(ax, agents_now, agent_colors)
 
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.7, hspace=0.1)

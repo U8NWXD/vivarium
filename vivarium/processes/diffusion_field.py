@@ -268,9 +268,14 @@ class DiffusionField(Process):
         fields = states['fields'].copy()
         agents = states['agents']
 
-        # import ipdb; ipdb.set_trace()
-        # TODO -- any unexpected fields?
-        # agents['*']['boundary']['external']
+        # check for unexpected fields
+        new_fields = {}
+        for agent_id, specs in agents.items():
+            external = specs['boundary']['external']
+            for mol_id, concentration in external.items():
+                if mol_id not in self.molecule_ids and concentration is not None:
+                    self.molecule_ids.append(mol_id)
+                    new_fields[mol_id] = concentration * self.ones_field()
 
         # uptake/secretion from agents
         delta_exchanges = self.apply_exchanges(agents)
@@ -438,13 +443,13 @@ def test_diffusion_field(config=get_gaussian_config(), time=10):
 
 def plot_fields(data, config, out_dir='out', filename='fields'):
     fields = {time: time_data['fields'] for time, time_data in data.items()}
-    data = {
+    snapshots_data = {
         'fields': fields,
         'config': config}
     plot_config = {
         'out_dir': out_dir,
         'filename': filename}
-    plot_snapshots(data, plot_config)
+    plot_snapshots(snapshots_data, plot_config)
 
 
 if __name__ == '__main__':
