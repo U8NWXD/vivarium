@@ -15,10 +15,7 @@ from vivarium.core.composition import (
 )
 
 # compartments
-from vivarium.compartments.lattice import (
-    Lattice,
-    get_lattice_config
-)
+from vivarium.compartments.static_lattice import StaticLattice
 from vivarium.compartments.chemotaxis_minimal import (
     ChemotaxisMinimal,
     get_chemotaxis_config
@@ -38,7 +35,7 @@ def make_chemotaxis_experiment(config={}):
 
     # get the environment
     env_config = config.get('environment', {})
-    environment = Lattice(env_config)
+    environment = StaticLattice(env_config)
     network = environment.generate({})
     processes = network['processes']
     topology = network['topology']
@@ -87,8 +84,8 @@ def get_chemotaxis_experiment_config():
         'agent_ids': agent_ids}
     multibody_config.update(random_body_config(body_config))
 
-    # diffusion
-    diffusion_config = {
+    # field
+    field_config = {
         'molecules': [ligand_id],
         'gradient': {
             'type': 'exponential',
@@ -96,7 +93,6 @@ def get_chemotaxis_experiment_config():
                 ligand_id: {
                     'center': [0.0, 0.0],
                     'base': 1+1e-1}}},
-        'diffusion': 1e-1,
         'n_bins': n_bins,
         'size': bounds}
 
@@ -105,7 +101,7 @@ def get_chemotaxis_experiment_config():
         'chemotaxis': chemotaxis_config,
         'environment': {
             'multibody': multibody_config,
-            'diffusion': diffusion_config}}
+            'field': field_config}}
 
 def run_chemotaxis_experiment(time=5, out_dir='out'):
     chemotaxis_config = get_chemotaxis_experiment_config()
