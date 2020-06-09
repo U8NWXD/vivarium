@@ -17,7 +17,6 @@ from vivarium.plots.multibody_physics import plot_snapshots
 from vivarium.processes.diffusion_field import (
     DiffusionField,
     get_gaussian_config,
-    exchange_agent_config,
 )
 
 

@@ -161,6 +161,7 @@ class DiffusionField(Process):
         'agents': {},
         'boundary_port': 'boundary',
         'exchange_port': 'exchange',
+        'external_port': 'external',
     }
 
     def __init__(self, initial_parameters=None):
@@ -177,6 +178,7 @@ class DiffusionField(Process):
         depth = initial_parameters.get('depth', self.defaults['depth'])
         self.boundary_port = initial_parameters.get('boundary_port', self.defaults['boundary_port'])
         self.exchange_port = initial_parameters.get('exchange_port', self.defaults['exchange_port'])
+        self.external_port = initial_parameters.get('external_port', self.defaults['external_port'])
 
         # diffusion
         diffusion = initial_parameters.get('diffusion', self.defaults['diffusion'])
@@ -242,13 +244,13 @@ class DiffusionField(Process):
                         '_default': [0.5, 0.5],
                         '_updater': 'set'},
                     'exchange': local_concentration_schema,
-                    'local_environment': local_concentration_schema}}}
+                    'external': local_concentration_schema}}}
         schema['agents'].update(glob_schema)
 
         fields_schema = {
              'fields': {
                  field: {
-                     '_value': self.initial_state.get(field, self.empty_field()),
+                     '_value': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
@@ -297,8 +299,9 @@ class DiffusionField(Process):
         local_environments = {}
         if agents:
             for agent_id, specs in agents.items():
-                local_environments[agent_id] = {}
-                local_environments[agent_id][self.boundary_port] = self.get_single_local_environments(specs[self.boundary_port], fields)
+                local_environments[agent_id] = {self.boundary_port: {}}
+                local_environments[agent_id][self.boundary_port][self.external_port] = \
+                    self.get_single_local_environments(specs[self.boundary_port], fields)
         return local_environments
 
     def apply_single_exchange(self, delta_fields, specs):
@@ -310,6 +313,9 @@ class DiffusionField(Process):
             delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
 
     def empty_field(self):
+        return np.zeros((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
+
+    def ones_field(self):
         return np.ones((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
 
     def apply_exchanges(self, agents):
@@ -399,30 +405,17 @@ def get_secretion_agent_config(config={}):
                         np.random.uniform(0, bounds[1])],
                 'exchange': {
                     mol_id: 1e3 for mol_id in molecules},
-                'local_environment': {
+                'external': {
                     mol_id: 0 for mol_id in molecules}}}
-    config = {
+    return {
         'molecules': molecules,
         'n_bins': n_bins,
         'bounds': bounds,
         'depth': depth,
-        'agents': agents}
-
-    return exchange_agent_config(config)
-
-def exchange_agent_config(config):
-    molecules = config['molecules']
-    bounds = config['bounds']
-    n_bins = config['n_bins']
-    agents = config['agents']
-    return {
-        'molecules': molecules,
+        'agents': agents,
         'initial_state': {
             mol_id: np.ones((n_bins[0], n_bins[1]))
-            for mol_id in molecules},
-        'n_bins': n_bins,
-        'bounds': bounds,
-        'agents': agents}
+            for mol_id in molecules}}
 
 def test_diffusion_field(config=get_gaussian_config(), time=10):
     diffusion = DiffusionField(config)

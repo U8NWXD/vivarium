@@ -98,7 +98,8 @@ class ReceptorCluster(Process):
             'boundary': {self.ligand_id: self.initial_ligand}}
         set_emit = {
             'internal': list(self.initial_state.keys()),
-            'boundary': [self.ligand_id]}
+            'boundary': {
+                'external': [self.ligand_id]}}
 
         schema = {}
         for port, states in self.ports.items():
@@ -114,6 +115,9 @@ class ReceptorCluster(Process):
                 if port in default_states:
                     if state in default_states[port]:
                         schema[port][state]['_default'] = default_states[port][state]
+
+        import ipdb; ipdb.set_trace()
+
         return schema
 
     def next_update(self, timestep, states):
