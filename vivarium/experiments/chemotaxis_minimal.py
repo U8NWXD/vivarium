@@ -33,7 +33,7 @@ def make_chemotaxis_experiment(config={}):
     agent_ids = config.get('agent_ids', [])
     emitter = config.get('emitter', {'type': 'timeseries'})
 
-    # get the environment
+    # initialize the environment
     env_config = config.get('environment', {})
     environment = StaticLattice(env_config)
     network = environment.generate({})

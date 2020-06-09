@@ -26,7 +26,7 @@ class StaticLattice(Compartment):
             'bounds': [10, 10],
             'agents': {}
         },
-        'diffusion': {
+        'field': {
             'molecules': ['glc'],
             'n_bins': [10, 10],
             'bounds': [10, 10],

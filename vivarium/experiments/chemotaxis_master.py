@@ -33,14 +33,24 @@ def make_chemotaxis_experiment(config={}):
     agent_ids = config.get('agent_ids', [])
     emitter = config.get('emitter', {'type': 'timeseries'})
 
-    # get the environment
+    chemotaxis = ChemotaxisMaster(config.get('chemotaxis', {}))
+
+    # get the environment molecules from metabolism
     env_config = config.get('environment', {})
+    network = chemotaxis.generate()
+    processes = network['processes']
+    metabolism_state = processes['metabolism'].initial_state
+    metabolism_external = [mol_id for mol_id, concentration in metabolism_state['external'].items() if concentration > 0]
+    # TODO -- add chemoreceptors external?
+    env_config['diffusion']['molecules'] = metabolism_external
+
+    # initialize the environment
     environment = Lattice(env_config)
     network = environment.generate({})
     processes = network['processes']
     topology = network['topology']
 
-    chemotaxis = ChemotaxisMaster(config.get('chemotaxis', {}))
+    # add the agents
     agents = make_agents(agent_ids, chemotaxis, config.get('chemotaxis', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']

@@ -76,19 +76,17 @@ class StaticField(Process):
             for molecule in self.molecule_ids}
 
         schema = {'agents': {}}
-        for agent_id, states in self.initial_agents.items():
-            location = states[self.boundary_port].get('location', [])
-            exchange = states[self.boundary_port].get('exchange', {})
-            schema['agents'][agent_id] = {
-                self.boundary_port: {
-                    'location': {
-                        '_value': location},
-                    'exchange': {
-                        mol_id: {
-                            '_value': value}
-                        for mol_id, value in exchange.items()}}}
-            # schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
-
+        # for agent_id, states in self.initial_agents.items():
+        #     location = states[self.boundary_port].get('location', [])
+        #     exchange = states[self.boundary_port].get('exchange', {})
+        #     schema['agents'][agent_id] = {
+        #         self.boundary_port: {
+        #             'location': {
+        #                 '_value': location},
+        #             'exchange': {
+        #                 mol_id: {
+        #                     '_value': value}
+        #                 for mol_id, value in exchange.items()}}}
         glob_schema = {
             '*': {
                 self.boundary_port: {
@@ -107,12 +105,6 @@ class StaticField(Process):
                      '_updater': 'accumulate',
                      '_emit': False}
                  for field in self.molecule_ids}}
-        glob_fields_schema = {
-                 '*': {
-                     '_default': self.empty_field,
-                     '_updater': 'accumulate',
-                     '_emit': False}}
-        fields_schema['fields'].update(glob_fields_schema)
         schema.update(fields_schema)
         return schema
 

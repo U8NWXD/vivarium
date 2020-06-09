@@ -224,19 +224,17 @@ class DiffusionField(Process):
             for molecule in self.molecule_ids}
 
         schema = {'agents': {}}
-        for agent_id, states in self.initial_agents.items():
-            location = states[self.boundary_port].get('location', [])
-            exchange = states[self.boundary_port].get('exchange', {})
-            schema['agents'][agent_id] = {
-                self.boundary_port: {
-                    'location': {
-                        '_value': location},
-                    'exchange': {
-                        mol_id: {
-                            '_value': value}
-                        for mol_id, value in exchange.items()}}}
-            # schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
-
+        # for agent_id, states in self.initial_agents.items():
+        #     location = states[self.boundary_port].get('location', [])
+        #     exchange = states[self.boundary_port].get('exchange', {})
+        #     schema['agents'][agent_id] = {
+        #         self.boundary_port: {
+        #             'location': {
+        #                 '_value': location},
+        #             'exchange': {
+        #                 mol_id: {
+        #                     '_value': value}
+        #                 for mol_id, value in exchange.items()}}}
         glob_schema = {
             '*': {
                 self.boundary_port: {
@@ -255,27 +253,12 @@ class DiffusionField(Process):
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
-        glob_fields_schema = {
-                 '*': {
-                     '_default': self.empty_field,
-                     '_updater': 'accumulate',
-                     '_emit': True}}
-        fields_schema['fields'].update(glob_fields_schema)
         schema.update(fields_schema)
         return schema
 
     def next_update(self, timestep, states):
         fields = states['fields'].copy()
         agents = states['agents']
-
-        # check for unexpected fields
-        new_fields = {}
-        for agent_id, specs in agents.items():
-            external = specs['boundary']['external']
-            for mol_id, concentration in external.items():
-                if mol_id not in self.molecule_ids and concentration is not None:
-                    self.molecule_ids.append(mol_id)
-                    new_fields[mol_id] = concentration * self.ones_field()
 
         # uptake/secretion from agents
         delta_exchanges = self.apply_exchanges(agents)
@@ -323,10 +306,10 @@ class DiffusionField(Process):
     def apply_single_exchange(self, delta_fields, specs):
         exchange = specs.get('exchange', {})
         bin_site = self.get_bin_site(specs['location'])
-
         for mol_id, count in exchange.items():
-            concentration = self.count_to_concentration(count)
-            delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
+            if count != 0:
+                concentration = self.count_to_concentration(count)
+                delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
 
     def empty_field(self):
         return np.zeros((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
