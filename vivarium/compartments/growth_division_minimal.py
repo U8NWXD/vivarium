@@ -28,20 +28,23 @@ class GrowthDivisionMinimal(Compartment):
 
     def __init__(self, config):
         self.config = config
+        for key, value in self.defaults.items():
+            if key not in self.config:
+                self.config[key] = value
 
         # paths
         self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
-        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
-
+        # self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
     def generate_processes(self, config):
         # declare the processes
-        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
+        daughter_path = config['daughter_path']
+        agent_id = config['agent_id']
 
         division_config = dict(
             config.get('division', {}),
-            daughter_path=self.daughter_path,
+            daughter_path=daughter_path,
             agent_id=agent_id,
             compartment=self)
 
@@ -68,19 +71,12 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment_config = {}
-    compartment = GrowthDivisionMinimal(compartment_config)
+    agent_id = '0'
+    compartment = GrowthDivisionMinimal({'agent_id': agent_id})
 
     # settings for simulation and plot
     settings = {
-        'environment': {
-            'volume': 1e-6 * units.L,
-            'ports': {
-                'exchange': ('exchange',),
-                'external': ('external',)}
-            # 'states': list(compartment.transport_config['initial_state']['external'].keys()),
-        },
-        'outer_path': ('cells', '0'),
+        'outer_path': ('agents', agent_id),
         'return_raw_data': True,
         'timestep': 1,
         'total_time': 600}

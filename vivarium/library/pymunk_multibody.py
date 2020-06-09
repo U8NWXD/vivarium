@@ -276,11 +276,7 @@ class MultiBody(object):
             (half_length, half_width),
             (-half_length, half_width)))
 
-        try:
-            inertia = pymunk.moment_for_poly(mass, new_shape.get_vertices())
-        except:
-            import ipdb;
-            ipdb.set_trace()
+        inertia = pymunk.moment_for_poly(mass, new_shape.get_vertices())
         new_body = pymunk.Body(mass, inertia)
         new_shape.body = new_body
 
