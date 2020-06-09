@@ -108,7 +108,7 @@ def run_lattice_experiment(agent_config=get_gd_minimal_config, filename='agents'
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 500,
+        'total_time': 200,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 

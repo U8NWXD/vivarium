@@ -7,7 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
-from vivarium.core.emitter import path_timeseries_from_embedded_timeseries
+from vivarium.core.emitter import (
+    make_path_dict,
+    path_timeseries_from_embedded_timeseries,
+    path_timeseries_from_data,
+)
 from vivarium.core.experiment import (
     Experiment,
     update_in,
@@ -20,6 +24,7 @@ from vivarium.library.dict_utils import (
     deep_merge,
     deep_merge_check,
     flatten_timeseries,
+    get_path_list_from_dict,
 )
 from vivarium.library.units import units
 
@@ -407,67 +412,91 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     plt.subplots_adjust(wspace=0.8, hspace=1.0)
     plt.savefig(fig_path, bbox_inches='tight')
 
+
+
+def order_list_of_paths(path_list):
+    # make the lists equal in length:
+    length = max(map(len, path_list))
+    lol = np.array([list(path) + [None] * (length - len(path)) for path in path_list])
+
+    # sort by first two columns. TODO -- sort by all available columns
+    ind = np.lexsort((lol[:, 1], lol[:, 0]))
+    sorted_path_list = sorted(zip(ind, path_list))
+    forward_order = [idx_path[1] for idx_path in sorted_path_list]
+    forward_order.reverse()
+    return forward_order
+
 def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     '''
     Make a plot of all agent data
     TODO -- add agent color
     '''
-
     agents_key = settings.get('agents_key', 'agents')
     max_rows = settings.get('max_rows', 25)
-
     time_vec = list(data.keys())
-    agents_timeseries = agent_timeseries_from_data(data, agents_key)
+    timeseries = path_timeseries_from_data(data)
 
+    # get the agents' port_schema in a list of paths
     # assume the initial agents have the same port schema as all subsequent agents
     initial_agents = data[time_vec[0]][agents_key]
-    ports = {}
-    for agent_id, state_data in initial_agents.items():
-        for port_id, states in state_data.items():
-            if port_id not in ports:
-                ports[port_id] = []
-            for state_id in states.keys():
-                if state_id not in ports[port_id]:
-                    ports[port_id].append(state_id)
+    initial_agent_ids = list(initial_agents.keys())
+    first_agent = initial_agents[initial_agent_ids[0]]
+    top_ports = list(first_agent.keys())
+    port_schema_paths = get_path_list_from_dict(first_agent)
 
-    ## get figure columns
-    n_data = [len(states) for states in ports.values()]
-    columns = []
-    for n_states in n_data:
-        new_cols = n_states / max_rows
-        if new_cols > 1:
-            for col in range(int(new_cols)):
-                columns.append(max_rows)
-            mod_states = n_states % max_rows
-            if mod_states > 0:
-                columns.append(mod_states)
-        else:
-            columns.append(n_states)
+    # get port columns, assign subplot locations
+    port_rows = {port_id: [] for port_id in top_ports}
+    for path in port_schema_paths:
+        top_port = path[0]
+        port_rows[top_port].append(path)
 
-    # make figure
-    n_rows = max(columns)
-    n_cols = len(columns)
+    highest_row = 0
+    row_idx = 0
+    col_idx = 0
+    ordered_paths = {port_id: {} for port_id in top_ports}
+    for port_id, path_list in port_rows.items():
+        # order target names and assign subplot location
+        ordered_targets = order_list_of_paths(path_list)
+        for target in ordered_targets:
+            ordered_paths[port_id][target] = [col_idx, row_idx]
+            if row_idx >= max_rows:
+                row_idx = 0
+                col_idx += 1
+            else:
+                row_idx += 1
+            if row_idx > highest_row:
+                highest_row = row_idx
+        # new column for next port
+        row_idx = 0
+        col_idx += 1
+
+    # initialize figure
+    n_rows = highest_row
+    n_cols = col_idx
     fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
     grid = plt.GridSpec(n_rows, n_cols, wspace=0.4, hspace=1.5)
 
-    # set up the axes
+    # make the subplot axes
     port_axes = {}
-    for port_idx, (port_id, states) in enumerate(ports.items()):
-        n_states = columns[port_idx]
-        for state_idx, state_id in enumerate(states):
-            ax = fig.add_subplot(grid[state_idx, port_idx])
-            ax.title.set_text(str(port_id) + ': ' + str(state_id))
+    for port_id, paths in ordered_paths.items():
+        for path_idx, (path, location) in enumerate(paths.items()):
+            row_idx = location[1]
+            col_idx = location[0]
+            ax = fig.add_subplot(grid[row_idx, col_idx])
+            ax.title.set_text(path)
             ax.title.set_fontsize(16)
             ax.set_xlim([time_vec[0], time_vec[-1]])
-            if state_idx is not n_states-1:
-                set_axes(ax)
-            else:
-                # if last state in this port, add time ticks
+
+            # if last state in this port, add time ticks
+            if row_idx >= max_rows - 1 or path_idx >= len(ordered_paths[port_id]) - 1:
                 set_axes(ax, True)
+                # ax.set_xlim([time_vec[0], time_vec[-1]])
                 ax.set_xlabel('time (s)')
+            else:
+                set_axes(ax)
 
             # save axis
-            port_axes[(port_id, state_id)] = ax
+            port_axes[path] = ax
 
     # plot the agents
     plotted_agents = []
@@ -476,15 +505,15 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
         for agent_id, agent_data in agents.items():
             if agent_id not in plotted_agents:
                 plotted_agents.append(agent_id)
-                agent_ts = agents_timeseries[agent_id]
-                for port_id, state_ts in agent_ts.items():
-                    for state_id, state in state_ts.items():
-                        if not isinstance(state[0], (float, int)):
-                            continue
-                        n_times = len(state)
-                        plot_times = time_vec[time_idx:time_idx+n_times]
-                        ax = port_axes[(port_id, state_id)]
-                        ax.plot(plot_times, state)
+                for port_schema_path in port_schema_paths:
+                    series = timeseries[(agents_key, agent_id) + port_schema_path]
+                    if not isinstance(series[0], (float, int)):
+                        continue
+                    n_times = len(series)
+                    plot_times = time_vec[time_idx:time_idx+n_times]
+
+                    ax = port_axes[port_schema_path]
+                    ax.plot(plot_times, series)
 
     # save figure
     fig_path = os.path.join(out_dir, filename)

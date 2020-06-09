@@ -151,4 +151,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(30, out_dir)
+    run_chemotaxis_experiment(5, out_dir)
