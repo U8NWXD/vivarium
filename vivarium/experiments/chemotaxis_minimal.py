@@ -59,9 +59,10 @@ def get_chemotaxis_experiment_config():
 
     ligand_id = 'glc'
     initial_ligand = 0.1
-    n_agents = 3
-    bounds = [50, 50]
-    n_bins = [50, 50]
+    n_agents = 1
+    bins_microns = 2
+    bounds = [100, 500]
+    n_bins = [bound * bins_microns for bound in bounds]
 
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
@@ -91,7 +92,7 @@ def get_chemotaxis_experiment_config():
             'type': 'exponential',
             'molecules': {
                 ligand_id: {
-                    'center': [0.0, 0.0],
+                    'center': [0.5, 0.0],
                     'base': 1+1e-1}}},
         'n_bins': n_bins,
         'size': bounds}
@@ -109,7 +110,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
 
     # simulate
     settings = {
-        'timestep': 0.1,
+        'timestep': 0.01,
         'total_time': time,
         'return_raw_data': True}
     raw_data = simulate_experiment(experiment, settings)

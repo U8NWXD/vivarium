@@ -105,13 +105,13 @@ class StaticField(Process):
                  field: {
                      '_value': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
-                     '_emit': True}
+                     '_emit': False}
                  for field in self.molecule_ids}}
         glob_fields_schema = {
                  '*': {
                      '_default': self.empty_field,
                      '_updater': 'accumulate',
-                     '_emit': True}}
+                     '_emit': False}}
         fields_schema['fields'].update(glob_fields_schema)
         schema.update(fields_schema)
         return schema
