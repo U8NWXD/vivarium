@@ -107,7 +107,7 @@ if __name__ == '__main__':
         'timeline': {
             'timeline': get_exponential_random_timeline(exponential_random_config),
             'ports': {'external': ('boundary', 'external')}},
-        'timestep': 1,
+        'timestep': 0.01,
         'total_time': 100}
     timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
 
