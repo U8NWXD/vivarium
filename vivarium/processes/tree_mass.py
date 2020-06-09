@@ -47,7 +47,6 @@ class TreeMass(Deriver):
         return {
             'global': {
                 'initial_mass': {
-                    '_emit': True,
                     '_default': self.initial_mass,
                     '_updater': 'set',
                     '_divider': 'split'},

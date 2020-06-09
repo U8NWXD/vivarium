@@ -6,7 +6,7 @@ from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
-    plot_agent_data,
+    plot_agents_multigen,
     COMPARTMENT_OUT_DIR,
 )
 
@@ -87,4 +87,4 @@ if __name__ == '__main__':
     output_data = simulate_compartment_in_experiment(compartment, settings)
 
     plot_settings = {}
-    plot_agent_data(output_data, plot_settings, out_dir)
+    plot_agents_multigen(output_data, plot_settings, out_dir)

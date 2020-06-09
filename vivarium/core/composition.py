@@ -407,7 +407,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     plt.subplots_adjust(wspace=0.8, hspace=1.0)
     plt.savefig(fig_path, bbox_inches='tight')
 
-def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
+def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     '''
     Make a plot of all agent data
     TODO -- add agent color
@@ -458,6 +458,7 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
             ax = fig.add_subplot(grid[state_idx, port_idx])
             ax.title.set_text(str(port_id) + ': ' + str(state_id))
             ax.title.set_fontsize(16)
+            ax.set_xlim([time_vec[0], time_vec[-1]])
             if state_idx is not n_states-1:
                 set_axes(ax)
             else:

@@ -12,7 +12,7 @@ from vivarium.core.experiment import (
 from vivarium.core.composition import (
     make_agents,
     simulate_experiment,
-    plot_agent_data,
+    plot_agents_multigen,
     EXPERIMENT_OUT_DIR,
 )
 
@@ -77,7 +77,7 @@ def get_gd_minimal_config():
     }
 
 def get_lattice_config():
-    bounds = [10, 10]
+    bounds = [20, 20]
     n_bins = [10, 10]
     molecules = ['glc__D_e', 'lcts_e']
 
@@ -108,7 +108,7 @@ def run_lattice_experiment(agent_config=get_gd_minimal_config, filename='agents'
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 200,
+        'total_time': 500,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)
 
@@ -120,7 +120,7 @@ def run_lattice_experiment(agent_config=get_gd_minimal_config, filename='agents'
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
-    plot_agent_data(data, plot_settings, out_dir, filename)
+    plot_agents_multigen(data, plot_settings, out_dir, filename)
 
     # snapshot plot
     data = {
