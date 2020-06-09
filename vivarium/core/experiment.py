@@ -603,6 +603,41 @@ class Store(object):
                 subschema)
         return target
 
+    def topology_ports(self, key, schema, topology, initial_state=None):
+        for port, targets in schema.items():
+            if port not in topology:
+                raise Exception(
+                    'topology conflict: {} process does not have {} port'.format(
+                        key, port))
+
+            path = topology[port]
+            if path and isinstance(path, dict):
+                for subport, subtopology in path.items():
+                    self.inner[subport].topology_ports(
+                        subport,
+                        targets[subport],
+                        subtopology)
+            else:
+                initial = get_in(initial_state, path) if initial_state else {}
+                for target, schema in targets.items():
+                    source = self.path_for() + (key,)
+                    if target == '*':
+                        glob = self.establish_path(
+                            path, {
+                                '_subschema': schema},
+                            source=source)
+                        glob.apply_subschema()
+                        glob.apply_defaults()
+                    else:
+                        subpath = tuple(path) + (target,)
+                        self.establish_path(
+                            subpath,
+                            schema,
+                            initial=initial.get(
+                                target) if initial and isinstance(
+                                    initial, dict) else None,
+                            source=source)
+
     def generate_paths(self, processes, topology, initial_state):
         for key, subprocess in processes.items():
             subtopology = topology[key]
@@ -611,30 +646,36 @@ class Store(object):
                     '_value': subprocess,
                     '_updater': 'set'}, outer=self)
                 self.inner[key] = process_state
-                for port, targets in subprocess.ports_schema().items():
-                    if port not in subtopology:
-                        raise Exception('topology conflict: {} process does not have {} port'.format(key, port))
-                    path = subtopology[port]
-                    if path:
-                        initial = get_in(initial_state, path)
-                        for target, schema in targets.items():
-                            source = self.path_for() + (key,)
-                            if target == '*':
-                                glob = self.establish_path(
-                                    path, {
-                                        '_subschema': schema},
-                                    source=source)
-                                glob.apply_subschema()
-                                glob.apply_defaults()
-                            else:
-                                subpath = tuple(path) + (target,)
-                                self.establish_path(
-                                    subpath,
-                                    schema,
-                                    initial=initial.get(
-                                        target) if initial and isinstance(
-                                            initial, dict) else None,
-                                    source=source)
+
+                self.topology_ports(
+                    key,
+                    subprocess.ports_schema(),
+                    subtopology)
+
+                # for port, targets in subprocess.ports_schema().items():
+                #     if port not in subtopology:
+                #         raise Exception('topology conflict: {} process does not have {} port'.format(key, port))
+                #     path = subtopology[port]
+                #     if path:
+                #         initial = get_in(initial_state, path)
+                #         for target, schema in targets.items():
+                #             source = self.path_for() + (key,)
+                #             if target == '*':
+                #                 glob = self.establish_path(
+                #                     path, {
+                #                         '_subschema': schema},
+                #                     source=source)
+                #                 glob.apply_subschema()
+                #                 glob.apply_defaults()
+                #             else:
+                #                 subpath = tuple(path) + (target,)
+                #                 self.establish_path(
+                #                     subpath,
+                #                     schema,
+                #                     initial=initial.get(
+                #                         target) if initial and isinstance(
+                #                             initial, dict) else None,
+                #                     source=source)
             else:
                 if key not in self.inner:
                     self.inner[key] = Store({}, outer=self)
@@ -1040,6 +1081,124 @@ def test_in():
     update_in(blank, path, lambda x: x + 6)
     print(blank)
 
+def test_topology_ports():
+    quark_colors = ['green', 'red', 'blue']
+    quark_spins = ['up', 'down']
+    electron_spins = ['-1/2', '1/2']
+    electron_orbitals = [
+        str(orbit) + 's'
+        for orbit in range(1, 8)]
+
+    class Proton(Process):
+        defaults = {
+            'radius': 0.0}
+
+        def __init__(self, parameters=None):
+            if not parameters:
+                parameters = {}
+            self.radius = self.or_default(parameters, 'radius')
+            self.parameters = parameters
+
+        def ports_schema(self):
+            return {
+                'radius': {
+                    '_default': self.radius},
+                'quarks': {
+                    '*': {
+                        'color': {
+                            '_default': quark_colors[0]},
+                        'spin': {
+                            '_default': quark_spins[0]}}},
+                'electrons': {
+                    '*': {
+                        'orbital': {
+                            '_default': electron_orbitals[0]},
+                        'spin': {
+                            '_default': electron_spins[0]}}}}
+
+        def next_update(self, timestep, states):
+            update = {}
+
+            collapse = np.random.random()
+            if collapse < states['radius'] * timestep:
+                update['radius'] = collapse
+                update['quarks'] = {}
+
+                for name, quark in states['quarks'].items():
+                    update['quarks'][name] = {
+                        'color': np.random.choice(colors),
+                        'spin': np.random.choice(spins)}
+
+                update['electrons'] = {}
+                orbitals = electron_orbitals.copy()
+                for name, electron in states['electrons'].items():
+                    np.random.shuffle(orbitals)
+                    update['electrons'][name] = {
+                        'orbital': orbitals.pop()}
+
+            return update
+
+    class Electron(Process):
+        defaults = {
+            'spin': electron_spins[0]}
+
+        def __init__(self, parameters=None):
+            self.parameters = parameters or {}
+            self.spin = self.or_default(self.parameters, 'spin')
+
+        def ports_schema(self):
+            return {
+                'spin': {
+                    '_default': self.spin},
+                'proton': {
+                    'radius': {
+                        '_default': 0.0}}}
+
+        def next_update(self, timestep, states):
+            update = {}
+
+            if np.random.random() < states['proton']['radius']:
+                update['spin'] = np.random.choice(electron_spins)
+
+            return update
+
+    processes = {
+        'proton': Proton(),
+        'electrons': {
+            'a': {
+                'electron': Electron()},
+            'b': {
+                'electron': Electron()}}}
+
+    spin_path = ('internal', 'spin')
+
+    topology = {
+        'proton': {
+            'quarks': ('proton', 'quarks'),
+            'electrons': {
+                '*': {
+                    'orbital': ('shell', 'orbital'),
+                    'spin': spin_path}},
+            'radius': ('proton', 'radius')},
+        'electrons': {
+            'a': {
+                'electron': {
+                    'spin': spin_path,
+                    'proton': ('..',)}},
+            'b': {
+                'electron': {
+                    'spin': spin_path,
+                    'proton': ('..',)}}}}
+    experiment = Experiment({
+        'processes': processes,
+        'topology': topology,
+        'initial_state': {
+            'proton': {
+                'radius': 0.1}}})
+
+    import ipdb; ipdb.set_trace()
+    
+
 
 def test_timescales():
     class Slow(Process):
@@ -1113,6 +1272,8 @@ def test_timescales():
 
 
 if __name__ == '__main__':
-    test_recursive_store()
-    test_in()
-    test_timescales()
+    # test_recursive_store()
+    # test_in()
+    # test_timescales()
+
+    test_topology_ports()

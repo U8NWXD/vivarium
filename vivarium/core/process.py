@@ -7,7 +7,6 @@ class Process(object):
 
         self.ports = ports
         self.parameters = parameters or {}
-        self.states = None
         self.time_step = parameters.get('time_step', 1.0)
 
     def local_timestep(self):
