@@ -131,6 +131,7 @@ class Store(object):
         self.divider = None
         self.emit = False
         self.sources = {}
+        self.deleted = False
 
         self.apply_config(config, source)
 
@@ -339,6 +340,12 @@ class Store(object):
                     else:
                         return self.value
 
+    def mark_deleted(self):
+        self.deleted = True
+        if self.inner:
+            for child in self.inner.values():
+                child.mark_deleted()
+
     def delete_path(self, path):
         if not path:
             self.inner = {}
@@ -350,6 +357,7 @@ class Store(object):
             if remove in target.inner:
                 lost = target.inner[remove]
                 del target.inner[remove]
+                lost.mark_deleted()
                 return lost
 
     def divide_value(self):
@@ -453,7 +461,7 @@ class Store(object):
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
 
-                    # use initial state as default, merge in divided values
+                    # use initiapl state as default, merge in divided values
                     initial_state = deep_merge(
                         initial_state,
                         state)
@@ -825,8 +833,9 @@ class Experiment(object):
     def run_derivers(self, derivers):
         for path, deriver in derivers.items():
             # timestep shouldn't influence derivers
-            update = self.process_update(path, deriver, 0)
-            self.apply_update(update)
+            if not deriver.deleted:
+                update = self.process_update(path, deriver, 0)
+                self.apply_update(update)
 
     # def emit_paths(self, paths):
     #     emit_config = {
