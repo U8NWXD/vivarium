@@ -184,6 +184,7 @@ class DatabaseEmitter(Emitter):
         'database': 'DB_NAME'}
     '''
     client = None
+    default_host = 'localhost:27017'
 
     def __init__(self, config):
         self.config = config
@@ -191,7 +192,7 @@ class DatabaseEmitter(Emitter):
 
         # create singleton instance of mongo client
         if DatabaseEmitter.client is None:
-            DatabaseEmitter.client = MongoClient(config['host'])
+            DatabaseEmitter.client = MongoClient(config.get('host', self.default_host))
 
         self.db = getattr(self.client, config.get('database', 'simulations'))
         self.history = getattr(self.db, 'history')

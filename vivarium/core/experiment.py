@@ -756,7 +756,7 @@ def timestamp(dt=None):
 class Experiment(object):
     def __init__(self, config):
         self.config = config
-        self.experiment_id = config.get('experiment_id', uuid.uuid1())
+        self.experiment_id = config.get('experiment_id', str(uuid.uuid1()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
@@ -799,9 +799,11 @@ class Experiment(object):
             'time_created': timestamp(),
             'experiment_id': self.experiment_id,
             'description': self.description,
-            'processes': self.processes,
-            'topology': self.topology,
-            'state': self.state.get_config()}
+            # TODO -- serialize processes, topology, state
+            # 'processes': self.processes,
+            # 'topology': self.topology,
+            # 'state': self.state.get_config()
+        }
         emit_config = {
             'table': 'configuration',
             'data': data}
