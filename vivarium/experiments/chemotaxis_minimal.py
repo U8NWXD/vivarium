@@ -116,40 +116,30 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
         'timestep': 0.1,
         'total_time': time,
         'return_raw_data': True}
-    data = simulate_experiment(experiment, settings)
+    raw_data = simulate_experiment(experiment, settings)
 
     # extract data
     multibody_config = chemotaxis_config['environment']['multibody']
-    agents = {time: time_data['agents'] for time, time_data in data.items()}
-    fields = {time: time_data['fields'] for time, time_data in data.items()}
+    agents = {time: time_data['agents'] for time, time_data in raw_data.items()}
+    fields = {time: time_data['fields'] for time, time_data in raw_data.items()}
 
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
-    plot_agents_multigen(data, plot_settings, out_dir)
+    plot_agents_multigen(raw_data, plot_settings, out_dir)
 
     # snapshot plot
-    data = {
+    snapshots_data = {
         'agents': agents,
         'fields': fields,
         'config': multibody_config}
     plot_config = {
         'out_dir': out_dir,
         'filename': 'snapshots'}
-    plot_snapshots(data, plot_config)
+    plot_snapshots(snapshots_data, plot_config)
 
     # trajectory and motility plots
-    # make agents timeseries
-    agents_timeseries = {}
-    agents_timeseries['agents'] = {}
-    agents_timeseries['time'] = list(agents.keys())
-    for time, agents_data in agents.items():
-        for agent_id, agent_data in agents_data.items():
-            if agent_id not in agents_timeseries['agents']:
-                agents_timeseries['agents'][agent_id] = []
-            agents_timeseries['agents'][agent_id].append(agent_data)
-
-    # config for trajectory plot
+    agents_timeseries = timeseries_from_data(raw_data)
     trajectory_config = {'bounds': chemotaxis_config['environment']['multibody']['bounds']}
 
     plot_motility(agents_timeseries, out_dir)
