@@ -66,8 +66,8 @@ def path_timeseries_from_data(data):
     return path_timeseries_from_embedded_timeseries(embedded_timeseries)
 
 def path_timeseries_from_embedded_timeseries(embedded_timeseries):
-    times_vector = embedded_timeseries.pop('time')
-    path_timeseries = make_path_dict(embedded_timeseries)
+    times_vector = embedded_timeseries['time']
+    path_timeseries = make_path_dict({key: value for key, value in embedded_timeseries.items() if key is not 'time'})
     path_timeseries['time'] = times_vector
     return path_timeseries
 

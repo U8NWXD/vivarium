@@ -16,7 +16,7 @@ def pp(x):
     pretty.pprint(x)
 
 def pf(x):
-    pretty.pformat(x)
+    return pretty.pformat(x)
 
 from vivarium.library.units import Quantity
 from vivarium.library.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -131,6 +131,7 @@ class Store(object):
         self.divider = None
         self.emit = False
         self.sources = {}
+        self.deleted = False
 
         self.apply_config(config, source)
 
@@ -339,6 +340,12 @@ class Store(object):
                     else:
                         return self.value
 
+    def mark_deleted(self):
+        self.deleted = True
+        if self.inner:
+            for child in self.inner.values():
+                child.mark_deleted()
+
     def delete_path(self, path):
         if not path:
             self.inner = {}
@@ -350,6 +357,7 @@ class Store(object):
             if remove in target.inner:
                 lost = target.inner[remove]
                 del target.inner[remove]
+                lost.mark_deleted()
                 return lost
 
     def divide_value(self):
@@ -446,14 +454,14 @@ class Store(object):
                 mother = divide['mother']
                 daughters = divide['daughters']
                 initial_state = self.inner[mother].get_value(
-                    condition=lambda child: not(isinstance(child.value, Process)),
+                    condition=lambda child: not (isinstance(child.value, Process)),
                     f=lambda child: copy.deepcopy(child))
                 states = self.inner[mother].divide_value()
 
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
 
-                    # use initial state as default, merge in divided values
+                    # use initiapl state as default, merge in divided values
                     initial_state = deep_merge(
                         initial_state,
                         state)
@@ -693,10 +701,11 @@ class Compartment(object):
         :return: (dict) with entries for 'processes' and 'topology'
         '''
 
-        # config updates values in self.config
+        # merge config with self.config
         if config is None:
             config = {}
-        config = deep_merge(dict(config), self.config)
+        default = copy.deepcopy(self.config)
+        config = deep_merge(default, config)
 
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
@@ -824,8 +833,9 @@ class Experiment(object):
     def run_derivers(self, derivers):
         for path, deriver in derivers.items():
             # timestep shouldn't influence derivers
-            update = self.process_update(path, deriver, 0)
-            self.apply_update(update)
+            if not deriver.deleted:
+                update = self.process_update(path, deriver, 0)
+                self.apply_update(update)
 
     # def emit_paths(self, paths):
     #     emit_config = {

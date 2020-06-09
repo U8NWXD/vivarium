@@ -10,7 +10,7 @@ from vivarium.core.experiment import (
 from vivarium.core.composition import (
     make_agents,
     simulate_experiment,
-    plot_agent_data,
+    plot_agents_multigen,
     EXPERIMENT_OUT_DIR,
 )
 
@@ -23,12 +23,9 @@ from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.multibody_physics import (
-    plot_snapshots,
-    plot_trajectory,
-    plot_motility,
     random_body_config,
 )
-
+from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
 
 
 def make_chemotaxis_experiment(config={}):
@@ -126,7 +123,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
-    plot_agent_data(data, plot_settings, out_dir)
+    plot_agents_multigen(data, plot_settings, out_dir)
 
     # snapshot plot
     data = {

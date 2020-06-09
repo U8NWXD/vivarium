@@ -12,7 +12,7 @@ from vivarium.core.experiment import (
 from vivarium.core.composition import (
     make_agents,
     simulate_experiment,
-    plot_agent_data
+    plot_agents_multigen
 )
 
 # compartments
@@ -21,10 +21,9 @@ from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 # processes
 from vivarium.processes.multibody_physics import (
-    plot_snapshots,
     mother_machine_body_config,
     volume_from_length)
-
+from vivarium.plots.multibody_physics import plot_snapshots
 
 
 def mother_machine_experiment(config):
@@ -123,7 +122,7 @@ def run_mother_machine(time=5, out_dir='out'):
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
-    plot_agent_data(data, plot_settings, out_dir)
+    plot_agents_multigen(data, plot_settings, out_dir)
 
     # snapshot plot
     multibody_config = mm_config['environment']['multibody']

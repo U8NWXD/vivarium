@@ -52,7 +52,7 @@ class MotorActivity(Process):
                 'ccw_to_cw': 0.5,
                 'motor_state': 1,  # motor_state 1 for tumble, 0 for run
             },
-            'boundary': {
+            'external': {
                 'thrust': 0,
                 'torque': 0,
             }}
@@ -72,7 +72,7 @@ class MotorActivity(Process):
                 'ccw_motor_bias',
                 'ccw_to_cw',
                 'motor_state'],
-            'boundary': [
+            'external': [
                 'thrust',
                 'torque'],
         }
@@ -91,7 +91,7 @@ class MotorActivity(Process):
                 'motor_state',
                 'CheA',
                 'CheY_P'],
-            'boundary': [
+            'external': [
                 'thrust',
                 'torque']}
         emitter_states = {
@@ -101,7 +101,7 @@ class MotorActivity(Process):
                 'motor_state',
                 'CheA',
                 'CheY_P'],
-            'boundary': [
+            'external': [
                 'thrust',
                 'torque']}
 
@@ -181,7 +181,7 @@ class MotorActivity(Process):
                 'ccw_to_cw': ccw_to_cw,
                 'motor_state': motor_state,
                 'CheY_P': CheY_P},
-            'boundary': {
+            'external': {
                 'thrust': thrust,
                 'torque': torque
             }}
