@@ -588,9 +588,9 @@ class Store(object):
 
         for child_key, child in inner:
             child.topology_ports(
-                child_key,
                 subschema,
-                subtopology)
+                subtopology,
+                source=self.path_for() + ('*',))
 
     def apply_subschemas(self):
         if self.subschema:
@@ -644,12 +644,13 @@ class Store(object):
 
         return node, path
 
-    def topology_ports(self, key, schema, topology):
+    def topology_ports(self, schema, topology, source=None):
         ''' 
-        Distribute a schema out according to the given topology.
+        Distribute a schema into the tree by mapping its ports
+        according to the given topology.
         '''
 
-        source = self.path_for() + (key,)
+        source = source or self.path_for()
 
         if schema.keys() & self.schema_keys:
             self.get_path(topology).apply_config(schema)
@@ -678,9 +679,9 @@ class Store(object):
                         path, source=source)
 
                     node.topology_ports(
-                        port,
                         subschema,
-                        path)
+                        path,
+                        source=source)
 
                 else:
                     self.establish_path(
@@ -698,9 +699,9 @@ class Store(object):
                 self.inner[key] = process_state
 
                 self.topology_ports(
-                    key,
                     subprocess.ports_schema(),
-                    subtopology)
+                    subtopology,
+                    source=self.path_for() + (key,))
             else:
                 if key not in self.inner:
                     self.inner[key] = Store({}, outer=self)
@@ -709,11 +710,56 @@ class Store(object):
                     subtopology)
 
     def generate(self, path, processes, topology, initial_state):
+        '''
+        Generate a subtree of this store at the given path. 
+        The processes will be mapped into locations in the tree by the 
+        topology, and once everything is constructed the initial_state
+        will be applied.
+        '''
+
         target = self.establish_path(path, {})
         target.generate_paths(processes, topology)
         target.set_value(initial_state)
         target.apply_subschemas()
         target.apply_defaults()
+
+
+def inverse_topology(update, topology):
+    '''
+    Transform an update from the form its process produced into 
+    one aligned to the given topology. 
+    '''
+
+    inverse = {}
+    for key, path in topology.items():
+        if key == '*':
+            if isinstance(path, dict):
+                node = inverse
+                if '_path' in path:
+                    node = {}
+                    assoc_path(inverse, path['_path'], node)
+                    path = without(path, '_path')
+                for child, child_update in update.items():
+                    node[child] = inverse_topology(
+                        update[child],
+                        path)
+            else:
+                for child, child_update in update.items():
+                    assoc_path(inverse, path + (child,), child_update)
+        elif key in update:
+            value = update[key]
+            if isinstance(path, dict):
+                node = inverse
+                if '_path' in path:
+                    node = {}
+                    assoc_path(inverse, path['_path'], node)
+                    path = without(path, '_path')
+                node.update(inverse_topology(
+                    value,
+                    path))
+            else:
+                assoc_path(inverse, path, value)
+    return inverse
 
 
 # Compartment
@@ -873,44 +919,12 @@ class Experiment(object):
             'data': data}
         self.emitter.emit(emit_config)
 
-    def inverse_topology(self, update, topology):
-        inverse = {}
-        for key, path in topology.items():
-            if key == '*':
-                if isinstance(path, dict):
-                    node = inverse
-                    if '_path' in path:
-                        node = {}
-                        assoc_path(inverse, path['_path'], node)
-                        path = without(path, '_path')
-                    for child, child_update in update.items():
-                        node[child] = self.inverse_topology(
-                            update[child],
-                            path)
-                else:
-                    for child, child_update in update.items():
-                        assoc_path(inverse, path + (child,), child_update)
-            elif key in update:
-                value = update[key]
-                if isinstance(path, dict):
-                    node = inverse
-                    if '_path' in path:
-                        node = {}
-                        assoc_path(inverse, path['_path'], node)
-                        path = without(path, '_path')
-                    node.update(self.inverse_topology(
-                        value,
-                        path))
-                else:
-                    assoc_path(inverse, path, value)
-        return inverse
-
     def process_update(self, path, state, interval):
         process = state.value
         process_topology = get_in(self.topology, path)
         ports = state.outer.topology_state(process_topology)
         update = process.next_update(interval, ports)
-        inverse = self.inverse_topology(update, process_topology)
+        inverse = inverse_topology(update, process_topology)
         absolute = assoc_in({}, path[:-1], inverse)
 
         return absolute
@@ -918,7 +932,6 @@ class Experiment(object):
     def apply_update(self, update):
         topology_updates = self.state.apply_update(update)
         if topology_updates:
-            # print('topology updates for update {}: {}'.format(update, topology_updates))
             self.topology = deep_merge(self.topology, topology_updates)
 
     def run_derivers(self, derivers):
