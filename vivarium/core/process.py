@@ -52,11 +52,6 @@ class Process(object):
         self.default_parameters[derived_key] = f(present)
         return self.default_parameters[derived_key]
 
-    def find_states(self, tree, topology):
-        return {
-            port: tree.state_for(topology[port], keys)
-            for port, keys in self.ports.items()}
-
     def next_update(self, timestep, states):
         '''
         Find the next update given the current states this process cares about.
