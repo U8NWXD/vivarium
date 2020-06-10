@@ -562,11 +562,28 @@ class Store(object):
             for path, state in self.depth()
             if state.value and isinstance(state.value, Process)}
 
-    def apply_subschema(self, subschema=None):
+    def apply_subschema(self, subschema=None, subtopology=None, source=None):
         if subschema is None:
             subschema = self.subschema
-        for child_key, child in self.inner.items():
-            child.apply_config(subschema)
+        if subtopology is None:
+            subtopology = self.subtopology
+            
+        inner = list(self.inner.items())
+
+        for child_key, child in inner:
+            for key, schema in subschema.items():
+                path = subtopology.get(key, (key,))
+                if isinstance(path, dict):
+                    node, path = self.outer_path(path, source)
+                    node.topology_ports(
+                        key,
+                        schema,
+                        path)
+                else:
+                    node = child.establish_path(
+                        path,
+                        schema,
+                        source=self.path_for())
 
     def apply_subschemas(self):
         if self.subschema:
@@ -645,8 +662,8 @@ class Store(object):
                         path,
                         subschema_config,
                         source=source)
-                    node.apply_subschema()
-                    node.apply_defaults()
+                node.apply_subschema()
+                node.apply_defaults()
 
             elif isinstance(path, dict):
                 node, path = self.outer_path(path, source)
@@ -745,6 +762,7 @@ class Store(object):
         target = self.establish_path(path, {})
         target.generate_paths(processes, topology)
         target.set_value(initial_state)
+        target.apply_subschemas()
         target.apply_defaults()
 
 
@@ -827,7 +845,9 @@ def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology)
     state.set_value(initial_state)
+    state.apply_subschemas()
     state.apply_defaults()
+
     return state
 
 
@@ -1147,6 +1167,7 @@ def test_topology_ports():
 
     class Proton(Process):
         defaults = {
+            'time_step': 1.0,
             'radius': 0.0}
 
         def __init__(self, parameters=None):
@@ -1154,6 +1175,7 @@ def test_topology_ports():
                 parameters = {}
             self.radius = self.or_default(parameters, 'radius')
             self.parameters = parameters
+            self.time_step = self.or_default(parameters, 'time_step')
 
         def ports_schema(self):
             return {
@@ -1196,11 +1218,13 @@ def test_topology_ports():
 
     class Electron(Process):
         defaults = {
+            'time_step': 1.0,
             'spin': electron_spins[0]}
 
         def __init__(self, parameters=None):
             self.parameters = parameters or {}
             self.spin = self.or_default(self.parameters, 'spin')
+            self.time_step = self.or_default(self.parameters, 'time_step')
 
         def ports_schema(self):
             return {
@@ -1252,12 +1276,31 @@ def test_topology_ports():
                         '_path': ('..', '..'),
                         'radius': radius_path}}}}}
 
+    initial_state = {
+        'structure': {
+            'radius': 0.1},
+        'internal': {
+            'quarks': {
+                'x': {
+                    'color': 'green',
+                    'spin': 'up'},
+                'y': {
+                    'color': 'red',
+                    'spin': 'up'},
+                'z': {
+                    'color': 'blue',
+                    'spin': 'down'}}}}
+
     experiment = Experiment({
         'processes': processes,
         'topology': topology,
-        'initial_state': {
-            'structure': {
-                'radius': 0.1}}})
+        'initial_state': initial_state})
+
+    log.debug(pf(experiment.state.get_config(True)))
+
+    experiment.update(10.0)
+
+    log.debug(pf(experiment.state.get_config(True)))
 
     import ipdb; ipdb.set_trace()
     
