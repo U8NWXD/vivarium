@@ -23,7 +23,7 @@ from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.multibody_physics import (
-    random_body_config,
+    agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
 
@@ -92,7 +92,7 @@ def get_chemotaxis_experiment_config():
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    multibody_config.update(random_body_config(body_config))
+    multibody_config.update(agent_body_config(body_config))
 
     # diffusion
     diffusion_config = {

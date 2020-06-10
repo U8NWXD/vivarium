@@ -81,7 +81,7 @@ class MultiBody(object):
         'angular_damping': 0.7,  # less damping for angular velocity seems to improve behavior
         'friction': 0.9,  # TODO -- does this do anything?
         'physics_dt': 0.005,
-        'force_scaling': 100,  # scales from pN
+        'force_scaling': 20,  # scales from pN
 
         # configured parameters
         'jitter_force': 1e-3,  # pN

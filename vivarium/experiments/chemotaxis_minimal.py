@@ -23,7 +23,7 @@ from vivarium.compartments.chemotaxis_minimal import (
 
 # processes
 from vivarium.processes.multibody_physics import (
-    random_body_config,
+    agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
 
@@ -59,7 +59,7 @@ def get_chemotaxis_experiment_config():
 
     ligand_id = 'glc'
     initial_ligand = 0.1
-    n_agents = 1
+    n_agents = 4
     bins_microns = 2
     bounds = [100, 500]
     n_bins = [bound * bins_microns for bound in bounds]
@@ -82,8 +82,9 @@ def get_chemotaxis_experiment_config():
 
     body_config = {
         'bounds': bounds,
-        'agent_ids': agent_ids}
-    multibody_config.update(random_body_config(body_config))
+        'agent_ids': agent_ids,
+        'location': [0.5, 0.05]}
+    multibody_config.update(agent_body_config(body_config))
 
     # field
     field_config = {

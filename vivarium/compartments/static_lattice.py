@@ -11,7 +11,7 @@ from vivarium.core.composition import (
 # processes
 from vivarium.processes.multibody_physics import (
     Multibody,
-    random_body_config,
+    agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots
 from vivarium.processes.static_field import StaticField
@@ -70,7 +70,7 @@ def get_static_lattice_config(config={}):
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    mbp_config.update(random_body_config(body_config))
+    mbp_config.update(agent_body_config(body_config))
 
     # field config
     field_config = {

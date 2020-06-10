@@ -75,18 +75,7 @@ class StaticField(Process):
                 '_updater': 'set'}
             for molecule in self.molecule_ids}
 
-        schema = {'agents': {}}
-        # for agent_id, states in self.initial_agents.items():
-        #     location = states[self.boundary_port].get('location', [])
-        #     exchange = states[self.boundary_port].get('exchange', {})
-        #     schema['agents'][agent_id] = {
-        #         self.boundary_port: {
-        #             'location': {
-        #                 '_value': location},
-        #             'exchange': {
-        #                 mol_id: {
-        #                     '_value': value}
-        #                 for mol_id, value in exchange.items()}}}
+        schema = {}
         glob_schema = {
             '*': {
                 self.boundary_port: {
@@ -95,7 +84,7 @@ class StaticField(Process):
                         '_updater': 'set'},
                     'exchange': local_concentration_schema,
                     'external': local_concentration_schema}}}
-        schema['agents'].update(glob_schema)
+        schema['agents'] = glob_schema
 
         # fields
         fields_schema = {
@@ -103,7 +92,7 @@ class StaticField(Process):
                  field: {
                      '_value': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
-                     '_emit': False}
+                     '_emit': True}
                  for field in self.molecule_ids}}
         schema.update(fields_schema)
         return schema
@@ -159,7 +148,6 @@ class StaticField(Process):
 
 
 def get_config(config={}):
-
     molecules = ['glc']
     bounds = (20, 20)
     n_bins = (10, 10)
