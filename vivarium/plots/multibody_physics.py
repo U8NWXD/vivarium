@@ -75,7 +75,7 @@ def plot_agents(ax, agents, agent_colors={}):
 def plot_snapshots(data, plot_config):
     '''
         - agents (dict): with {time: agent_data}
-        - fields TODO
+        - fields (dict): with {time: field_data}
         - config (dict): the environment config for the simulation
     '''
     check_plt_backend()

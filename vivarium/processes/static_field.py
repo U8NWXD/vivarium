@@ -106,8 +106,8 @@ class StaticField(Deriver):
             ipdb.set_trace()
             for molecule_id, specs in self.gradient['molecules'].items():
                 deviation = specs['deviation']
-                dx = (location[0] - specs['center'][0]) * self.bounds[0]
-                dy = (location[1] - specs['center'][1]) * self.bounds[1]
+                dx = location[0] - specs['center'][0] * self.bounds[0]
+                dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
                 concentrations[molecule_id] = gaussian(deviation, distance)
 
@@ -115,8 +115,8 @@ class StaticField(Deriver):
             for molecule_id, specs in self.gradient['molecules'].items():
                 slope = specs['slope']
                 base = specs.get('base', 0.0)
-                dx = (location[0] - specs['center'][0]) * self.bounds[0]
-                dy = (location[1] - specs['center'][1]) * self.bounds[1]
+                dx = location[0] - specs['center'][0] * self.bounds[0]
+                dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
                 concentrations[molecule_id] = base + slope * distance
 
@@ -124,17 +124,68 @@ class StaticField(Deriver):
             for molecule_id, specs in self.gradient['molecules'].items():
                 base = specs['base']
                 scale = specs.get('scale', 1)
-                dx = (location[0] - specs['center'][0]) * self.bounds[0]
-                dy = (location[1] - specs['center'][1]) * self.bounds[1]
+                dx = location[0] - specs['center'][0] * self.bounds[0]
+                dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
                 concentrations[molecule_id] = scale * base ** (distance/1000)
 
         return concentrations
+
+
+def get_exponential_config(bounds, center, molecule):
+    scale = 1
+    base = 0.1
+    return {
+        'bounds': bounds,
+        'molecules': [molecule],
+        'gradient': {
+            'type': 'exponential',
+            'molecules': {
+                molecule: {
+                    'center': center,
+                    'scale': scale,
+                    'base': base}}}}
+
+def make_field():
+    molecule = 'glc'
+    center = [0.1, 0.5]
+    bins_per_micron = 1
+    bounds = [20, 30]
+    n_bins = [bound*bins_per_micron for bound in bounds]
+
+    config = get_exponential_config(bounds, center, molecule)
+    process = StaticField(config)
+
+    field = np.zeros((n_bins[0], n_bins[1]), dtype=np.float64)
+    for x in range(n_bins[0]):
+        for y in range(n_bins[1]):
+            location = [x/bins_per_micron, y/bins_per_micron]
+            concentration = process.get_concentration(location)
+            field[x,y] = concentration[molecule]
+    return field
+
+def plot_field(field, out_dir='out'):
+    field = np.transpose(field)
+    shape = field.shape
+    fig = plt.figure()
+    im = plt.imshow(field,
+                    origin='lower',
+                    extent=[0, shape[1], 0, shape[0]],
+                    # vmin=vmin,
+                    # vmax=vmax,
+                    cmap='BuPu')
+
+    fig_path = os.path.join(out_dir, 'field')
+    plt.subplots_adjust(wspace=0.7, hspace=0.1)
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close(fig)
+
 
 if __name__ == '__main__':
     out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    # TODO -- make plots of different field options
-
+    field = make_field()
+    plot_field(field, out_dir)
+    
