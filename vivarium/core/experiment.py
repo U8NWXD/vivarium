@@ -516,10 +516,6 @@ class Store(object):
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
 
-            # if self.units:
-            #     units_value = updater(self.value * self.units, update)
-            #     self.value = units_value.to(self.units).magnitude
-            # else:
             self.value = updater(self.value, update)
 
     def inner_value(self, key):
@@ -1191,26 +1187,30 @@ def test_topology_ports():
                 'electron': Electron()}}}
 
     spin_path = ('internal', 'spin')
-    radius_path = ('internal', 'radius')
+    radius_path = ('structure', 'radius')
 
     topology = {
         'proton': {
             'radius': radius_path,
             'quarks': ('internal', 'quarks'),
-            'electrons': ('..', 'electrons'),
-            ('electrons', '*', 'orbital'): ('shell', 'orbital'),
-            ('electrons', '*', 'spin'): spin_path},
+            'electrons': {
+                '_path': ('..', 'electrons'),
+                '*': {
+                    'orbital': ('shell', 'orbital'),
+                    'spin': spin_path}}},
         'electrons': {
             'a': {
                 'electron': {
                     'spin': spin_path,
-                    'proton': ('..',),
-                    ('proton', 'radius'): ('internal', 'radius')}},
+                    'proton': {
+                        '_path': ('..',),
+                        'radius': radius_path}}},
             'b': {
                 'electron': {
                     'spin': spin_path,
-                    'proton': ('..',),
-                    ('proton', 'radius'): ('internal', 'radius')}}}}
+                    'proton': {
+                        '_path': ('..',),
+                        'radius': radius_path}}}}}
 
     experiment = Experiment({
         'processes': processes,
