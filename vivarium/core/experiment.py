@@ -91,6 +91,12 @@ def dissoc(d, removing):
         if key not in removing}
 
 
+def without(d, removing):
+    return {
+        key: value
+        for key, value in d.items()
+        if key != removing}
+
 def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
     return {
         key: {
@@ -155,23 +161,25 @@ class Store(object):
     def merge_subtopology(self, subtopology):
         self.subtopology = deep_merge(self.subtopology, subtopology)
 
-    def apply_subschema_config(self, config, subschema_key):
+    def apply_subschema_config(self, subschema):
         self.subschema = deep_merge(
             self.subschema,
-            config.get(subschema_key, {}))
-        return {
-            key: value
-            for key, value in config.items()
-            if key != subschema_key}
+            subschema)
 
     def apply_config(self, config, source=None):
         if '*' in config:
-            config = self.apply_subschema_config(config, '*')
+            self.apply_subschema_config(config['*'])
+            config = without(config, '*')
 
         if '_subschema' in config:
             if source:
                 self.sources[source] = config['_subschema']
-            config = self.apply_subschema_config(config, '_subschema')
+            self.apply_subschema_config(config['_subschema'])
+            config = without(config, '_subschema')
+
+        if '_subtopology' in config:
+            self.merge_subtopology(config['_subtopology'])
+            config = without(config, '_subtopology')
 
         if self.schema_keys & config.keys():
             # self.units = config.get('_units', self.units)
@@ -225,6 +233,8 @@ class Store(object):
             config['_properties'] = self.properties
         if self.subschema:
             config['_subschema'] = self.subschema
+        if self.subtopology:
+            config['_subtopology'] = self.subtopology
         if sources and self.sources:
             config['_sources'] = self.sources
 
@@ -574,7 +584,7 @@ class Store(object):
                 subschema)
         return target
 
-    def establish_path(self, path, config, initial=None, source=None):
+    def establish_path(self, path, config, source=None):
         if len(path) > 0:
             path_step = path[0]
             remaining = path[1:]
@@ -582,51 +592,64 @@ class Store(object):
             if path_step == '..':
                 if not self.outer:
                     raise Exception('outer does not exist for path: {}'.format(path))
+
                 return self.outer.establish_path(
-                    remaining, config,
-                    initial=initial.get('..') if initial and isinstance(
-                        initial, dict) else None,
+                    remaining,
+                    config,
                     source=source)
 
             else:
                 if path_step not in self.inner:
                     self.inner[path_step] = Store({}, outer=self, source=source)
+
                 return self.inner[path_step].establish_path(
-                    remaining, config,
-                    initial=initial.get(path_step) if initial and isinstance(
-                        initial, dict) else None,
+                    remaining,
+                    config,
                     source=source)
 
         else:
             self.apply_config(config, source=source)
-            if initial:
-                self.value = initial
             return self
 
-    def topology_ports(self, key, schema, topology, initial_state=None):
+    def outer_path(self, path, source=None):
+        node = self
+        if '_path' in path:
+            node = self.establish_path(
+                path['_path'],
+                {},
+                source=source)
+            
+            del path['_path']
+
+        return node, path
+
+    def topology_ports(self, key, schema, topology):
         source = self.path_for() + (key,)
 
         for port, subschema in schema.items():
-            import ipdb; ipdb.set_trace()
-
             if port not in topology:
                 raise Exception(
                     'topology conflict: {} process does not have {} port'.format(
                         key, port))
 
             path = topology[port]
-            if path and isinstance(path, dict):
-                node = self
-
-                if '_path' in path:
-                    initial = get_in(
-                        initial_state, path['_path']) if initial_state else {}
+            if port == '*':
+                subschema_config = {
+                    '_subschema': subschema}
+                if isinstance(path, dict):
+                    node, path = self.outer_path(path, source)
+                    node.merge_subtopology(path)
+                    node.apply_config(subschema_config)
+                else:
                     node = self.establish_path(
-                        path['_path'],
-                        {},
-                        initial=initial,
-                        source = source)
-                    del path['_path']
+                        path,
+                        subschema_config,
+                        source=source)
+                    node.apply_subschema()
+                    node.apply_defaults()
+
+            elif isinstance(path, dict):
+                node, path = self.outer_path(path, source)
 
                 node.topology_ports(
                     port,
@@ -647,12 +670,11 @@ class Store(object):
                 #             subport,
                 #             subschema[subport],
                 #             subtopology)
+
             else:
-                initial = get_in(initial_state, path) if initial_state else {}
                 self.establish_path(
                     path,
                     subschema,
-                    initial=initial,
                     source=source)
 
                 # initial = get_in(initial_state, path) if initial_state else {}
@@ -674,7 +696,7 @@ class Store(object):
                 #                     initial, dict) else None,
                 #             source=source)
 
-    def generate_paths(self, processes, topology, initial_state):
+    def generate_paths(self, processes, topology):
         for key, subprocess in processes.items():
             subtopology = topology[key]
             if isinstance(subprocess, Process):
@@ -715,15 +737,13 @@ class Store(object):
             else:
                 if key not in self.inner:
                     self.inner[key] = Store({}, outer=self)
-                substate = initial_state.get(key, {})
                 self.inner[key].generate_paths(
                     subprocess,
-                    subtopology,
-                    substate)
+                    subtopology)
 
     def generate(self, path, processes, topology, initial_state):
         target = self.establish_path(path, {})
-        target.generate_paths(processes, topology, initial_state)
+        target.generate_paths(processes, topology)
         target.set_value(initial_state)
         target.apply_defaults()
 
@@ -805,7 +825,7 @@ class Compartment(object):
 
 def generate_state(processes, topology, initial_state):
     state = Store({})
-    state.generate_paths(processes, topology, initial_state)
+    state.generate_paths(processes, topology)
     state.set_value(initial_state)
     state.apply_defaults()
     return state
@@ -1229,14 +1249,14 @@ def test_topology_ports():
                 'electron': {
                     'spin': spin_path,
                     'proton': {
-                        '_path': ('..',),
+                        '_path': ('..', '..'),
                         'radius': radius_path}}}}}
 
     experiment = Experiment({
         'processes': processes,
         'topology': topology,
         'initial_state': {
-            'proton': {
+            'structure': {
                 'radius': 0.1}}})
 
     import ipdb; ipdb.set_trace()
