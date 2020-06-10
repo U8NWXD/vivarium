@@ -109,6 +109,28 @@ def identity(y):
 
 
 class Store(object):
+    """Holds a subset of the overall model state
+
+    The total state of the model can be broken down into :term:`stores`,
+    each of which is represented by an instance of this `Store` class.
+    The store's state is a set of :term:`variables`, each of which is
+    defined by a set of :term:`schema key-value pairs`. The valid schema
+    keys are listed in :py:attr:`schema_keys`, and they are:
+
+    * **_default** (Type should match the variable value): The default
+      value of the variable.
+    * **_updater** (:py:class:`str`): The name of the :term:`updater` to
+      use. By default this is ``accumulate``.
+    * **_divider** (:py:class:`str`): The name of the :term:`divider` to
+      use.
+    * **_value** (Type should match the variable value): The current
+      value of the variable. This is ``None`` by default.
+    * **_properties** (:py:class:`dict`): Extra properties of the
+      variable that don't have a specific schema key. This is an empty
+      dictionary by default.
+    * **_emit** (:py:class:`bool`): Whether to emit the variable to the
+      :term:`emitter`. This is ``False`` by default.
+    """
     schema_keys = set([
         '_default',
         '_updater',
@@ -411,7 +433,7 @@ class Store(object):
 
     def apply_defaults(self):
         """
-        if value is None, set to default 
+        if value is None, set to default
         """
         if self.inner:
             for child in self.inner.values():
