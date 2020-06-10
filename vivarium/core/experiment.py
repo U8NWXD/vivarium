@@ -883,26 +883,46 @@ class Experiment(object):
             'data': data}
         self.emitter.emit(emit_config)
 
-    def absolute_update(self, path, new_update):
-        absolute = {}
-        for port, update in new_update.items():
-            topology = get_in(self.topology, path + (port,))
-            if topology is not None:
-                state_path = path[:-1] + topology
-                normal_path = normalize_path(state_path)
-                absolute = assoc_in(absolute, normal_path, update)
-        return absolute
+    def inverse_topology(self, update, topology):
+        inverse = {}
+        for key, path in topology.items():
+            if key == '*':
+                if isinstance(path, dict):
+                    node = inverse
+                    if '_path' in path:
+                        node = {}
+                        assoc_path(inverse, path['_path'], node)
+                        path = without(path, '_path')
+                    for child, child_update in update.items():
+                        node[child] = self.inverse_topology(
+                            update[child],
+                            path)
+                else:
+                    for child, child_update in update.items():
+                        assoc_path(inverse, path + (child,), child_update)
+            elif key in update:
+                value = update[key]
+                if isinstance(path, dict):
+                    node = inverse
+                    if '_path' in path:
+                        node = {}
+                        assoc_path(inverse, path['_path'], node)
+                        path = without(path, '_path')
+                    node.update(self.inverse_topology(
+                        value,
+                        path))
+                else:
+                    assoc_path(inverse, path, value)
+        return inverse
 
     def process_update(self, path, state, interval):
         process = state.value
         process_topology = get_in(self.topology, path)
-
-        import ipdb; ipdb.set_trace()
-
         ports = state.outer.topology_state(process_topology)
-        # ports = process.find_states(state.outer, process_topology)
         update = process.next_update(interval, ports)
-        absolute = self.absolute_update(path, update)
+        inverse = self.inverse_topology(update, process_topology)
+        absolute = assoc_in({}, path[:-1], inverse)
+
         return absolute
 
     def apply_update(self, update):
@@ -1144,16 +1164,20 @@ def test_topology_ports():
         def ports_schema(self):
             return {
                 'radius': {
+                    '_updater': 'set',
                     '_default': self.radius},
                 'quarks': {
                     '*': {
                         'color': {
+                            '_updater': 'set',
                             '_default': quark_colors[0]},
                         'spin': {
+                            '_updater': 'set',
                             '_default': quark_spins[0]}}},
                 'electrons': {
                     '*': {
                         'orbital': {
+                            '_updater': 'set',
                             '_default': electron_orbitals[0]},
                         'spin': {
                             '_default': electron_spins[0]}}}}
@@ -1193,6 +1217,7 @@ def test_topology_ports():
         def ports_schema(self):
             return {
                 'spin': {
+                    '_updater': 'set',
                     '_default': self.spin},
                 'proton': {
                     'radius': {
@@ -1242,7 +1267,7 @@ def test_topology_ports():
 
     initial_state = {
         'structure': {
-            'radius': 0.1},
+            'radius': 0.7},
         'internal': {
             'quarks': {
                 'x': {
@@ -1262,12 +1287,9 @@ def test_topology_ports():
 
     log.debug(pf(experiment.state.get_config(True)))
 
-    experiment.update(10.0)
+    experiment.update_interval(10.0, 1.0)
 
     log.debug(pf(experiment.state.get_config(True)))
-
-    import ipdb; ipdb.set_trace()
-    
 
 
 def test_timescales():
@@ -1342,8 +1364,7 @@ def test_timescales():
 
 
 if __name__ == '__main__':
-    # test_recursive_store()
-    # test_in()
-    # test_timescales()
-
+    test_recursive_store()
+    test_in()
+    test_timescales()
     test_topology_ports()
