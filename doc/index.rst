@@ -41,7 +41,7 @@ methodologies:
 internal organization.
 2) Agent-based modeling, to simulate the interactions of many cells in a
 shared environment.
-3) Multi-scale simulation, to solve problems with multiple scales of time
+3) Multiscale simulation, to solve problems with multiple scales of time
 and space.
 4) Wirable model modules, to streamline model development by decomposing
 computational representations into modules that can be reconfigured and
