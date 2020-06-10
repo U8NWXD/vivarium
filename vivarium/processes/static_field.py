@@ -132,7 +132,10 @@ class StaticField(Deriver):
         return concentrations
 
 
-def get_exponential_config(bounds, center, molecule):
+def get_exponential_config():
+    molecule = 'glc'
+    center = [0.1, 0.5]
+    bounds = [20, 30]
     scale = 1
     base = 0.1
     return {
@@ -146,15 +149,13 @@ def get_exponential_config(bounds, center, molecule):
                     'scale': scale,
                     'base': base}}}}
 
-def make_field():
-    molecule = 'glc'
-    center = [0.1, 0.5]
-    bins_per_micron = 1
-    bounds = [20, 30]
-    n_bins = [bound*bins_per_micron for bound in bounds]
-
-    config = get_exponential_config(bounds, center, molecule)
+def make_field(config=get_exponential_config()):
     process = StaticField(config)
+    molecules = config['molecules']
+    bounds = config['bounds']
+    bins_per_micron = 1
+    n_bins = [bound * bins_per_micron for bound in bounds]
+    molecule = molecules[0]  # TODO get all fields
 
     field = np.zeros((n_bins[0], n_bins[1]), dtype=np.float64)
     for x in range(n_bins[0]):
@@ -188,4 +189,3 @@ if __name__ == '__main__':
 
     field = make_field()
     plot_field(field, out_dir)
-    

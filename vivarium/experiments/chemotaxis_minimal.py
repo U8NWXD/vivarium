@@ -26,6 +26,7 @@ from vivarium.processes.multibody_physics import (
     agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_trajectory, plot_motility
+from vivarium.processes.static_field import make_field
 
 
 def make_chemotaxis_experiment(config={}):
@@ -79,7 +80,7 @@ def get_chemotaxis_experiment_config():
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids,
-        'location': [0.5, 0.0]}
+        'location': [0.5, 0.1]}
     multibody_config.update(agent_body_config(body_config))
 
     # field
@@ -92,7 +93,7 @@ def get_chemotaxis_experiment_config():
                     'center': [0.5, 0.0],
                     'scale': initial_ligand,
                     'base': 0.1}}},
-        'size': bounds}
+        'bounds': bounds}
 
     return {
         'agent_ids': agent_ids,
@@ -118,8 +119,13 @@ def run_chemotaxis_experiment(out_dir='out'):
     plot_agents_multigen(raw_data, plot_settings, out_dir)
 
     # trajectory and motility plots
+    # get a sample field
+    field_config = chemotaxis_config['environment']['field']
+    field = make_field(field_config)
     agents_timeseries = timeseries_from_data(raw_data)
-    trajectory_config = {'bounds': chemotaxis_config['environment']['multibody']['bounds']}
+    trajectory_config = {
+        'bounds': chemotaxis_config['environment']['multibody']['bounds'],
+        'field': field}
 
     plot_motility(agents_timeseries, out_dir)
     plot_trajectory(agents_timeseries, trajectory_config, out_dir)
