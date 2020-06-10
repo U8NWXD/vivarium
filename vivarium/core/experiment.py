@@ -122,7 +122,6 @@ class Store(object):
         '_value',
         '_properties',
         '_emit',
-        # '_units',
     ])
 
     def __init__(self, config, outer=None, source=None):
@@ -182,7 +181,6 @@ class Store(object):
             config = without(config, '_subtopology')
 
         if self.schema_keys & config.keys():
-            # self.units = config.get('_units', self.units)
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
                 if isinstance(self.default, Quantity):
@@ -287,8 +285,6 @@ class Store(object):
         else:
             if self.subschema:
                 return {}
-            # elif self.units:
-            #     return self.value * self.units
             else:
                 return self.value
 
@@ -586,24 +582,15 @@ class Store(object):
         if subschema is None:
             subschema = self.subschema
         if subtopology is None:
-            subtopology = self.subtopology
+            subtopology = self.subtopology or {}
             
         inner = list(self.inner.items())
 
         for child_key, child in inner:
-            for key, schema in subschema.items():
-                path = subtopology.get(key, (key,))
-                if isinstance(path, dict):
-                    node, path = self.outer_path(path, source)
-                    node.topology_ports(
-                        key,
-                        schema,
-                        path)
-                else:
-                    node = child.establish_path(
-                        path,
-                        schema,
-                        source=self.path_for())
+            child.topology_ports(
+                child_key,
+                subschema,
+                subtopology)
 
     def apply_subschemas(self):
         if self.subschema:
@@ -658,45 +645,48 @@ class Store(object):
         return node, path
 
     def topology_ports(self, key, schema, topology):
+        ''' 
+        Distribute a schema out according to the given topology.
+        '''
+
         source = self.path_for() + (key,)
 
-        for port, subschema in schema.items():
-            if port not in topology:
-                raise Exception(
-                    'topology conflict: {} process does not have {} port'.format(
-                        key, port))
+        if schema.keys() & self.schema_keys:
+            self.get_path(topology).apply_config(schema)
+        else:
+            for port, subschema in schema.items():
+                path = topology.get(port, (port,))
 
-            path = topology[port]
-            if port == '*':
-                subschema_config = {
-                    '_subschema': subschema}
-                if isinstance(path, dict):
+                if port == '*':
+                    subschema_config = {
+                        '_subschema': subschema}
+                    if isinstance(path, dict):
+                        node, path = self.outer_path(
+                            path, source=source)
+                        node.merge_subtopology(path)
+                        node.apply_config(subschema_config)
+                    else:
+                        node = self.establish_path(
+                            path,
+                            subschema_config,
+                            source=source)
+                    node.apply_subschema()
+                    node.apply_defaults()
+
+                elif isinstance(path, dict):
                     node, path = self.outer_path(
                         path, source=source)
-                    node.merge_subtopology(path)
-                    node.apply_config(subschema_config)
+
+                    node.topology_ports(
+                        port,
+                        subschema,
+                        path)
+
                 else:
-                    node = self.establish_path(
+                    self.establish_path(
                         path,
-                        subschema_config,
+                        subschema,
                         source=source)
-                node.apply_subschema()
-                node.apply_defaults()
-
-            elif isinstance(path, dict):
-                node, path = self.outer_path(
-                    path, source=source)
-
-                node.topology_ports(
-                    port,
-                    subschema,
-                    path)
-
-            else:
-                self.establish_path(
-                    path,
-                    subschema,
-                    source=source)
 
     def generate_paths(self, processes, topology):
         for key, subprocess in processes.items():
