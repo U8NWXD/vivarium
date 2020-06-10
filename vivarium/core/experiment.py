@@ -607,26 +607,46 @@ class Store(object):
         source = self.path_for() + (key,)
 
         for port, subschema in schema.items():
+            import ipdb; ipdb.set_trace()
+
             if port not in topology:
                 raise Exception(
                     'topology conflict: {} process does not have {} port'.format(
                         key, port))
 
-            import ipdb; ipdb.set_trace()
-
             path = topology[port]
             if path and isinstance(path, dict):
-                for subport, subtopology in path.items():
-                    if subport == '*':
-                        self.subtopology = subtopology
-                    elif not subport in self.inner:
-                        self.inner[subport] = Store(
-                            {}, outer=self, source=source)
+                node = self
 
-                        self.inner[subport].topology_ports(
-                            subport,
-                            subschema[subport],
-                            subtopology)
+                if '_path' in path:
+                    initial = get_in(
+                        initial_state, path['_path']) if initial_state else {}
+                    node = self.establish_path(
+                        path['_path'],
+                        {},
+                        initial=initial,
+                        source = source)
+                    del path['_path']
+
+                node.topology_ports(
+                    port,
+                    subschema,
+                    path)
+
+                # for subport, subtopology in path.items():
+                #     if subport == '*':
+                #         node.subtopology = subtopology
+                #     else:
+                #         node = self.establish_path(
+                #         )
+                #         if not subport in node.inner:
+                #             node.inner[subport] = Store(
+                #                 {}, outer=node, source=source)
+
+                #         node.inner[subport].topology_ports(
+                #             subport,
+                #             subschema[subport],
+                #             subtopology)
             else:
                 initial = get_in(initial_state, path) if initial_state else {}
                 self.establish_path(
@@ -1194,7 +1214,7 @@ def test_topology_ports():
             'radius': radius_path,
             'quarks': ('internal', 'quarks'),
             'electrons': {
-                '_path': ('..', 'electrons'),
+                '_path': ('electrons',),
                 '*': {
                     'orbital': ('shell', 'orbital'),
                     'spin': spin_path}}},
@@ -1203,7 +1223,7 @@ def test_topology_ports():
                 'electron': {
                     'spin': spin_path,
                     'proton': {
-                        '_path': ('..',),
+                        '_path': ('..', '..'),
                         'radius': radius_path}}},
             'b': {
                 'electron': {
