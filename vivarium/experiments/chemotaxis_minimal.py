@@ -58,8 +58,8 @@ def make_chemotaxis_experiment(config={}):
 def get_chemotaxis_experiment_config():
 
     ligand_id = 'glc'
-    initial_ligand = 0.1
-    n_agents = 4
+    initial_ligand = 1+1e-1
+    n_agents = 1
     bins_microns = 2
     bounds = [100, 500]
     n_bins = [bound * bins_microns for bound in bounds]
@@ -83,7 +83,7 @@ def get_chemotaxis_experiment_config():
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids,
-        'location': [0.5, 0.05]}
+        'location': [0.5, 0.0]}
     multibody_config.update(agent_body_config(body_config))
 
     # field
@@ -94,7 +94,7 @@ def get_chemotaxis_experiment_config():
             'molecules': {
                 ligand_id: {
                     'center': [0.5, 0.0],
-                    'base': 1+1e-1}}},
+                    'base': initial_ligand}}},
         'n_bins': n_bins,
         'size': bounds}
 
