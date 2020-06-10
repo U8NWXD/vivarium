@@ -885,7 +885,7 @@ def inverse_topology(update, topology):
     Transform an update from the form its process produced into 
     one aligned to the given topology. 
 
-    The inverse of this function (using a topology to construct a view from
+    The inverse of this function (using a topology to construct a view for
     the perspective of a Process ports_schema()) lives in `Store`, called
     `topology_state`. This one stands alone as it does not require a store
     to calculate.
