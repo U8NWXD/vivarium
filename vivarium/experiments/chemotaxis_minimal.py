@@ -25,7 +25,7 @@ from vivarium.compartments.chemotaxis_minimal import (
 from vivarium.processes.multibody_physics import (
     agent_body_config,
 )
-from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
+from vivarium.plots.multibody_physics import plot_trajectory, plot_motility
 
 
 def make_chemotaxis_experiment(config={}):
@@ -56,14 +56,10 @@ def make_chemotaxis_experiment(config={}):
 
 # configurations
 def get_chemotaxis_experiment_config():
-
     ligand_id = 'glc'
-    initial_ligand = 1+1e-1
-    n_agents = 1
-    bins_microns = 2
+    initial_ligand = 1e-1
     bounds = [100, 500]
-    n_bins = [bound * bins_microns for bound in bounds]
-
+    n_agents = 1
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
     ## minimal chemotaxis agent
@@ -94,8 +90,8 @@ def get_chemotaxis_experiment_config():
             'molecules': {
                 ligand_id: {
                     'center': [0.5, 0.0],
-                    'base': initial_ligand}}},
-        'n_bins': n_bins,
+                    'scale': initial_ligand,
+                    'base': 0.1}}},
         'size': bounds}
 
     return {
@@ -105,36 +101,21 @@ def get_chemotaxis_experiment_config():
             'multibody': multibody_config,
             'field': field_config}}
 
-def run_chemotaxis_experiment(time=5, out_dir='out'):
+def run_chemotaxis_experiment(out_dir='out'):
     chemotaxis_config = get_chemotaxis_experiment_config()
     experiment = make_chemotaxis_experiment(chemotaxis_config)
 
     # simulate
     settings = {
+        'total_time': 30,
         'timestep': 0.01,
-        'total_time': time,
         'return_raw_data': True}
     raw_data = simulate_experiment(experiment, settings)
-
-    # extract data
-    multibody_config = chemotaxis_config['environment']['multibody']
-    agents = {time: time_data['agents'] for time, time_data in raw_data.items()}
-    fields = {time: time_data['fields'] for time, time_data in raw_data.items()}
 
     # agents plot
     plot_settings = {
         'agents_key': 'agents'}
     plot_agents_multigen(raw_data, plot_settings, out_dir)
-
-    # snapshot plot
-    snapshots_data = {
-        'agents': agents,
-        'fields': fields,
-        'config': multibody_config}
-    plot_config = {
-        'out_dir': out_dir,
-        'filename': 'snapshots'}
-    plot_snapshots(snapshots_data, plot_config)
 
     # trajectory and motility plots
     agents_timeseries = timeseries_from_data(raw_data)
@@ -149,4 +130,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(5, out_dir)
+    run_chemotaxis_experiment(out_dir)

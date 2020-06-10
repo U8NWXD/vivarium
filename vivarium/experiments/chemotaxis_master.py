@@ -102,7 +102,8 @@ def get_chemotaxis_experiment_config():
             'molecules': {
                 ligand_id: {
                     'center': [0.0, 0.0],
-                    'base': 1+1e-1}}},
+                    'base': 1+1e-1,
+                    'scale': 0.1}}},
         'diffusion': 1e-1,
         'n_bins': n_bins,
         'size': bounds}
