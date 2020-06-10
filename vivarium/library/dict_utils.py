@@ -68,8 +68,9 @@ def tuplify_port_dicts(dicts):
     '''
     merge = {}
     for port, states_dict in dicts.items():
-        for state, value in states_dict.items():
-            merge.update({(port, state): value})
+        if states_dict:
+            for state, value in states_dict.items():
+                merge.update({(port, state): value})
     return merge
 
 def flatten_timeseries(timeseries):

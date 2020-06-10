@@ -254,7 +254,6 @@ class Metabolism(Process):
                 }}}
 
     def next_update(self, timestep, states):
-
         ## get the state
         external_state = states['external']
         constrained_reaction_bounds = states['flux_bounds']  # (units.mmol / units.L / units.s)
@@ -277,7 +276,8 @@ class Metabolism(Process):
 
         # next, add constraints coming from flux_bounds
         # to constrain exchange fluxes, add the suffix 'EX_' to the external molecule ID
-        self.fba.constrain_flux(constrained_reaction_bounds)
+        if constrained_reaction_bounds:
+            self.fba.constrain_flux(constrained_reaction_bounds)
 
         # finally, turn reactions on/off based on regulation
         self.fba.regulate_flux(regulation_state)
@@ -509,7 +509,7 @@ reference_sim_settings = {
     'timestep': 1,
     'end_time': 20}
 
-def test_metabolism_similar_to_reference():
+def metabolism_similar_to_reference():
     config = get_iAF1260b_config()
     metabolism = Metabolism(config)
     timeseries = run_metabolism(metabolism, reference_sim_settings)
