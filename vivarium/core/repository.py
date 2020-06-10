@@ -20,14 +20,14 @@ Updaters
 --------
 
 Each :term:`updater` is defined as a function whose name begins with
-`update_`. Vivarium uses these functions to apply :term:`updates` to
+``update_``. Vivarium uses these functions to apply :term:`updates` to
 :term:`variables`. Updater names are defined in
 :py:data:`updater_library`, which maps these names to updater functions.
 
 Updater API
 ===========
 
-An updater function MUST have a name that begins with `update_`. The
+An updater function MUST have a name that begins with ``update_``. The
 function MUST accept exactly two positional arguments: the first MUST be
 the current value of the variable (i.e. before applying the update), and
 the second MUST be the value associated with the variable in the update.
