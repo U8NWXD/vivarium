@@ -77,11 +77,11 @@ class MultiBody(object):
     defaults = {
         # hardcoded parameters
         'elasticity': 0.9,
-        'damping': 0.05,  # simulates viscous forces (1 = no damping, 0 = full damping)
-        'angular_damping': 0.7,  # less damping for angular velocity seems to improve behavior
+        'damping': 10,  # simulates viscous forces
+        'angular_damping': 10,
         'friction': 0.9,  # TODO -- does this do anything?
         'physics_dt': 0.005,
-        'force_scaling': 20,  # scales from pN
+        'force_scaling': 8000,  # scales from pN
 
         # configured parameters
         'jitter_force': 1e-3,  # pN
@@ -161,6 +161,7 @@ class MultiBody(object):
 
             # add directly to angular velocity
             body.angular_velocity += torque
+
             # force-based torque
             # if torque != 0.0:
             #     motile_force = get_force_with_angle(thrust, torque)
@@ -182,8 +183,8 @@ class MultiBody(object):
 
     def apply_viscous_force(self, body):
         # dampen the velocity
-        body.velocity = body.velocity * self.damping + (body.force / body.mass) * self.physics_dt
-        body.angular_velocity = body.angular_velocity * self.angular_damping + body.torque / body.moment * self.physics_dt
+        body.velocity += (body.force / body.mass - body.velocity * self.damping) * self.physics_dt
+        body.angular_velocity += (body.torque / body.moment - body.angular_velocity * self.angular_damping) * self.physics_dt
 
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
@@ -213,8 +214,8 @@ class MultiBody(object):
             static_lines += machine_lines
 
         for line in static_lines:
-            line.elasticity = 0.0  # no bounce
-            line.friction = 0.9
+            line.elasticity = 0.8  # bounce
+            line.friction = 0.8
         self.space.add(static_lines)
 
     def add_body_from_center(self, body_id, specs):
@@ -317,15 +318,14 @@ class MultiBody(object):
 
     def get_body_position(self, agent_id):
         body, shape = self.bodies[agent_id]
-        position = body.position
+        position = [pos for pos in body.position]
 
-        # enforce bounds
-        position = [
-            0 if pos<0 else pos
-            for idx, pos in enumerate(position)]
-        position = [
-            self.bounds[idx] if pos>self.bounds[idx] else pos
-            for idx, pos in enumerate(position)]
+        # # enforce bounds
+        # for idx, pos in enumerate(position):
+        #     if pos < 0:
+        #         position[idx] = 0
+        #     elif pos > self.bounds[idx]:
+        #         position[idx] = self.bounds[idx]
 
         return {
             'location': position,

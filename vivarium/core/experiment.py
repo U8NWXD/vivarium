@@ -792,7 +792,7 @@ class Experiment(object):
         log.info(pf(self.state.get_value()))
 
         log.info('\nCONFIG:')
-        log.info(pf(self.state.get_config()))
+        log.info(pf(self.state.get_config(True)))
 
     def emit_configuration(self):
         data = {

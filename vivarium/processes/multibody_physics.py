@@ -170,8 +170,8 @@ class Multibody(Process):
                         '_default': 0.0,
                         '_updater': 'set'},
                     'mass': {
-                        '_units': units.fg,
-                        '_default': 1 * units.fg,
+                        '_emit': True,
+                        '_default': 1339 * units.fg,
                         '_updater': 'set'},
                     'thrust': {
                         '_default': 0.0,
@@ -211,9 +211,9 @@ class Multibody(Process):
         self.physics.run(timestep)
 
         # get new agent positions
-        agent_position = self.physics.get_body_positions()
+        agent_positions = self.physics.get_body_positions()
 
-        return {'agents': agent_position}
+        return {'agents': agent_positions}
 
     ## matplotlib interactive plot
     def animate_frame(self, agents):
@@ -271,7 +271,7 @@ def single_agent_config(config):
         'volume': volume,
         'length': length,
         'width': width,
-        'mass': 1 * units.fg,  #1400 * units.fg,
+        'mass': 1339 * units.fg,
         'forces': [0, 0]}}
 
 def agent_body_config(config):
@@ -336,6 +336,89 @@ def test_multibody(config={'n_agents':1}, time=10):
         'total_time': time,
         'return_raw_data': True}
     return simulate_experiment(experiment, settings)
+
+def simulate_growth_division(config, settings):
+
+    # make the process
+    multibody = Multibody(config)
+    experiment = process_in_experiment(multibody)
+    experiment.state.update_subschema(
+        ('agents',), {
+            'boundary': {
+                'mass': {
+                    '_divider': 'split'},
+                'length': {
+                    '_divider': 'split'}}})
+    experiment.state.apply_subschemas()
+
+    # get initial agent state
+    agents_store = experiment.state.get_path(['agents'])
+
+    ## run simulation
+    # get simulation settings
+    growth_rate = settings.get('growth_rate', 0.0006)
+    growth_rate_noise = settings.get('growth_rate_noise', 0.0)
+    division_volume = settings.get('division_volume', 0.4)
+    channel_height = settings.get('channel_height')
+    total_time = settings.get('total_time', 10)
+    timestep = 1
+
+    time = 0
+    while time < total_time:
+        experiment.update(timestep)
+        time += timestep
+        agents_state = agents_store.get_value()
+
+        agent_updates = {}
+        remove_agents = []
+        add_agents = {}
+        for agent_id, state in agents_state.items():
+            state = state['boundary']
+            location = state['location']
+            angle = state['angle']
+            length = state['length']
+            width = state['width']
+            mass = state['mass'].magnitude
+
+            # update
+            growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
+            new_mass = mass + mass * growth_rate2
+            new_length = length + length * growth_rate2
+            new_volume = volume_from_length(new_length, width)
+
+            if channel_height and location[1] > channel_height:
+                update = {'_delete': [(agent_id,)]}
+                experiment.send_updates([{'agents': update}])
+
+            elif new_volume > division_volume:
+                daughter_ids = [str(agent_id) + '0', str(agent_id) + '1']
+
+                daughter_updates = []
+                for daughter_id in daughter_ids:
+                    daughter_updates.append({
+                        'daughter': daughter_id,
+                        'path': (daughter_id,),
+                        'processes': {},
+                        'topology': {},
+                        'initial_state': {}})
+
+                # initial state will be provided by division in the tree
+                update = {
+                    '_divide': {
+                        'mother': agent_id,
+                        'daughters': daughter_updates}}
+                experiment.send_updates([{'agents': update}])
+            else:
+                agent_updates[agent_id] = {
+                    'boundary': {
+                        'volume': new_volume,
+                        'length': new_length,
+                        'mass': new_mass * units.fg}}
+
+        # update experiment
+        experiment.send_updates([{'agents': agent_updates}])
+
+    return experiment.emitter.get_data()
 
 def simulate_motility(config, settings):
     # time of motor behavior without chemotaxis
@@ -424,16 +507,17 @@ def simulate_motility(config, settings):
     return experiment.emitter.get_data()
 
 def run_motility(out_dir):
-    n_agents = 6
+    total_time = 30
+    n_agents = 1
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
     # test motility
-    bounds = [100, 100]
+    bounds = [500, 500]
     motility_sim_settings = {
         'timestep': 0.05,
-        'total_time': 2}
+        'total_time': total_time}
     motility_config = {
-        'animate': True,
+        'animate': False,
         'jitter_force': 0,
         'bounds': bounds}
     body_config = {
@@ -448,16 +532,6 @@ def run_motility(out_dir):
     # make motility plot
     plot_motility(motility_timeseries, out_dir)
     plot_trajectory(motility_timeseries, motility_config, out_dir)
-
-    # snapshots plot
-    agents = {time: time_data['agents'] for time, time_data in motility_data.items()}
-    data = {
-        'agents': agents,
-        'config': motility_config}
-    plot_config = {
-        'out_dir': out_dir,
-        'filename': 'motility_snapshots'}
-    plot_snapshots(data, plot_config)
 
 def run_growth_division():
     n_agents = 1
@@ -489,89 +563,6 @@ def run_growth_division():
         'out_dir': out_dir,
         'filename': 'growth_division_snapshots'}
     plot_snapshots(data, plot_config)
-
-def simulate_growth_division(config, settings):
-
-    # make the process
-    multibody = Multibody(config)
-    experiment = process_in_experiment(multibody)
-    experiment.state.update_subschema(
-        ('agents',), {
-            'boundary': {
-                'mass': {
-                    '_divider': 'split'},
-                'length': {
-                    '_divider': 'split'}}})
-    experiment.state.apply_subschemas()
-
-    # get initial agent state
-    agents_store = experiment.state.get_path(['agents'])
-
-    ## run simulation
-    # get simulation settings
-    growth_rate = settings.get('growth_rate', 0.0006)
-    growth_rate_noise = settings.get('growth_rate_noise', 0.0)
-    division_volume = settings.get('division_volume', 0.4)
-    channel_height = settings.get('channel_height')
-    total_time = settings.get('total_time', 10)
-    timestep = 1
-
-    time = 0
-    while time < total_time:
-        experiment.update(timestep)
-        time += timestep
-        agents_state = agents_store.get_value()
-
-        agent_updates = {}
-        remove_agents = []
-        add_agents = {}
-        for agent_id, state in agents_state.items():
-            state = state['boundary']
-            location = state['location']
-            angle = state['angle']
-            length = state['length']
-            width = state['width']
-            mass = state['mass'].magnitude
-
-            # update
-            growth_rate2 = (growth_rate + np.random.normal(0.0, growth_rate_noise)) * timestep
-            new_mass = mass + mass * growth_rate2
-            new_length = length + length * growth_rate2
-            new_volume = volume_from_length(new_length, width)
-
-            if channel_height and location[1] > channel_height:
-                update = {'_delete': [(agent_id,)]}
-                experiment.send_updates([{'agents': update}])
-
-            elif new_volume > division_volume:
-                daughter_ids = [str(agent_id) + '0', str(agent_id) + '1']
-
-                daughter_updates = []
-                for daughter_id in daughter_ids:
-                    daughter_updates.append({
-                        'daughter': daughter_id,
-                        'path': (daughter_id,),
-                        'processes': {},
-                        'topology': {},
-                        'initial_state': {}})
-
-                # initial state will be provided by division in the tree
-                update = {
-                    '_divide': {
-                        'mother': agent_id,
-                        'daughters': daughter_updates}}
-                experiment.send_updates([{'agents': update}])
-            else:
-                agent_updates[agent_id] = {
-                    'boundary': {
-                        'volume': new_volume,
-                        'length': new_length,
-                        'mass': new_mass * units.fg}}
-
-        # update experiment
-        experiment.send_updates([{'agents': agent_updates}])
-
-    return experiment.emitter.get_data()
 
 if __name__ == '__main__':
     out_dir = os.path.join(PROCESS_OUT_DIR, NAME)

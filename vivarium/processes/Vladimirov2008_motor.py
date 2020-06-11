@@ -36,7 +36,7 @@ class MotorActivity(Process):
             'mb_0': 0.65,  # steady state motor bias (Cluzel et al 2000)
             'n_motors': 5,
             'cw_to_ccw': 0.83,  # 1/s (Block1983) motor bias, assumed to be constant
-            'timestep': 0.1,
+            'time_step': 0.1,
         },
         'initial_state': {
             'internal': {
@@ -187,15 +187,15 @@ class MotorActivity(Process):
             }}
 
 def tumble():
-    thrust = 100  # pN
-    tumble_jitter = 2.5  # added to angular velocity
+    thrust = 150  # pN
+    tumble_jitter = 30  #2.5  # added to angular velocity
     torque = random.normalvariate(0, tumble_jitter)
     return [thrust, torque]
 
 def run():
     # average thrust = 200 pN according to:
     # Berg, Howard C. E. coli in Motion. Under "Torque-Speed Dependence"
-    thrust  = 250  # pN
+    thrust = 250  # pN
     torque = 0.0
     return [thrust, torque]
 
