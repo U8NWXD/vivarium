@@ -188,7 +188,7 @@ class MotorActivity(Process):
 
 def tumble():
     thrust = 150  # pN
-    tumble_jitter = 30  #2.5  # added to angular velocity
+    tumble_jitter = 1.0  # added to angular velocity
     torque = random.normalvariate(0, tumble_jitter)
     return [thrust, torque]
 

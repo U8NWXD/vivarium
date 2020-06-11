@@ -96,8 +96,8 @@ class MultiBody(object):
         self.friction = self.defaults['friction']
         self.damping = self.defaults['damping']
         self.angular_damping = self.defaults['angular_damping']
-        self.force_scaling = self.defaults['force_scaling']
         self.physics_dt = self.defaults['physics_dt']
+        self.force_scaling = self.defaults['force_scaling']
 
         # configured parameters
         self.jitter_force = config.get('jitter_force', self.defaults['jitter_force'])

@@ -96,12 +96,11 @@ class Multibody(Process):
     """
 
     defaults = {
-        'initial_agents': {},
+        'agents': {},
         'jitter_force': 1e-3,  # pN
         'bounds': DEFAULT_BOUNDS,
         'mother_machine': False,
         'animate': False,
-        'debug': False,
         'time_step': 2,
     }
 
@@ -110,21 +109,23 @@ class Multibody(Process):
             initial_parameters = {}
 
         # agents
-        self.initial_agents = initial_parameters.get('agents', self.defaults['initial_agents'])
+        self.initial_agents = self.or_default(
+            initial_parameters, 'agents')
 
         # multibody parameters
-        jitter_force = initial_parameters.get('jitter_force', self.defaults['jitter_force'])
-        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
-        debug = initial_parameters.get('debug', self.defaults['debug'])
-        self.mother_machine = initial_parameters.get('mother_machine', self.defaults['mother_machine'])
+        jitter_force = self.or_default(
+            initial_parameters, 'jitter_force')
+        self.bounds = self.or_default(
+            initial_parameters, 'bounds')
+        self.mother_machine = self.or_default(
+            initial_parameters, 'mother_machine')
 
         # make the multibody object
         multibody_config = {
             'jitter_force': jitter_force,
             'bounds': self.bounds,
             'barriers': self.mother_machine,
-            'initial_agents': remove_units(self.initial_agents),
-            'debug': debug}
+            'initial_agents': remove_units(self.initial_agents)}
         self.physics = MultiBody(multibody_config)
 
         # interactive plot for visualization
@@ -441,7 +442,13 @@ def simulate_motility(config, settings):
                     '_updater': 'set'},
                 'torque': {
                     '_emit': True,
-                    '_updater': 'set'}}})
+                    '_updater': 'set'}},
+            'cell': {
+                'motor_state': {
+                    '_value': 0,
+                    '_updater': 'set',
+                    '_emit': True,
+                }}})
     experiment.state.apply_subschemas()
 
     # get initial agent state
@@ -459,7 +466,9 @@ def simulate_motility(config, settings):
         motile_forces[agent_id] = {
             'boundary': {
                 'thrust': thrust,
-                'torque': torque}}
+                'torque': torque},
+            'cell': {
+                'motor_state': 1}}
     experiment.send_updates([{'agents': motile_forces}])
 
     ## run simulation
@@ -501,7 +510,10 @@ def simulate_motility(config, settings):
             motile_forces[agent_id] = {
                 'boundary': {
                     'thrust': thrust,
-                    'torque': torque}}
+                    'torque': torque},
+                'cell': {
+                    'motor_state': motor_state
+                }}
 
         experiment.send_updates([{'agents': motile_forces}])
 

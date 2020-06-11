@@ -57,11 +57,16 @@ def make_chemotaxis_experiment(config={}):
 
 # configurations
 def get_chemotaxis_experiment_config():
-    ligand_id = 'glc'
-    initial_ligand = 1e-1
-    bounds = [100, 500]
     n_agents = 1
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    initial_location = [0.5, 0.1]
+    bounds = [100, 500]
+    ligand_id = 'glc'
+    initial_ligand = 1.0
+
+    # field data
+    field_scale = 1.0
+    exponential_base = 1.5
+    field_center = [0.5, 0.0]
 
     ## minimal chemotaxis agent
     chemotaxis_config = {
@@ -74,25 +79,27 @@ def get_chemotaxis_experiment_config():
     # multibody
     multibody_config = {
         'animate': False,
-        'jitter_force': 1e-3,
+        'jitter_force': 0.0,
         'bounds': bounds}
 
+    # agents
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids,
-        'location': [0.5, 0.1]}
+        'location': initial_location}
     multibody_config.update(agent_body_config(body_config))
 
-    # field
+    # statics field
     field_config = {
         'molecules': [ligand_id],
         'gradient': {
             'type': 'exponential',
             'molecules': {
                 ligand_id: {
-                    'center': [0.5, 0.0],
-                    'scale': initial_ligand,
-                    'base': 1.1}}},
+                    'center': field_center,
+                    'scale': field_scale,
+                    'base': exponential_base}}},
         'bounds': bounds}
 
     return {
@@ -103,13 +110,16 @@ def get_chemotaxis_experiment_config():
             'field': field_config}}
 
 def run_chemotaxis_experiment(out_dir='out'):
+    total_time = 120
+    timestep = 0.01
+
     chemotaxis_config = get_chemotaxis_experiment_config()
     experiment = make_chemotaxis_experiment(chemotaxis_config)
 
     # simulate
     settings = {
-        'total_time': 30,
-        'timestep': 0.01,
+        'total_time': total_time,
+        'timestep': timestep,
         'return_raw_data': True}
     raw_data = simulate_experiment(experiment, settings)
 

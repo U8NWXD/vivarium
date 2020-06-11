@@ -251,7 +251,7 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
 def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
     check_plt_backend()
 
-    expected_speed = 14.2  # um/s (Berg)
+    expected_velocity = 14.2  # um/s (Berg)
     expected_angle_between_runs = 68 # degrees (Berg)
 
     times = timeseries['time']
@@ -259,74 +259,123 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
 
     motility_analysis = {
         agent_id: {
-            'speed': [],
+            'velocity': [],
+            'angular_velocity': [],
+            'angle_between_runs': [],
             'angle': [],
             'thrust': [],
             'torque': []}
         for agent_id in list(agents.keys())}
 
     for agent_id, agent_data in agents.items():
-        previous_location = [0,0]
+        boundary_data = agent_data['boundary']
         previous_time = times[0]
+        previous_angle = boundary_data['angle'][0]
+        previous_location = boundary_data['location'][0]
+        previous_motor_state = boundary_data['angle'][0]  # 1 for tumble, 0 for run
+        previous_run_angle = boundary_data['angle'][0]
 
         # go through each time point for this agent
         for time_idx, time in enumerate(times):
-            boundary_data = agent_data['boundary']
+            motor_state = agent_data['cell']['motor_state'][time_idx]
             angle = boundary_data['angle'][time_idx]
             location = boundary_data['location'][time_idx]
             thrust = boundary_data['thrust'][time_idx]
             torque = boundary_data['torque'][time_idx]
 
-            # get speed since last time
+            # get velocity
             if time != times[0]:
                 dt = time - previous_time
                 distance = (
                     (location[0] - previous_location[0]) ** 2 +
                     (location[1] - previous_location[1]) ** 2
                         ) ** 0.5
-                speed = distance / dt  # um/sec
+                velocity = distance / dt  # um/sec
+
+                angle_change = ((angle - previous_angle) / PI * 180) % 360
+                if angle_change > 180:
+                    angle_change = 360 - angle_change
+                angular_velocity = angle_change/ dt
             else:
-                speed = 0.0
+                velocity = 0.0
+                angular_velocity = 0.0
+
+            # get angle change between runs
+            angle_between_runs = None
+            if motor_state == 0:  # run
+                if previous_motor_state == 1:
+                    angle_between_runs = angle - previous_run_angle
+                previous_run_angle = angle
 
             # save data
-            motility_analysis[agent_id]['speed'].append(speed)
+            motility_analysis[agent_id]['velocity'].append(velocity)
+            motility_analysis[agent_id]['angular_velocity'].append(angular_velocity)
             motility_analysis[agent_id]['angle'].append(angle)
             motility_analysis[agent_id]['thrust'].append(thrust)
             motility_analysis[agent_id]['torque'].append(torque)
+            motility_analysis[agent_id]['angle_between_runs'].append(angle_between_runs)
 
             # save previous location and time
             previous_location = location
+            previous_angle = angle
             previous_time = time
+            previous_motor_state = motor_state
 
     # plot results
     cols = 1
-    rows = 3
+    rows = 5
     fig = plt.figure(figsize=(6 * cols, 1.5 * rows))
     plt.rcParams.update({'font.size': 12})
 
     ax1 = plt.subplot(rows, cols, 1)
     for agent_id, analysis in motility_analysis.items():
-        speed = analysis['speed']
-        avg_speed = np.mean(speed)
-        ax1.plot(times, speed, label=agent_id)
-        # ax1.axhline(y=avg_speed, color='b', linestyle='dashed', label='mean')
-
-    ax1.axhline(y=expected_speed, color='r', linestyle='dashed', label='expected mean')
-    ax1.set_ylabel(u'speed \n (\u03bcm/sec)')
+        velocity = analysis['velocity']
+        avg_velocity = np.mean(velocity)
+        ax1.plot(times, velocity, label=agent_id)
+        # ax1.axhline(y=avg_velocity, color='b', linestyle='dashed', label='mean')
+    ax1.axhline(y=expected_velocity, color='r', linestyle='dashed', label='expected mean')
+    ax1.set_ylabel(u'velocity \n (\u03bcm/sec)')
     ax1.set_xlabel('time')
     ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax2 = plt.subplot(rows, cols, 2)
     for agent_id, analysis in motility_analysis.items():
-        thrust = analysis['thrust']
-        ax2.plot(times, thrust, label=agent_id)
-    ax2.set_ylabel('thrust')
+        angular_velocity = analysis['angular_velocity']
+        ax2.plot(times, angular_velocity, label=agent_id)
+    ax2.set_ylabel(u'angular velocity \n (degrees/sec)')
+    ax2.set_xlabel('time')
+    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax3 = plt.subplot(rows, cols, 3)
     for agent_id, analysis in motility_analysis.items():
+        # convert to degrees
+        angle_between_runs = [
+            (angle / PI * 180) % 360 if angle is not None else None
+            for angle in analysis['angle_between_runs']]
+        # pair with time
+        run_angle_points = [
+            [t, angle] if angle < 180 else [t, 360 - angle]
+            for t, angle in dict(zip(times, angle_between_runs)).items()
+            if angle is not None]
+
+        plot_times = [point[0] for point in run_angle_points]
+        plot_angles = [point[1] for point in run_angle_points]
+        ax3.scatter(plot_times, plot_angles, label=agent_id)
+    ax3.set_ylabel(u'degrees \n between runs')
+    ax3.axhline(y=expected_angle_between_runs, color='r', linestyle='dashed', label='expected')
+    ax3.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    ax4 = plt.subplot(rows, cols, 4)
+    for agent_id, analysis in motility_analysis.items():
+        thrust = analysis['thrust']
+        ax4.plot(times, thrust, label=agent_id)
+    ax4.set_ylabel('thrust')
+
+    ax5 = plt.subplot(rows, cols, 5)
+    for agent_id, analysis in motility_analysis.items():
         torque = analysis['torque']
-        ax3.plot(times, torque, label=agent_id)
-    ax3.set_ylabel('torque')
+        ax5.plot(times, torque, label=agent_id)
+    ax5.set_ylabel('torque')
 
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.7, hspace=0.1)
