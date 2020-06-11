@@ -245,7 +245,7 @@ class Multibody(Process):
         plt.xlim([0, self.bounds[0]])
         plt.ylim([0, self.bounds[1]])
         plt.draw()
-        plt.pause(0.001)
+        plt.pause(0.005)
 
 
 # configs
@@ -318,6 +318,26 @@ def mother_machine_body_config(config):
     return {
         'agents': agent_config,
         'bounds': bounds}
+
+def get_baseline_config(config={}):
+    animate = config.get('animate', False)
+    bounds = config.get('bounds', [500, 500])
+    jitter_force = config.get('jitter_force', 0)
+    n_agents = config.get('n_agents', 1)
+    initial_location = config.get('initial_location')
+
+    # agent settings
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    motility_config = {
+        'animate': animate,
+        'jitter_force': jitter_force,
+        'bounds': bounds}
+    body_config = {
+        'bounds': bounds,
+        'agent_ids': agent_ids,
+        'location': initial_location}
+    motility_config.update(agent_body_config(body_config))
+    return motility_config
 
 # tests and simulations
 def test_multibody(config={'n_agents':1}, time=10):
@@ -519,30 +539,49 @@ def simulate_motility(config, settings):
 
     return experiment.emitter.get_data()
 
+def run_jitter(config={}, out_dir='out', filename='jitter'):
+    total_time = config.get('total_time', 30)
+    timestep = config.get('timestep', 0.05)
+    motility_config = get_baseline_config({
+        'animate': False,
+        'jitter_force': 1e0,
+        'bounds': [50, 50],
+        'n_agents': 8,
+    })
+
+    # make the process
+    multibody = Multibody(motility_config)
+    experiment = process_in_experiment(multibody)
+    experiment.state.update_subschema(
+        ('agents',), {
+            'cell': {
+                'motor_state': {
+                    '_value': 0,
+                    '_updater': 'set',
+                    '_emit': True,
+                }}})
+    experiment.state.apply_subschemas()
+
+    time = 0
+    while time < total_time:
+        experiment.update(timestep)
+        time += timestep
+    data = experiment.emitter.get_data()
+
+    # make trajectory plot
+    timeseries = timeseries_from_data(data)
+    plot_trajectory(timeseries, motility_config, out_dir, filename + '_trajectory')
+
 def run_motility(config={}, out_dir='out', filename='motility'):
     total_time = config.get('total_time', 30)
     timestep = config.get('timestep', 0.05)
-    animate = config.get('animate', False)
-    bounds = config.get('bounds', [500, 500])
-    n_agents = config.get('n_agents', 1)
-    initial_location = [0.5, 0.5]
+    config['initial_location'] = [0.5, 0.5]
+    motility_config = get_baseline_config(config)
 
     # simulation settings
     motility_sim_settings = {
         'timestep': timestep,
         'total_time': total_time}
-
-    # agent settings
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
-    motility_config = {
-        'animate': animate,
-        'jitter_force': 0,
-        'bounds': bounds}
-    body_config = {
-        'bounds': bounds,
-        'agent_ids': agent_ids,
-        'location': initial_location}
-    motility_config.update(agent_body_config(body_config))
 
     # run motility sim
     motility_data = simulate_motility(motility_config, motility_sim_settings)
@@ -592,6 +631,7 @@ if __name__ == '__main__':
     parser.add_argument('--motility', '-m', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
     parser.add_argument('--scales', '-s', action='store_true', default=False)
+    parser.add_argument('--jitter', '-j', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
 
@@ -599,11 +639,22 @@ if __name__ == '__main__':
         run_motility({}, out_dir)
     if args.growth or no_args:
         run_growth_division()
+    if args.jitter:
+        run_jitter({}, out_dir, 'jitter')
     if args.scales:
-        ts_0p1 = {'timestep': 0.1}
+        bounds = [1000, 1000]
+        jitter_force = 1e-1
+
+        ts_0p1 = {
+            'timestep': 0.1,
+            'bounds': bounds,
+            'jitter_force': jitter_force}
         run_motility(ts_0p1, out_dir, 'ts_0p1')
 
-        ts_0p01 = {'timestep': 0.01}
+        ts_0p01 = {
+            'timestep': 0.01,
+            'bounds': bounds,
+            'jitter_force': jitter_force}
         run_motility(ts_0p01, out_dir, 'ts_0p01')
 
         # bounds_500 = {'bounds': [500, 500]}
