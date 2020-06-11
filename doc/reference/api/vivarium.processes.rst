@@ -24,6 +24,7 @@ Submodules
    vivarium.processes.division_volume
    vivarium.processes.growth
    vivarium.processes.growth_protein
+   vivarium.processes.injector
    vivarium.processes.membrane_potential
    vivarium.processes.meta_division
    vivarium.processes.metabolism
