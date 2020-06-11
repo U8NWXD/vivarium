@@ -269,15 +269,16 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
 
     for agent_id, agent_data in agents.items():
         boundary_data = agent_data['boundary']
+        cell_data = agent_data['cell']
         previous_time = times[0]
         previous_angle = boundary_data['angle'][0]
         previous_location = boundary_data['location'][0]
-        previous_motor_state = boundary_data['angle'][0]  # 1 for tumble, 0 for run
         previous_run_angle = boundary_data['angle'][0]
+        previous_motor_state = cell_data['motor_state'][0]  # 1 for tumble, 0 for run
 
         # go through each time point for this agent
         for time_idx, time in enumerate(times):
-            motor_state = agent_data['cell']['motor_state'][time_idx]
+            motor_state = cell_data['motor_state'][time_idx]
             angle = boundary_data['angle'][time_idx]
             location = boundary_data['location'][time_idx]
             thrust = boundary_data['thrust'][time_idx]

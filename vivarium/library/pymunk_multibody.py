@@ -326,18 +326,10 @@ class MultiBody(object):
 
     def get_body_position(self, agent_id):
         body, shape = self.bodies[agent_id]
-        position = [pos for pos in body.position]
-
-        # # enforce bounds
-        # for idx, pos in enumerate(position):
-        #     if pos < 0:
-        #         position[idx] = 0
-        #     elif pos > self.bounds[idx]:
-        #         position[idx] = self.bounds[idx]
-
         return {
-            'location': position,
-            'angle': body.angle}
+            'location': [pos for pos in body.position],
+            'angle': body.angle,
+        }
 
     def get_body_positions(self):
         return {

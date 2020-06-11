@@ -183,19 +183,18 @@ class Multibody(Process):
                 }
             }
         }
+        schema = {'agents': glob_schema}
 
-        initial_agents_schema = {
-            agent_id: {
-                port: {
-                    state: {
-                        # '_value': value if state in ['location', 'angle'] else None,
-                        '_default': value}
-                    for state, value in state_values.items()}
-                for port, state_values in states.items()}
-            for agent_id, states in self.initial_agents.items()}
+        # TODO -- initial_agents shouldn't be needed
+        if self.initial_agents:
+            initial_agents_schema = {
+                agent_id: {
+                    port: {state: {'_default': value}
+                        for state, value in state_values.items()}
+                    for port, state_values in states.items()}
+                for agent_id, states in self.initial_agents.items()}
+            schema['agents'].update(initial_agents_schema)
 
-        schema = {'agents': initial_agents_schema}
-        schema['agents'].update(glob_schema)
         return schema
 
     def next_update(self, timestep, states):
@@ -642,7 +641,7 @@ if __name__ == '__main__':
     if args.jitter:
         run_jitter({}, out_dir, 'jitter')
     if args.scales:
-        bounds = [5000, 5000]
+        bounds = [2000, 2000]
         jitter_force = 0
 
         ts_0p1 = {
