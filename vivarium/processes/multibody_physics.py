@@ -642,8 +642,8 @@ if __name__ == '__main__':
     if args.jitter:
         run_jitter({}, out_dir, 'jitter')
     if args.scales:
-        bounds = [1000, 1000]
-        jitter_force = 1e-1
+        bounds = [5000, 5000]
+        jitter_force = 0
 
         ts_0p1 = {
             'timestep': 0.1,

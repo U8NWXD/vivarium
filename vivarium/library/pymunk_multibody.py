@@ -77,11 +77,11 @@ class MultiBody(object):
     defaults = {
         # hardcoded parameters
         'elasticity': 0.9,
-        'damping': 10,  # simulates viscous forces
-        'angular_damping': 10,
-        'friction': 0.9,  # TODO -- does this do anything?
-        'physics_dt': 0.005,
-        'force_scaling': 8000,  # scales from pN
+        'damping': 0.5,
+        'angular_damping': 0.5,
+        'friction': 0.9,  # does this do anything?
+        'physics_dt': 0.001,
+        'force_scaling': 1e5,  # scales from pN
         # configured parameters
         'jitter_force': 1e-3,  # pN
         'bounds': [20, 20],
@@ -153,19 +153,21 @@ class MultiBody(object):
         motile_location = (width / 2, 0)  # apply force at back end of body
         thrust = 0.0
         torque = 0.0
+        motile_force = [thrust, torque]
 
         if hasattr(body, 'thrust'):
             thrust = body.thrust
             torque = body.torque
+            motile_force = [thrust, 0.0]
 
-            # add directly to angular velocity
-            body.angular_velocity += torque
+            # # add directly to angular velocity
+            # body.angular_velocity += torque
 
             # force-based torque
-            # if torque != 0.0:
-            #     motile_force = get_force_with_angle(thrust, torque)
+            if torque != 0.0:
+                motile_force = get_force_with_angle(thrust, torque)
 
-        scaled_motile_force = [thrust * self.force_scaling, 0.0]
+        scaled_motile_force = [force * self.force_scaling for force in motile_force]
         body.apply_force_at_local_point(scaled_motile_force, motile_location)
 
     def apply_jitter_force(self, body):
@@ -182,8 +184,14 @@ class MultiBody(object):
 
     def apply_viscous_force(self, body):
         # dampen the velocity
-        body.velocity += (body.force / body.mass - body.velocity * self.damping) * self.physics_dt
-        body.angular_velocity += (body.torque / body.moment - body.angular_velocity * self.angular_damping) * self.physics_dt
+        body.velocity = body.velocity * self.damping
+        body.angular_velocity = body.angular_velocity * self.angular_damping
+
+        # body.velocity -= body.force / body.mass
+        # body.angular_velocity -= body.torque / body.moment
+
+        # body.velocity += (body.force / body.mass - body.velocity * self.damping)
+        # body.angular_velocity += (body.torque / body.moment - body.angular_velocity * self.angular_damping)
 
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
@@ -282,6 +290,7 @@ class MultiBody(object):
 
         new_body.position = position
         new_body.angle = angle
+        new_body.velocity = body.velocity
         new_body.angular_velocity = body.angular_velocity
         new_body.dimensions = (width, length)
         new_body.thrust = thrust
