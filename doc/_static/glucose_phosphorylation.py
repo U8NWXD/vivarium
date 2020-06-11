@@ -3,6 +3,7 @@ from vivarium.core.composition import (
     simulate_process,
     plot_simulation_output,
 )
+from vivarium.library.units import units
 
 
 class GlucosePhosphorylation(Process):
@@ -62,55 +63,57 @@ class GlucosePhosphorylation(Process):
 
         return update
 
-    def default_settings(self):
-        default_state = {
-            'cytoplasm': {
-                'GLC': 1.0,
-                'G6P': 0.0,
-                'HK': 0.1,
-            },
-            'nucleoside_phosphates': {
-                'ATP': 2.0,
-                'ADP': 0.0,
-            },
-        }
-        schema = {
+    def ports_schema(self):
+        return {
             'cytoplasm': {
                 'GLC': {
                     # accumulate means to add the updates
-                    'updater': 'accumulate',
-                    'mass': 1.0,
+                    '_updater': 'accumulate',
+                    '_default': 1.0,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                    '_emit': True,
                 },
                 # accumulate is the default, so we don't need to specify
                 # updaters for the rest of the variables
                 'G6P': {
-                    'mass': 1.0,
+                    '_default': 0.0,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                    '_emit': True,
                 },
                 'HK': {
-                    'mass': 1.0,
+                    '_default': 0.1,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                },
+            },
+            'nucleoside_phosphates': {
+                'ATP': {
+                    '_default': 2.0,
+                    '_emit': True,
+                },
+                'ADP': {
+                    '_default': 0.0,
+                    '_emit': True,
                 }
             },
-        }
-        emitter_keys = {
-            # We want to track the substrates and products, but not HK
-            'cytoplasm': ['GLC', 'G6P'],
-            'nucleoside_phosphates': ['ATP', 'ADP'],
-        }
-
-        deriver_setting = [
-            {
-                'type': 'mass',
-                'source_port': 'cytoplasm',
-                'derived_port': 'global',
-                'keys': ['GLC', 'G6P', 'HK']
+            'global': {
             },
-        ]
+        }
 
+    def derivers(self):
         return {
-            'state': default_state,
-            'emitter_keys': emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
+            'my_deriver': {
+                'deriver': 'mass',
+                'port_mapping': {
+                    'global': 'global',
+                },
+                'config': {},
+            },
         }
 
 
@@ -122,7 +125,7 @@ if __name__ == '__main__':
 
     settings = {
         'total_time': 10,
-        #'timestep': 0.1,
+        'timestep': 0.1,
     }
     timeseries = simulate_process(my_process, settings)
     plot_simulation_output(timeseries, {}, './')
