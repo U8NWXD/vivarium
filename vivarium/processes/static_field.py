@@ -109,7 +109,7 @@ class StaticField(Deriver):
                 dx = location[0] - specs['center'][0] * self.bounds[0]
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
-                concentrations[molecule_id] = gaussian(deviation, distance)
+                concentrations[molecule_id] = gaussian(deviation, (distance/1000))
 
         elif self.gradient['type'] == 'linear':
             for molecule_id, specs in self.gradient['molecules'].items():
@@ -118,7 +118,7 @@ class StaticField(Deriver):
                 dx = location[0] - specs['center'][0] * self.bounds[0]
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
-                concentrations[molecule_id] = base + slope * distance
+                concentrations[molecule_id] = base + slope * (distance/1000)
 
         elif self.gradient['type'] == 'exponential':
             for molecule_id, specs in self.gradient['molecules'].items():
@@ -128,7 +128,6 @@ class StaticField(Deriver):
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
                 concentrations[molecule_id] = scale * base ** (distance/1000)
-
         return concentrations
 
 

@@ -92,7 +92,7 @@ def get_chemotaxis_experiment_config():
                 ligand_id: {
                     'center': [0.5, 0.0],
                     'scale': initial_ligand,
-                    'base': 0.1}}},
+                    'base': 1.1}}},
         'bounds': bounds}
 
     return {
