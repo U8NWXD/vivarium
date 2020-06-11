@@ -9,7 +9,7 @@ Why Write Processes?
 --------------------
 
 Vivarium comes with a number of :term:`processes` ready for you to use,
-but combining processes to form :term:`composites` will only take you so
+but combining processes to form :term:`compartments` will only take you so
 far. For many models, the existing processes will be insufficient, so
 you will need to create your own.
 
@@ -28,7 +28,7 @@ glucose concentrations. Hexokinase catalyzes glucose phosphorylation,
 which we can describe by the following reaction:
 
 .. math::
-    
+
     GLC + ATP \rightleftarrows G6P + ADP
 
 In the reaction above and throughout this tutorial, we will use the
@@ -97,7 +97,7 @@ which will receive a store. When creating a process, you need to decide
 what ports to declare.
 
 When someone else uses your process, they will create a
-:term:`composite` of it and other processes. These processes will
+:term:`compartment` of it and other processes. These processes will
 interact by sharing stores. While any number of your process's ports may
 be linked to the same store, a port cannot be split between stores. This
 means that you should put in separate ports any :term:`variables` that a
@@ -221,7 +221,7 @@ each port based on a provided model state and timestep.
             hk = cytoplasm['HK']
             glc = cytoplasm['GLC']
             atp = nucleoside_phosphates['ATP']
-            
+
             # Get kinetic parameters
             k_cat = self.parameters['k_cat']
             k_atp = self.parameters['K_ATP']
@@ -416,7 +416,7 @@ like this:
             'k_cat': 1.5,
         }
         my_process = GlucosePhosphorylation(parameters)
-        
+
         settings = {
             'total_time': 10,
         }

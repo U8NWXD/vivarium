@@ -16,7 +16,7 @@ the RFC:
 
 Models in Vivarium are built by combining :term:`processes`, each of
 which models a mechanism in the cell. These processes can be combined in
-a :term:`composite` to build more complicated models. Process models are
+a :term:`compartment` to build more complicated models. Process models are
 defined in a class that inherit from
 :py:class:`vivarium.core.process.Process`, and these
 :term:`process classes` can be instantiated to create individual
@@ -68,7 +68,7 @@ Ports MUST be specified as a dictionary with port names as keys and
 lists of :term:`variable` names as values. These port names may be
 chosen arbitrarily. Variable names are also at the discretion of the
 process class author, but note that if two processes are to be combined
-in a :term:`composite` and share variables through a shared
+in a :term:`compartment` and share variables through a shared
 :term:`store`, the processes MUST use the same variable names for the
 shared variables.
 
@@ -244,7 +244,7 @@ growth rate specified in the constructor by using the
 ``self.parameters`` attribute.
 
 .. note:: Notice that this function works regardless of what timestep we
-    use. This is important because different composites may need
+    use. This is important because different compartments may need
     different timesteps based on what they are modeling.
 
 Process Class Examples

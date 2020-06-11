@@ -27,23 +27,14 @@ Glossary
     Compartments
         We organize our models into compartments, each of which is like
         an agent in an :term:`agent-based model`. Each compartment
-        stores a :term:`composite` of :term:`processes` and
-        :term:`stores`. Compartments can be nested and interact with
-        neighbor, parent, and child compartments through :term:`boundary
-        stores`. Thus, a model might contain a compartment for the
-        environment that contains two child compartments for the two
-        cells in the environment. For more details, see our :doc:`guide
-        to compartments </guides/compartments>`.
-
-    Composite
-    Composites
-        Composites model how a set of :term:`processes` interact through
-        shared :term:`stores`. When the composite is simulated, each
-        store gets updated by one or more of the processes in the
-        composite. This lets us simulate how the state of the model
-        evolves as all the processes run simultaneously. For more
-        information, see our :doc:`guide to composites
-        </guides/composites>`.
+        stores a collection of :term:`processes` that operate on the
+        compartment's :term:`stores` simultaneously. Compartments can be
+        nested and interact with neighbor, parent, and child
+        compartments through :term:`boundary stores`. Thus, a model
+        might contain a compartment for the environment that contains
+        two child compartments for the two cells in the environment. For
+        more details, see our :doc:`guide to compartments
+        </guides/compartments>`.
 
     Deriver
     Derivers
