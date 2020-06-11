@@ -1,12 +1,28 @@
+import inspect
 import json
 import numpy as np
+import re
+
+from vivarium.library.units import units
+from vivarium.core.experiment import Compartment
+from vivarium.core.process import Process
+
 
 def _json_serialize(elem):
     if isinstance(elem, np.int64):
         return int(elem)
-    raise TypeError(
-        "Objectof type {} is not JSON serializable".format(type(elem))
-    )
+    if inspect.isfunction(elem):
+        return f'<function {elem.__name__}>'
+    if inspect.isclass(elem):
+        return str(elem)
+    if isinstance(elem, (Compartment, Process)):
+        to_strip_regex = ' at 0x[0-9a-f]+>$'
+        return re.sub(to_strip_regex, '>', repr(elem))
+    if type(elem) == type(1 * units.fg):
+        return str(elem)
+    if type(elem) == type(units.fg):
+        return repr(elem)
+    return repr(elem)
 
 def format_dict(d, sort_keys=True):
     '''Format a dict as a pretty string
