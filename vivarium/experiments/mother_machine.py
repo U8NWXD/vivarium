@@ -143,4 +143,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(400, out_dir)
+    run_mother_machine(100, out_dir)
