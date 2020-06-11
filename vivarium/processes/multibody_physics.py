@@ -272,7 +272,8 @@ def single_agent_config(config):
         'length': length,
         'width': width,
         'mass': 1339 * units.fg,
-        'forces': [0, 0]}}
+        'thrust': 0,
+        'torque': 0}}
 
 def agent_body_config(config):
     agent_ids = config['agent_ids']
@@ -506,16 +507,19 @@ def simulate_motility(config, settings):
 
     return experiment.emitter.get_data()
 
-def run_motility(out_dir):
-    total_time = 30
-    n_agents = 1
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+def run_motility(config={}, out_dir='out', filename='motility'):
+    total_time = config.get('total_time', 30)
+    timestep = config.get('timestep', 0.05)
+    bounds = config.get('bounds', [500, 500])
+    n_agents = config.get('n_agents', 1)
 
-    # test motility
-    bounds = [500, 500]
+    # simulation settings
     motility_sim_settings = {
         'timestep': 0.05,
         'total_time': total_time}
+
+    # agent settings
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
     motility_config = {
         'animate': False,
         'jitter_force': 0,
@@ -530,8 +534,8 @@ def run_motility(out_dir):
     motility_timeseries = timeseries_from_data(motility_data)
 
     # make motility plot
-    plot_motility(motility_timeseries, out_dir)
-    plot_trajectory(motility_timeseries, motility_config, out_dir)
+    plot_motility(motility_timeseries, out_dir, filename + '_analysis')
+    plot_trajectory(motility_timeseries, motility_config, out_dir, filename + '_trajectory')
 
 def run_growth_division():
     n_agents = 1
@@ -572,10 +576,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='multibody')
     parser.add_argument('--motility', '-m', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
+    parser.add_argument('--timescales', '-t', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
 
     if args.motility or no_args:
-        run_motility(out_dir)
+        run_motility({}, out_dir)
     if args.growth or no_args:
         run_growth_division()
+    if args.timescales:
+        ts_0p1 = {'timestep': 0.1}
+        run_motility(ts_0p1, out_dir, 'ts_0p1')
+        ts_0p01 = {'timestep': 0.01}
+        run_motility(ts_0p1, out_dir, 'ts_0p01')
