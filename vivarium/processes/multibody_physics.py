@@ -248,16 +248,25 @@ class Multibody(Process):
 
 
 # configs
-def random_agent_config(bounds):
+def make_random_position(bounds):
+    return [
+        np.random.uniform(0, bounds[0]),
+        np.random.uniform(0, bounds[1])]
+
+def single_agent_config(config):
     # cell dimensions
     width = 1
     length = 2
     volume = volume_from_length(length, width)
+    bounds = config.get('bounds', DEFAULT_BOUNDS)
+    location = config.get('location')
+    if location:
+        location = [loc * bounds[n] for n, loc in enumerate(location)]
+    else:
+        location = make_random_position(bounds)
 
     return {'boundary': {
-        'location': [
-            np.random.uniform(0, bounds[0]),
-            np.random.uniform(0, bounds[1])],
+        'location': location,
         'angle': np.random.uniform(0, 2 * PI),
         'volume': volume,
         'length': length,
@@ -265,16 +274,12 @@ def random_agent_config(bounds):
         'mass': 1 * units.fg,  #1400 * units.fg,
         'forces': [0, 0]}}
 
-def random_body_config(config):
+def agent_body_config(config):
     agent_ids = config['agent_ids']
-    bounds = config.get('bounds', DEFAULT_BOUNDS)
     agent_config = {
-        agent_id: random_agent_config(bounds)
+        agent_id: single_agent_config(config)
         for agent_id in agent_ids}
-
-    return {
-        'agents': agent_config,
-        'bounds': bounds}
+    return {'agents': agent_config}
 
 def mother_machine_body_config(config):
     # cell dimensions
@@ -317,7 +322,7 @@ def test_multibody(config={'n_agents':1}, time=10):
     n_agents = config.get('n_agents',1)
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
-    body_config = random_body_config({'agent_ids': agent_ids})
+    body_config = agent_body_config({'agent_ids': agent_ids})
     multibody = Multibody(body_config)
 
     # initialize agent's boundary state
@@ -434,7 +439,7 @@ def run_motility(out_dir):
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    motility_config.update(random_body_config(body_config))
+    motility_config.update(agent_body_config(body_config))
 
     # run motility sim
     motility_data = simulate_motility(motility_config, motility_sim_settings)
@@ -472,7 +477,7 @@ def run_growth_division():
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    gd_config.update(random_body_config(body_config))
+    gd_config.update(agent_body_config(body_config))
     gd_data = simulate_growth_division(gd_config, settings)
 
     # snapshots plot

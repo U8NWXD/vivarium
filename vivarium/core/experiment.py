@@ -720,7 +720,8 @@ class Compartment(object):
             'topology': assoc_in({}, path, topology)}
 
     def get_parameters(self):
-        processes = self.generate_processes({})
+        network = self.generate({})
+        processes = network['processes']
         return {
             process_id: process.parameters
             for process_id, process in processes.items()}

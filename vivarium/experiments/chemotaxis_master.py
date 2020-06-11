@@ -23,7 +23,7 @@ from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.multibody_physics import (
-    random_body_config,
+    agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots, plot_trajectory, plot_motility
 
@@ -33,14 +33,24 @@ def make_chemotaxis_experiment(config={}):
     agent_ids = config.get('agent_ids', [])
     emitter = config.get('emitter', {'type': 'timeseries'})
 
-    # get the environment
+    chemotaxis = ChemotaxisMaster(config.get('chemotaxis', {}))
+
+    # get the environment molecules from metabolism
     env_config = config.get('environment', {})
+    network = chemotaxis.generate()
+    processes = network['processes']
+    metabolism_state = processes['metabolism'].initial_state
+    metabolism_external = [mol_id for mol_id, concentration in metabolism_state['external'].items() if concentration > 0]
+    # TODO -- add chemoreceptors external?
+    env_config['diffusion']['molecules'] = metabolism_external
+
+    # initialize the environment
     environment = Lattice(env_config)
     network = environment.generate({})
     processes = network['processes']
     topology = network['topology']
 
-    chemotaxis = ChemotaxisMaster(config.get('chemotaxis', {}))
+    # add the agents
     agents = make_agents(agent_ids, chemotaxis, config.get('chemotaxis', {}))
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
@@ -82,7 +92,7 @@ def get_chemotaxis_experiment_config():
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    multibody_config.update(random_body_config(body_config))
+    multibody_config.update(agent_body_config(body_config))
 
     # diffusion
     diffusion_config = {
@@ -92,7 +102,8 @@ def get_chemotaxis_experiment_config():
             'molecules': {
                 ligand_id: {
                     'center': [0.0, 0.0],
-                    'base': 1+1e-1}}},
+                    'base': 1+1e-1,
+                    'scale': 0.1}}},
         'diffusion': 1e-1,
         'n_bins': n_bins,
         'size': bounds}

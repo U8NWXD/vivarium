@@ -75,7 +75,7 @@ def plot_agents(ax, agents, agent_colors={}):
 def plot_snapshots(data, plot_config):
     '''
         - agents (dict): with {time: agent_data}
-        - fields TODO
+        - fields (dict): with {time: field_data}
         - config (dict): the environment config for the simulation
     '''
     check_plt_backend()
@@ -170,8 +170,9 @@ def plot_snapshots(data, plot_config):
         else:
             row_idx = 0
             ax = init_axes(fig, bounds[0], bounds[1], grid, row_idx, col_idx, time)
-            agents_now = agents[time]
-            plot_agents(ax, agents_now, agent_colors)
+            if agents:
+                agents_now = agents[time]
+                plot_agents(ax, agents_now, agent_colors)
 
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.7, hspace=0.1)
@@ -183,6 +184,7 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     check_plt_backend()
 
     bounds = config.get('bounds', DEFAULT_BOUNDS)
+    field = config.get('field')
     x_length = bounds[0]
     y_length = bounds[1]
     y_ratio = y_length / x_length
@@ -204,6 +206,17 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
     # make the figure
     fig = plt.figure(figsize=(8, 8*y_ratio))
 
+    if field is not None:
+        field = np.transpose(field)
+        shape = field.shape
+        im = plt.imshow(field,
+                        origin='lower',
+                        extent=[0, shape[1], 0, shape[0]],
+                        # vmin=vmin,
+                        # vmax=vmax,
+                        cmap='Greys'
+                        )
+
     for agent_id, agent_trajectory in trajectories.items():
         # convert trajectory to 2D array
         locations_array = np.array(agent_trajectory)
@@ -215,7 +228,7 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         lc = LineCollection(segments, cmap=plt.get_cmap('cool'))
         lc.set_array(times)
-        lc.set_linewidth(3)
+        lc.set_linewidth(6)
 
         # plot line
         line = plt.gca().add_collection(lc)
