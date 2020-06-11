@@ -82,7 +82,6 @@ class MultiBody(object):
         'friction': 0.9,  # TODO -- does this do anything?
         'physics_dt': 0.005,
         'force_scaling': 8000,  # scales from pN
-
         # configured parameters
         'jitter_force': 1e-3,  # pN
         'bounds': [20, 20],
