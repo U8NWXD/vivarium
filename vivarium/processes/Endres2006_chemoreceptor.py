@@ -19,7 +19,7 @@ NAME = 'Endres2006_chemoreceptor'
 
 STEADY_STATE_DELTA = 1e-6
 
-INITIAL_STATE = {
+INITIAL_INTERNAL_STATE = {
     'n_methyl': 2.0,  # initial number of methyl groups on receptor cluster (0 to 8)
     'chemoreceptor_activity': 1./3.,  # initial probability of receptor cluster being on
     'CheR': 0.00016,  # (mM) wild type concentration. 0.16 uM = 0.00016 mM
@@ -70,7 +70,7 @@ class ReceptorCluster(Process):
     defaults = {
         'ligand_id': 'MeAsp',
         'initial_ligand': 5.0,
-        'initial_state': INITIAL_STATE,
+        'initial_internal_state': INITIAL_INTERNAL_STATE,
         'parameters': DEFAULT_PARAMETERS
     }
 
@@ -78,9 +78,15 @@ class ReceptorCluster(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        self.ligand_id = initial_parameters.get('ligand_id', self.defaults['ligand_id'])
-        self.initial_ligand = initial_parameters.get('initial_ligand', self.defaults['initial_ligand'])
-        self.initial_state = initial_parameters.get('initial_state', self.defaults['initial_state'])
+        self.ligand_id = self.or_default(
+            initial_parameters, 'ligand_id')
+        self.initial_ligand = self.or_default(
+            initial_parameters, 'initial_ligand')
+        initial_internal_state = self.or_default(
+            initial_parameters, 'initial_internal_state')
+        self.initial_state = {
+            'internal': initial_internal_state,
+            'external': {self.ligand_id: self.initial_ligand}}
 
         ports = {
             'internal': ['n_methyl', 'chemoreceptor_activity', 'CheR', 'CheB'],
@@ -91,13 +97,14 @@ class ReceptorCluster(Process):
 
         super(ReceptorCluster, self).__init__(ports, parameters)
 
+        # initialize the state by running until steady
+        run_to_steady_state(self, self.initial_state, 1.0)
+
     def ports_schema(self):
         set_keys = {'internal': ['chemoreceptor_activity', 'n_methyl']}
-        default_states = {
-            'internal': self.initial_state,
-            'external': {self.ligand_id: self.initial_ligand}}
+        default_states = self.initial_state
         set_emit = {
-            'internal': list(self.initial_state.keys()),
+            'internal': list(self.initial_state['internal'].keys()),
             'external':  [self.ligand_id]}
 
         schema = {}
@@ -121,6 +128,7 @@ class ReceptorCluster(Process):
         Monod-Wyman-Changeux model for mixed cluster activity from:
             Endres & Wingreen. (2006). Precise adaptation in bacterial chemotaxis through "assistance neighborhoods"
         '''
+
         # states
         n_methyl = copy.copy(states['internal']['n_methyl'])
         P_on = copy.copy(states['internal']['chemoreceptor_activity'])
