@@ -245,7 +245,7 @@ class Multibody(Process):
         plt.xlim([0, self.bounds[0]])
         plt.ylim([0, self.bounds[1]])
         plt.draw()
-        plt.pause(0.05)
+        plt.pause(0.001)
 
 
 # configs
@@ -522,23 +522,26 @@ def simulate_motility(config, settings):
 def run_motility(config={}, out_dir='out', filename='motility'):
     total_time = config.get('total_time', 30)
     timestep = config.get('timestep', 0.05)
+    animate = config.get('animate', False)
     bounds = config.get('bounds', [500, 500])
     n_agents = config.get('n_agents', 1)
+    initial_location = [0.5, 0.5]
 
     # simulation settings
     motility_sim_settings = {
-        'timestep': 0.05,
+        'timestep': timestep,
         'total_time': total_time}
 
     # agent settings
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
     motility_config = {
-        'animate': False,
+        'animate': animate,
         'jitter_force': 0,
         'bounds': bounds}
     body_config = {
         'bounds': bounds,
-        'agent_ids': agent_ids}
+        'agent_ids': agent_ids,
+        'location': initial_location}
     motility_config.update(agent_body_config(body_config))
 
     # run motility sim
@@ -588,7 +591,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='multibody')
     parser.add_argument('--motility', '-m', action='store_true', default=False)
     parser.add_argument('--growth', '-g', action='store_true', default=False)
-    parser.add_argument('--timescales', '-t', action='store_true', default=False)
+    parser.add_argument('--scales', '-s', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
 
@@ -596,8 +599,15 @@ if __name__ == '__main__':
         run_motility({}, out_dir)
     if args.growth or no_args:
         run_growth_division()
-    if args.timescales:
+    if args.scales:
         ts_0p1 = {'timestep': 0.1}
         run_motility(ts_0p1, out_dir, 'ts_0p1')
+
         ts_0p01 = {'timestep': 0.01}
-        run_motility(ts_0p1, out_dir, 'ts_0p01')
+        run_motility(ts_0p01, out_dir, 'ts_0p01')
+
+        # bounds_500 = {'bounds': [500, 500]}
+        # run_motility(bounds_500, out_dir, 'bounds_500')
+        #
+        # bounds_5000 = {'bounds': [5000, 5000]}
+        # run_motility(bounds_5000, out_dir, 'bounds_5000')
