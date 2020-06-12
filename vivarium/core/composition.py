@@ -67,11 +67,12 @@ def process_in_experiment(process, settings={}):
     emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
+    paths = settings.get('topology', {})
 
     processes = {'process': process}
     topology = {
         'process': {
-            port: (port,) for port in process.ports_schema().keys()}}
+            port: paths.get(port, (port,)) for port in process.ports_schema().keys()}}
 
     if timeline:
         '''
@@ -744,10 +745,16 @@ class ToyLinearGrowthDeathProcess(Process):
                     '_default': 0.0,
                     '_emit': True}}}
 
-        schema['global'].update({
+        schema['targets'] = {
             target: {
                 '_default': None}
-            for target in self.targets})
+            for target in self.targets}
+
+        # schema['global'].update({
+        #     target: {
+        #         '_default': None}
+        #     for target in self.targets})
+
         return schema
 
 
@@ -769,7 +776,10 @@ class TestSimulateProcess:
     def test_process_deletion(self):
         '''Check that processes are successfully deleted'''
         process = ToyLinearGrowthDeathProcess({'targets': ['process']})
-        settings = {}
+        settings = {
+            'topology': {
+                'global': ('global',),
+                'targets': tuple()}}
 
         timeseries = simulate_process(process, settings)
         expected_masses = [
@@ -949,5 +959,6 @@ def test_compartment():
     data = simulate_compartment_in_experiment(toy_compartment, settings)
 
 if __name__ == '__main__':
+    TestSimulateProcess().test_process_deletion()
     timeseries = test_compartment()
     print(timeseries)

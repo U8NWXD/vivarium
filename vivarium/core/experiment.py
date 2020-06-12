@@ -138,6 +138,7 @@ class Store(object):
         self.emit = False
         self.sources = {}
         self.deleted = False
+        self.leaf = False
 
         self.apply_config(config, source)
 
@@ -213,6 +214,8 @@ class Store(object):
             config = without(config, '_subtopology')
 
         if self.schema_keys & config.keys():
+            self.leaf = True
+
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
                 if isinstance(self.default, Quantity):
@@ -673,6 +676,39 @@ class Store(object):
                 state[key] = self.get_path(path).get_value()
         return state
 
+    def schema_topology(self, schema, topology):
+        '''
+        Fill in the structure of the given schema with the values located according
+        to the given topology. 
+        '''
+
+        state = {}
+
+        if self.leaf:
+            state = self.get_value()
+        else:
+            for key, subschema in schema.items():
+                path = topology.get(key)
+                if key == '*':
+                    if isinstance(path, dict):
+                        node, path = self.outer_path(path)
+                        for child, child_node in node.inner.items():
+                            state[child] = child_node.schema_topology(subschema, path)
+                    else:
+                        node = self.get_path(path)
+                        for child, child_node in node.inner.items():
+                            state[child] = child_node.schema_topology(subschema, {})
+                elif isinstance(path, dict):
+                    node, path = self.outer_path(path)
+                    state[key] = node.schema_topology(subschema, path)
+                else:
+                    if path is None:
+                        path = (key,)
+                    node = self.get_path(path)
+                    state[key] = node.schema_topology(subschema, {})
+
+        return state
+
     def state_for(self, path, keys):
         '''
         Get the value of a state at a given path
@@ -854,8 +890,9 @@ class Store(object):
                     '_updater': 'set'}, outer=self)
                 self.inner[key] = process_state
 
+                subprocess.schema = subprocess.ports_schema()
                 self.topology_ports(
-                    subprocess.ports_schema(),
+                    subprocess.schema,
                     subtopology,
                     source=self.path_for() + (key,))
             else:
@@ -1087,7 +1124,7 @@ class Experiment(object):
 
         # translate the values from the tree structure into the form
         # that this process expects, based on its declared topology
-        ports = state.outer.topology_state(process_topology)
+        ports = state.outer.schema_topology(process.schema, process_topology)
 
         # perform the process update with the current states
         update = process.next_update(interval, ports)
@@ -1544,7 +1581,7 @@ def test_timescales():
 
 
 if __name__ == '__main__':
-    test_recursive_store()
-    test_in()
-    test_timescales()
+    # test_recursive_store()
+    # test_in()
+    # test_timescales()
     test_topology_ports()
