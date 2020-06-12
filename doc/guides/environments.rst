@@ -89,3 +89,22 @@ by too much and small random forces to approximate thermal jitter.
 
 This process is implemented in
 :py:mod:`vivarium.processes.multibody_physics`.
+
+----------------------------------------------------
+Combining Lattice, Diffusion, and Multi-Body Physics
+----------------------------------------------------
+
+Putting these three components together, we can simulate cells (agents)
+moved by multi-body physics (MBP) in a shared environment whose
+metabolite concentrations (fields) are diffused by a diffusion process
+(DFF):
+
+.. image:: /_static/agent_environment.png
+   :width: 100%
+   :align: center
+   :alt: In panel A, we see a grid lattice environment containing
+       bacteria. We see a "lattice" compartment with "DFF" and "MBP"
+       processes, both of which are wired to the agents. Only "DFF" is
+       wired to the fields. Each agent is also its own compartment. In
+       panel B, we see a depiction of a bacterial growing from a single
+       cell to around 60 over the course of 6 images.
