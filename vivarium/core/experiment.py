@@ -730,6 +730,7 @@ class Compartment(object):
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
+    state.apply_subschemas()
     state.set_value(initial_state)
     state.apply_defaults()
     return state
@@ -772,11 +773,6 @@ class Experiment(object):
         self.emitter = get_emitter(emitter_config)
 
         self.local_time = 0.0
-
-        # fill unassigned values with defaults
-        self.state.apply_subschemas()
-        self.state.set_value(self.initial_state)
-        self.state.apply_defaults()
 
         # run the derivers
         self.send_updates([])
