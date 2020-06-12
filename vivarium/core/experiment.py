@@ -721,19 +721,18 @@ class Compartment(object):
         self.config = config
 
     def generate_processes(self, config):
-        # type: (dict) -> dict
         """Generate processes dictionary
 
         Every subclass must override this method.
 
         Arguments:
-            config: A dictionary of configuration options. All
+            config (dict): A dictionary of configuration options. All
                 subclass implementation must accept this parameter, but
                 some may ignore it.
 
         Returns:
-            Subclass implementations must return a dictionary mapping
-            process names to instantiated and configured process
+            dict: Subclass implementations must return a dictionary
+            mapping process names to instantiated and configured process
             objects.
         """
         return {}
@@ -824,12 +823,11 @@ def timestamp(dt=None):
 
 class Experiment(object):
     def __init__(self, config):
-        # type: (dict) -> None
         """Defines simulations
 
         Arguments:
-            config: A dictionary of configuration options. The required
-                options are:
+            config (dict): A dictionary of configuration options. The
+                required options are:
 
                 * **processes** (:py:class:`dict`): A dictionary that
                     maps :term:`process` names to process objects. You

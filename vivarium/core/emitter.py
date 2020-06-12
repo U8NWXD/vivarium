@@ -28,7 +28,6 @@ def create_indexes(table, columns):
         table.create_index(column)
 
 def get_emitter(config):
-    # type: (dict) -> Emitter
     '''Get an emitter based on the provided config.
 
     The available emitter type names and their classes are:
@@ -39,10 +38,13 @@ def get_emitter(config):
     * ``timeseries``: :py:class:`TimeSeriesEmitter`
 
     Arguments:
-        config: Requires three keys:
+        config (dict): Requires three keys:
             * type: Type of emitter ('kafka' for a kafka emitter).
             * emitter: Any configuration the emitter type requires to initialize.
             * keys: A list of state keys to emit for each state label.
+
+    Returns:
+        Emitter: An instantiated emitter.
     '''
 
     if config is None:

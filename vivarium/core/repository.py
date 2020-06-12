@@ -95,11 +95,14 @@ from vivarium.processes.tree_mass import TreeMass
 ## updater functions
 
 def update_merge(current_value, new_value):
-    # type: (dict, dict) -> dict
     """Merge Updater
 
+    Arguments:
+        current_value (dict):
+        new_value (dict):
+
     Returns:
-        The merger of ``current_value`` and ``new_value``. For any
+        dict: The merger of ``current_value`` and ``new_value``. For any
         shared keys, the value in ``new_value`` is used.
     """
     update = current_value.copy()
