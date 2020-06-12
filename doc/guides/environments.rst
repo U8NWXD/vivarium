@@ -1,5 +1,5 @@
 ============
-Compartments
+Environments
 ============
 
 As you consider how to model a colony of cells, you might naturally
