@@ -14,6 +14,7 @@ Submodules
    vivarium.compartments.gfp_expression
    vivarium.compartments.growth_division
    vivarium.compartments.growth_division_minimal
+   vivarium.compartments.injected_glc_phosphorylation
    vivarium.compartments.lattice
    vivarium.compartments.master
    vivarium.compartments.transport_metabolism

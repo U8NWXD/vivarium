@@ -1,3 +1,11 @@
+"""
+===================================
+Toy Glucose Phosphorylation Process
+===================================
+
+This is a toy example referenced in the documentation.
+"""
+
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process,

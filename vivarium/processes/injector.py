@@ -1,3 +1,16 @@
+"""
+================
+Injector Process
+================
+
+Injectors model the appearance of substances within a cell or its
+environment. For example, we could inject antibiotics into a cell. More
+commonly, though, injector :term:`processes` let us build toy examples.
+As such, we use injectors in the documentation to keep our examples
+simple.
+"""
+
+
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -16,6 +29,29 @@ NAME = 'injector'
 class Injector(Process):
 
     def __init__(self, initial_parameters=None):
+        # type: (dict) -> None
+        """Models the direct injection of substrates into a cell
+
+        :term:`Ports`:
+
+        * **internal**: The :term:`store` into which the substrates will
+            be injected.
+
+        .. note:: Each of these processes only supports injecting into a
+            single store. To inject into multiple stores, create a
+            separate instance of this injector process for each store.
+
+        Arguments:
+            initial_parameters: An optional configuration dictionary
+                that may include the key ``substrate_rate_map`` whose
+                value must be a dictionary mapping substrate variable
+                names to the rate (as a :py:class:`float`) at which they
+                should be injected.  Rates are interpreted as being in
+                units of
+                :math:`\\frac{substrateVariableUnit}{timestepUnit}`, so
+                for a variable with units of molarity and a timestep in
+                seconds, rates should be in :math:`\\frac{M}{s}`.
+        """
         if initial_parameters is None:
             initial_parameters = {}
 

@@ -37,82 +37,16 @@ compartment.
 Tree Structure
 --------------
 
-In the example below, we print out the full tree as a dictionary:
+In the example below, we print out the full tree as a dictionary.
 
->>> from vivarium.processes.glucose_phosphorylation import (
-...     GlucosePhosphorylation,
+>>> from vivarium.experiments.glucose_phosphorylation import (
+...     glucose_phosphorylation_experiment,
 ... )
->>> from vivarium.processes.injector import Injector
 >>> from vivarium.core.experiment import Compartment, Experiment
 >>> from vivarium.library.pretty import format_dict
 >>>
 >>>
->>> class InjectedGlcPhosphorylation(Compartment):
-...
-...     defaults = {
-...         'glucose_phosphorylation': {
-...             'k_cat': 1e-2,
-...         },
-...         'injector': {
-...             'substrate_rate_map': {
-...                 'GLC': 1e-4,
-...                 'ATP': 1e-3,
-...             },
-...         },
-...     }
-...
-...     def __init__(self, config):
-...         self.config = self.defaults
-...         self.config.update(config)
-...
-...     def generate_processes(self, config):
-...         injector = Injector(self.config['injector'])
-...         glucose_phosphorylation = GlucosePhosphorylation(
-...             self.config['glucose_phosphorylation'])
-...
-...         return {
-...             'injector': injector,
-...             'glucose_phosphorylation': glucose_phosphorylation,
-...         }
-...
-...     def generate_topology(self, config):
-...         return {
-...             'injector': {
-...                 'internal': ('cell', ),
-...             },
-...             'glucose_phosphorylation': {
-...                 'cytoplasm': ('cell', ),
-...                 'nucleoside_phosphates': ('cell', ),
-...                 'global': ('global', ),
-...             },
-...         }
->>>
->>>
->>> def phosphorylation_experiment(config=None):
-...     if config is None:
-...         config = {}
-...     default_config = {
-...         'injected_glc_phosphorylation': {},
-...         'emitter': {
-...             'type': 'timeseries',
-...         },
-...         'initial_state': {},
-...     }
-...     default_config.update(config)
-...     config = default_config
-...     compartment = InjectedGlcPhosphorylation(
-...         config['injected_glc_phosphorylation'])
-...     compartment_dict = compartment.generate()
-...     experiment = Experiment({
-...         'processes': compartment_dict['processes'],
-...         'topology': compartment_dict['topology'],
-...         'emitter': config['emitter'],
-...         'initial_state': config['initial_state'],
-...     })
-...     return experiment
->>>
->>>
->>> experiment = phosphorylation_experiment()
+>>> experiment = glucose_phosphorylation_experiment()
 >>> print(format_dict(experiment.state.get_config()))
 {
     "cell": {
