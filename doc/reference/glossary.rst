@@ -71,6 +71,15 @@ Glossary
         The flux between a cell and its environment. This is stored in a
         :term:`boundary store`.
 
+    Experiment
+    Experiments
+        Vivarium defines simulations using
+        :py:class:`vivarium.core.experiment.Experiment` objects. These
+        simulations can contain arbitrarily nested :term:`compartments`,
+        and you can run them to simulate your model over time. See the
+        documentation for the ``Experiment`` class and our :doc:`guide
+        to experiments </guides/experiments>` for more details.
+
     Masking
         When Vivarium passes stores to processes, it includes only the
         variables the process has requested. We call this filtering

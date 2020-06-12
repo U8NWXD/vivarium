@@ -12,6 +12,7 @@ through the :doc:`getting started guide <../getting_started>` first.
    modeling_paradigm
    processes
    compartments
+   experiments
    tree
    environments
    docs
