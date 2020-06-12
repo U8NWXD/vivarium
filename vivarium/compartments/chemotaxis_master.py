@@ -44,18 +44,9 @@ class ChemotaxisMaster(Compartment):
         self.config = config
         self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
 
-        if 'transport' not in self.config:
-            self.config['transport'] = {}
-        self.config['transport']['global_deriver_config'] = {
-            'type': 'globals',
-            'source_port': self.boundary_path,
-            'derived_port': self.boundary_path,
-            'global_port': self.boundary_path,
-            'keys': []}
-
     def generate_processes(self, config):
         # Transport
-        transport = ConvenienceKinetics(config['transport'])
+        transport = ConvenienceKinetics(config.get('transport'))
 
         # Metabolism
         # add target fluxes from transport
