@@ -108,10 +108,6 @@ class Multibody(Process):
         if initial_parameters is None:
             initial_parameters = {}
 
-        # agents
-        self.initial_agents = self.or_default(
-            initial_parameters, 'agents')
-
         # multibody parameters
         jitter_force = self.or_default(
             initial_parameters, 'jitter_force')
@@ -125,7 +121,7 @@ class Multibody(Process):
             'jitter_force': jitter_force,
             'bounds': self.bounds,
             'barriers': self.mother_machine,
-            'initial_agents': remove_units(self.initial_agents)}
+        }
         self.physics = MultiBody(multibody_config)
 
         # interactive plot for visualization
@@ -134,7 +130,6 @@ class Multibody(Process):
             plt.ion()
             self.ax = plt.gca()
             self.ax.set_aspect('equal')
-            self.animate_frame(self.initial_agents)
 
         # all initial agents get a key under a single port
         ports = {'agents': ['*']}
@@ -184,17 +179,6 @@ class Multibody(Process):
             }
         }
         schema = {'agents': glob_schema}
-
-        # TODO -- initial_agents shouldn't be needed
-        if self.initial_agents:
-            initial_agents_schema = {
-                agent_id: {
-                    port: {state: {'_default': value}
-                        for state, value in state_values.items()}
-                    for port, state_values in states.items()}
-                for agent_id, states in self.initial_agents.items()}
-            schema['agents'].update(initial_agents_schema)
-
         return schema
 
     def next_update(self, timestep, states):
@@ -359,6 +343,7 @@ def test_multibody(config={'n_agents':1}, time=10):
     return simulate_experiment(experiment, settings)
 
 def simulate_growth_division(config, settings):
+    initial_agents_state = config['agents']
 
     # make the process
     multibody = Multibody(config)
@@ -373,6 +358,7 @@ def simulate_growth_division(config, settings):
     experiment.state.apply_subschemas()
 
     # get initial agent state
+    experiment.state.set_value({'agents': initial_agents_state})
     agents_store = experiment.state.get_path(['agents'])
 
     ## run simulation
@@ -637,7 +623,7 @@ if __name__ == '__main__':
     no_args = (len(sys.argv) == 1)
 
     if args.motility or no_args:
-        run_motility({}, out_dir)
+        run_motility({'animate': False}, out_dir)
     if args.growth or no_args:
         run_growth_division()
     if args.jitter:

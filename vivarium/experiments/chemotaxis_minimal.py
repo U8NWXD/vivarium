@@ -59,13 +59,13 @@ def make_chemotaxis_experiment(config={}):
 def get_chemotaxis_experiment_config():
     n_agents = 1
     initial_location = [0.5, 0.1]
-    bounds = [200, 1000]
+    bounds = [400, 2000]
     ligand_id = 'glc'
     initial_ligand = 1.0
 
     # field data
     field_scale = 1.0
-    exponential_base = 10.0
+    exponential_base = 1e2
     field_center = [0.5, 0.0]
 
     ## minimal chemotaxis agent
@@ -110,7 +110,7 @@ def get_chemotaxis_experiment_config():
             'field': field_config}}
 
 def run_chemotaxis_experiment(out_dir='out'):
-    total_time = 300
+    total_time = 360
     timestep = 0.01
 
     chemotaxis_config = get_chemotaxis_experiment_config()
@@ -125,7 +125,16 @@ def run_chemotaxis_experiment(out_dir='out'):
 
     # agents plot
     plot_settings = {
-        'agents_key': 'agents'}
+        'agents_key': 'agents',
+        'skip_paths': [
+            ('boundary', 'mass'),
+            ('boundary', 'length'),
+            ('boundary', 'width'),
+            ('boundary', 'location'),
+            ('cell', 'CheA'),
+            ('cell', 'CheB'),
+            ('cell', 'CheR'),
+        ]}
     plot_agents_multigen(raw_data, plot_settings, out_dir)
 
     # trajectory and motility plots
