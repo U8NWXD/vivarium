@@ -269,3 +269,25 @@ can create a store at any node to represent the sub-tree rooted at that
 node. This tree is analogous to directory trees on a filesystem, and we
 use tuples of store names to specify a path through this tree. We
 discuss this tree in more detail in the :doc:`tree guide <tree>`.
+
+------------------------
+Compartment Interactions
+------------------------
+
+Even though compartments represent segregated sub-models, they still
+need to interact. We model these interactions using :term:`boundary
+stores` between compartments. For example, the boundary store between a
+cell and its environment might track the flux of metabolites between the
+cell and environment compartments.
+
+When compartments are nested, these boundary stores also exist between
+the inner and the outer compartment. Thus nested compartments form a
+tree whose nodes are compartments and whose edges are boundary stores. A
+node's parent is its outer compartment, while its children are the
+compartments within it.
+
+Since boundary stores can also exist between compartments who share a
+parent, you may find it useful to think of compartments and their
+boundary stores as a bigraph (not a bipartite graph) where the tree
+denotes nesting and all the edges (including those in the tree)
+represent boundary stores.
