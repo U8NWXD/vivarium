@@ -459,7 +459,7 @@ this:
     :width: 100%
 
 You can download the completed process file :download:`here
-</_static/glucose_phosphorylation.py>`.
+<../../vivarium/processes/glucose_phosphorylation.py>`.
 
 Great job; you've written a new process! Now consider writing one to
 model a mechanism you are familiar with.

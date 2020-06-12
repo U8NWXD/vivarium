@@ -22,6 +22,7 @@ Submodules
    vivarium.processes.diffusion_field
    vivarium.processes.diffusion_network
    vivarium.processes.division_volume
+   vivarium.processes.glucose_phosphorylation
    vivarium.processes.growth
    vivarium.processes.growth_protein
    vivarium.processes.injector
