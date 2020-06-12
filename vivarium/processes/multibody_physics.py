@@ -502,10 +502,11 @@ def simulate_motility(config, settings):
         for agent_id, motile_state in agent_motile_states.items():
             motor_state = motile_state['motor_state']
             time_in_motor_state = motile_state['time_in_motor_state']
+            thrust = None
 
             if motor_state == 1:  # tumble
                 if time_in_motor_state < tumble_time:
-                    [thrust, torque] = tumble()
+                    # [thrust, torque] = tumble()
                     time_in_motor_state += timestep
                 else:
                     # switch
@@ -515,7 +516,7 @@ def simulate_motility(config, settings):
 
             elif motor_state == 0:  # run
                 if time_in_motor_state < run_time:
-                    [thrust, torque] = run()
+                    # [thrust, torque] = run()
                     time_in_motor_state += timestep
                 else:
                     # switch
@@ -527,12 +528,13 @@ def simulate_motility(config, settings):
                 'motor_state': motor_state,  # 0 for run, 1 for tumble
                 'time_in_motor_state': time_in_motor_state}
             motile_forces[agent_id] = {
-                'boundary': {
-                    'thrust': thrust,
-                    'torque': torque},
                 'cell': {
-                    'motor_state': motor_state
-                }}
+                    'motor_state': motor_state}}
+
+            if thrust:
+                motile_forces[agent_id]['boundary'] = {
+                    'thrust': thrust,
+                    'torque': torque}
 
         experiment.send_updates([{'agents': motile_forces}])
 
@@ -641,7 +643,7 @@ if __name__ == '__main__':
     if args.jitter:
         run_jitter({}, out_dir, 'jitter')
     if args.scales:
-        bounds = [2000, 2000]
+        bounds = [1000, 1000]
         jitter_force = 0
 
         ts_0p1 = {

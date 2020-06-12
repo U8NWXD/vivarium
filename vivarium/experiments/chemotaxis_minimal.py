@@ -59,13 +59,13 @@ def make_chemotaxis_experiment(config={}):
 def get_chemotaxis_experiment_config():
     n_agents = 1
     initial_location = [0.5, 0.1]
-    bounds = [100, 500]
+    bounds = [200, 1000]
     ligand_id = 'glc'
     initial_ligand = 1.0
 
     # field data
     field_scale = 1.0
-    exponential_base = 1.5
+    exponential_base = 10.0
     field_center = [0.5, 0.0]
 
     ## minimal chemotaxis agent
@@ -110,7 +110,7 @@ def get_chemotaxis_experiment_config():
             'field': field_config}}
 
 def run_chemotaxis_experiment(out_dir='out'):
-    total_time = 120
+    total_time = 300
     timestep = 0.01
 
     chemotaxis_config = get_chemotaxis_experiment_config()

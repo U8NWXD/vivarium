@@ -183,11 +183,13 @@ def plot_snapshots(data, plot_config):
 def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
     check_plt_backend()
 
+    plot_buffer = 0.02
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     field = config.get('field')
     x_length = bounds[0]
     y_length = bounds[1]
     y_ratio = y_length / x_length
+    buffer = plot_buffer * min(bounds)
 
     # get agents
     times = np.array(agent_timeseries['time'])
@@ -235,11 +237,11 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
         plt.plot(x_coord[0], y_coord[0], color=(0.0, 0.8, 0.0), marker='*')  # starting point
         plt.plot(x_coord[-1], y_coord[-1], color='r', marker='*')  # ending point
 
-    plt.xlim((0, x_length))
-    plt.ylim((0, y_length))
+    plt.xlim((0-buffer, x_length+buffer))
+    plt.ylim((0-buffer, y_length+buffer))
 
     # color bar
-    cbar = plt.colorbar(line, ticks=[times[0], times[-1]])  # TODO --adjust this for full timeline
+    cbar = plt.colorbar(line, ticks=[times[0], times[-1]], aspect=90, shrink=0.4)
     cbar.set_label('time (s)', rotation=270)
 
     fig_path = os.path.join(out_dir, filename)

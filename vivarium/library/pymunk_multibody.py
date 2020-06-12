@@ -77,11 +77,11 @@ class MultiBody(object):
     defaults = {
         # hardcoded parameters
         'elasticity': 0.9,
-        'damping': 0.5,
-        'angular_damping': 0.5,
+        'damping': 0.5,  # 1 is no damping, 0 is full damping
+        'angular_damping': 0.8,
         'friction': 0.9,  # does this do anything?
         'physics_dt': 0.001,
-        'force_scaling': 1e5,  # scales from pN
+        'force_scaling': 1e2,  # scales from pN
         # configured parameters
         'jitter_force': 1e-3,  # pN
         'bounds': [20, 20],
@@ -161,14 +161,15 @@ class MultiBody(object):
             motile_force = [thrust, 0.0]
 
             # # add directly to angular velocity
-            # body.angular_velocity += torque
+            body.angular_velocity += torque
 
-            # force-based torque
-            if torque != 0.0:
-                motile_force = get_force_with_angle(thrust, torque)
+            # # force-based torque
+            # if torque != 0.0:
+            #     motile_force = get_force_with_angle(thrust, torque)
 
         scaled_motile_force = [force * self.force_scaling for force in motile_force]
-        body.apply_force_at_local_point(scaled_motile_force, motile_location)
+        body.apply_impulse_at_local_point(scaled_motile_force, motile_location)
+        # body.apply_force_at_local_point(scaled_motile_force, motile_location)
 
     def apply_jitter_force(self, body):
         jitter_location = random_body_position(body)
@@ -190,12 +191,9 @@ class MultiBody(object):
         # body.velocity -= body.force / body.mass
         # body.angular_velocity -= body.torque / body.moment
 
-        # body.velocity += (body.force / body.mass - body.velocity * self.damping)
-        # body.angular_velocity += (body.torque / body.moment - body.angular_velocity * self.angular_damping)
-
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
-        thickness = 0.2
+        thickness = 2.0
         x_bound = bounds[0]
         y_bound = bounds[1]
 
@@ -221,7 +219,7 @@ class MultiBody(object):
             static_lines += machine_lines
 
         for line in static_lines:
-            line.elasticity = 0.8  # bounce
+            line.elasticity = 0.0  # bounce
             line.friction = 0.8
         self.space.add(static_lines)
 
