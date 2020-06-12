@@ -773,10 +773,15 @@ class Experiment(object):
 
         self.local_time = 0.0
 
+        # fill unassigned values with defaults
+        self.state.apply_subschemas()
+        self.state.set_value(self.initial_state)
+        self.state.apply_defaults()
+
         # run the derivers
         self.send_updates([])
 
-        # run emitter
+        # run the emitter
         self.emit_configuration()
         self.emit_data()
 

@@ -160,7 +160,7 @@ class MultiBody(object):
             torque = body.torque
             motile_force = [thrust, 0.0]
 
-            # # add directly to angular velocity
+            # add directly to angular velocity
             body.angular_velocity += torque
 
             # # force-based torque

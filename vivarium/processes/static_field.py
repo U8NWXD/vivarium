@@ -73,7 +73,7 @@ class StaticField(Deriver):
             '*': {
                 self.boundary_port: {
                     'location': {
-                        '_default': [0.0, 0.0],
+                        '_default': [0.5 * bound for bound in self.bounds],
                         '_updater': 'set'},
                     self.external_key: local_concentration_schema}}}
         schema['agents'] = glob_schema

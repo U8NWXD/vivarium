@@ -50,47 +50,47 @@ def make_chemotaxis_experiment(config={}):
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
-        'initial_state': config.get('initial_state', {})
-    })
+        'initial_state': config.get('initial_state', {})})
 
 
 
-# configurations
 def get_chemotaxis_experiment_config():
+
+    # agent parameters
     n_agents = 1
+    ligand_id = 'glc'
+    initial_ligand = 2.0
+
+    # environment parameters
     initial_location = [0.5, 0.1]
     bounds = [400, 2000]
-    ligand_id = 'glc'
-    initial_ligand = 1.0
 
-    # field data
+    # field parameters
     field_scale = 1.0
-    exponential_base = 1e2
+    exponential_base = 2e2
     field_center = [0.5, 0.0]
 
-    ## minimal chemotaxis agent
+    # agents initial state
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    initial_agents_state = agent_body_config({
+        'bounds': bounds,
+        'agent_ids': agent_ids,
+        'location': initial_location})
+
+    # chemotaxis_minimal compartment config
     chemotaxis_config = {
         'ligand_id': ligand_id,
         'initial_ligand': initial_ligand,
         'external_path': ('global',),
         'agents_path': ('..', '..', 'agents')}
 
-    ## environment
-    # multibody
+    # multibody process config
     multibody_config = {
         'animate': False,
         'jitter_force': 0.0,
         'bounds': bounds}
 
-    # agents
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
-    body_config = {
-        'bounds': bounds,
-        'agent_ids': agent_ids,
-        'location': initial_location}
-    multibody_config.update(agent_body_config(body_config))
-
-    # statics field
+    # static field config
     field_config = {
         'molecules': [ligand_id],
         'gradient': {
@@ -103,13 +103,14 @@ def get_chemotaxis_experiment_config():
         'bounds': bounds}
 
     return {
+        'initial_state': initial_agents_state,
         'agent_ids': agent_ids,
         'chemotaxis': chemotaxis_config,
         'environment': {
             'multibody': multibody_config,
             'field': field_config}}
 
-def run_chemotaxis_experiment(out_dir='out'):
+def simulate_chemotaxis_experiment(out_dir='out'):
     total_time = 360
     timestep = 0.01
 
@@ -155,4 +156,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(out_dir)
+    simulate_chemotaxis_experiment(out_dir)
