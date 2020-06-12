@@ -242,7 +242,10 @@ Glossary
     Topologies
         A topology defines how :term:`stores` are associated to
         :term:`ports`. This tells Vivarium which store to pass to each
-        port of each process during the simulation.
+        port of each process during the simulation. See the constructor
+        documentation for
+        :py:class:`vivarium.core.experiment.Experiment` for a more
+        detailed specification of the form of a topology.
 
     Tree
     Trees
