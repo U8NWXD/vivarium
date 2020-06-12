@@ -235,6 +235,15 @@ Glossary
         :term:`ports`. This tells Vivarium which store to pass to each
         port of each process during the simulation.
 
+    Tree
+    Trees
+        We nest the :term:`stores` of a model to form a hierarchy called
+        a tree. This hierarchy is also a tree in the graph theory sense
+        where each internal node is a store and each leaf node is a
+        :term:`variable`. This tree can be traversed like a directory
+        tree, and stores are identified by paths. For details see the
+        :doc:`tree guide <../guides/tree>`.
+
     Update
     Updates
         An update describes how the model state should change due to the
