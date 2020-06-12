@@ -651,7 +651,6 @@ class Store(object):
         target.apply_defaults()
 
 
-# Compartment
 def generate_derivers(processes, topology):
     deriver_processes = {}
     deriver_topology = {}
