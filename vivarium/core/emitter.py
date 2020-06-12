@@ -111,9 +111,18 @@ class Emitter(object):
     def emit(self, data):
         print(data)
 
+    def get_data(self):
+        return []
+
+    def get_path_timeseries(self):
+        return path_timeseries_from_data(self.get_data())
+
     def get_timeseries(self):
-        raise Exception('emitter does not get timeseries')
-        return {}
+        return timeseries_from_data(self.get_data())
+
+    def get_timeseries_old(self):
+        return timeseries_from_data_old(self.get_data())
+
 
 class NullEmitter(Emitter):
     '''
@@ -121,6 +130,7 @@ class NullEmitter(Emitter):
     '''
     def emit(self, data):
         pass
+
 
 class TimeSeriesEmitter(Emitter):
 
@@ -137,15 +147,6 @@ class TimeSeriesEmitter(Emitter):
 
     def get_data(self):
         return self.saved_data
-
-    def get_path_timeseries(self):
-        return path_timeseries_from_data(self.saved_data)
-
-    def get_timeseries(self):
-        return timeseries_from_data(self.saved_data)
-
-    def get_timeseries_old(self):
-        return timeseries_from_data_old(self.saved_data)
 
 
 class KafkaEmitter(Emitter):
@@ -207,3 +208,12 @@ class DatabaseEmitter(Emitter):
 
         table = getattr(self.db, data_config['table'])
         table.insert_one(data)
+
+    def get_data(self):
+        query = {'experiment_id': self.experiment_id}
+        data = self.client.find(query)
+
+        # TODO -- pull it out of data
+        import ipdb; ipdb.set_trace()
+
+        return data

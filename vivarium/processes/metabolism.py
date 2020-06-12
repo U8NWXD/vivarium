@@ -15,6 +15,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import logging as log
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -164,7 +165,7 @@ class Metabolism(Process):
         internal_state = {mol_id: int(coeff * scaling_factor)
             for mol_id, coeff in composition.items()}
         self.initial_mass = get_fg_from_counts(internal_state, mw)
-        print('metabolism initial mass: {}'.format(self.initial_mass))
+        log.info('metabolism initial mass: {}'.format(self.initial_mass))
 
         ## Get external state from minimal_external fba solution
         external_state = {state_id: 0.0 for state_id in self.fba.external_molecules}
