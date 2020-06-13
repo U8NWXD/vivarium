@@ -62,7 +62,7 @@ def get_chemotaxis_experiment_config():
 
     ligand_id = 'glc'
     initial_ligand = 0.1
-    n_agents = 3
+    n_agents = 1
     bounds = [50, 50]
     n_bins = [50, 50]
 
@@ -106,7 +106,7 @@ def run_chemotaxis_experiment(time=5, out_dir='out'):
 
     # simulate
     settings = {
-        'timestep': 0.1,
+        'timestep': 1,
         'total_time': time,
         'return_raw_data': True}
     data = simulate_experiment(experiment, settings)

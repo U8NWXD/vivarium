@@ -7,6 +7,7 @@ Stochastic Translation
 import copy
 import numpy as np
 import random
+import logging as log
 from arrow import StochasticSystem
 
 from vivarium.core.process import Process
@@ -33,9 +34,6 @@ def random_string(alphabet, length):
         string += random.choice(alphabet)
     return string
 
-#: Whether to print the parameters when initializing
-#: :py:class:`Translation`
-VERBOSE = True
 #: Variable name for unbound ribosomes
 UNBOUND_RIBOSOME_KEY = 'Ribosome'
 
@@ -340,8 +338,7 @@ class Translation(Process):
         self.concentrations_deriver_key = self.or_default(
             initial_parameters, 'concentrations_deriver_key')
 
-        if VERBOSE:
-            print('translation parameters: {}'.format(self.parameters))
+        log.info('translation parameters: {}'.format(self.parameters))
 
         super(Translation, self).__init__(self.ports, self.parameters)
 
