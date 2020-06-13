@@ -8,7 +8,12 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+from vivarium.library.units import units
 from vivarium.core.composition import simulate_compartment_in_experiment
+from vivarium.core.experiment import Compartment
+
+# processes for testing
+from vivarium.processes.convenience_kinetics import ConvenienceKinetics, get_glc_lct_config
 
 
 def get_nested(dict, keys):
@@ -240,3 +245,128 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
+
+
+# testing
+class TestConvienceKinetics(Compartment):
+    defaults = {
+        'boundary_path': ('boundary',),
+        'config':  {
+            'reactions': {
+                # reaction1 is the reaction ID
+                'reaction1': {
+                    'stoichiometry': {
+                        # 1 mol A is consumed per mol reaction
+                        ('internal', 'A'): -1,
+                        ('internal', 'B'): -1,
+                        # 2 mol C are produced per mol reaction
+                        ('internal', 'C'): 2,
+                    },
+                    'is reversible': False,
+                    'catalyzed by': [
+                        ('internal', 'E'),
+                    ],
+                }
+            },
+            'kinetic_parameters': {
+                'reaction1': {
+                    ('internal', 'E'): {
+                        'kcat_f': 1e1,  # kcat for forward reaction
+                        ('internal', 'A'): 1e-1,  # km for A
+                        ('internal', 'B'): 1e-1,  # km for B
+                    },
+                },
+            },
+            'initial_state': {
+                'internal': {
+                    'A': 1e2,
+                    'B': 1e2,
+                    'C': 1e2,
+                    'E': 1e2,
+                },
+                'fluxes': {
+                    'reaction1': 0.0,
+                }
+            },
+            'ports': {
+                'internal': ['A', 'B', 'C', 'E'],
+                'external': [],
+            },
+        }
+    }
+
+    def __init__(self, config=None):
+        self.config = self.defaults['config']
+        self.boundary_path = self.or_default(config, 'boundary_path')
+
+    def generate_processes(self, config):
+        transport = ConvenienceKinetics(config)
+        return {'transport': transport}
+
+    def generate_topology(self, config):
+        external_path = self.boundary_path + ('external',)
+        return {
+            'transport': {
+                'internal': ('cytoplasm',),
+                'external': external_path,
+                'exchange': ('exchange',),
+                'fluxes': ('fluxes',),
+                'global': self.boundary_path,
+            }
+        }
+
+
+def scan_test():
+    # initialize the compartment
+    compartment = TestConvienceKinetics({})
+
+    # parameters to be scanned, and their values
+    scan_params = {
+        ('transport',
+         'kinetic_parameters',
+         'reaction1',
+         ('internal', 'E'),
+         'kcat_f'):
+            get_parameters_logspace(1e-4, 1e4, 6),
+    }
+
+    # metrics are the outputs of a scan
+    metrics = [('fluxes', 'reaction1')]
+
+    # define conditions
+    conditions = [
+        {
+        'internal': {'E': 1e-1}
+        },
+        {
+        'internal': {'E': 1e1}
+        },
+    ]
+
+    # set up scan options
+    timeline = [(5, {})]
+    sim_settings = {
+        'timeline': {
+            'timeline': timeline,
+            'ports': {
+                'external': ('boundary', 'external')}}}
+
+    # run scan
+    scan_config = {
+        'compartment': compartment,
+        'scan_parameters': scan_params,
+        'conditions': conditions,
+        'metrics': metrics,
+        'settings': sim_settings}
+    results = parameter_scan(scan_config)
+    return results
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join('out', 'parameters', 'scan')
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    results = scan_test()
+    plot_scan_results(results, out_dir, 'test_scan')
+    

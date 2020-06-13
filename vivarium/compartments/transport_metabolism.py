@@ -223,6 +223,8 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
 
 # parameters
 def scan_transport_metabolism():
+
+    # initialize the compartment
     compartment = TransportMetabolism({})
 
     # parameters to be scanned, and their values
@@ -289,7 +291,7 @@ def scan_transport_metabolism():
     scan_config = {
         'compartment': compartment,
         'scan_parameters': scan_params,
-        # 'conditions': conditions,
+        'conditions': conditions,
         'metrics': metrics,
         'settings': sim_settings}
     results = parameter_scan(scan_config)
