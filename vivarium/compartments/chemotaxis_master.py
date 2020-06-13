@@ -37,13 +37,18 @@ from vivarium.compartments.flagella_expression import get_flagella_expression_co
 NAME = 'chemotaxis_master'
 
 
+def metabolism_timestep_config(time_step=1):
+    config = default_metabolism_config()
+    config.update({'time_step': time_step})
+    return config
+
 class ChemotaxisMaster(Compartment):
 
     defaults = {
         'boundary_path': ('boundary',),
         'config': {
             'transport': get_glc_lct_config(),
-            'metabolism': default_metabolism_config(),
+            'metabolism': metabolism_timestep_config(10),
             'transcription': get_flagella_expression_config({})['transcription'],
             'translation': get_flagella_expression_config({})['translation'],
             'degradation': get_flagella_expression_config({})['degradation'],
@@ -54,8 +59,6 @@ class ChemotaxisMaster(Compartment):
             'division': {},
         }
     }
-
-
 
     def __init__(self, config=None):
         if config is None or not bool(config):
@@ -183,7 +186,7 @@ def run_chemotaxis_master(out_dir):
     settings = {
         'timestep': 1,
         'total_time': total_time}
-    timeseries =  simulate_compartment_in_experiment(compartment, settings)
+    timeseries = simulate_compartment_in_experiment(compartment, settings)
 
     volume_ts = timeseries['boundary']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
@@ -191,7 +194,7 @@ def run_chemotaxis_master(out_dir):
     # plots
     # simulation output
     plot_settings = {
-        'max_rows': 60,
+        'max_rows': 40,
         'remove_zeros': True,
         'skip_ports': ['reactions', 'exchange', 'prior_state', 'null']}
     plot_simulation_output(timeseries, plot_settings, out_dir)
