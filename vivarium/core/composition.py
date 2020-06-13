@@ -315,8 +315,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'remove_zeros': (bool) if True, timeseries with all zeros get removed
             'remove_flat': (bool) if True, timeseries with all the same value get removed
             'skip_ports': (list) entire ports that won't be plotted
-            'overlay': (dict) with
-                {'bottom_port': 'top_port'}  ports plotted together by matching state_ids, with 'top_port' in red
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
             }
@@ -435,6 +433,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     '''
     agents_key = settings.get('agents_key', 'agents')
     max_rows = settings.get('max_rows', 25)
+    skip_paths = settings.get('skip_paths', [])
     time_vec = list(data.keys())
     timeseries = path_timeseries_from_data(data)
 
@@ -445,6 +444,8 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     first_agent = initial_agents[initial_agent_ids[0]]
     top_ports = list(first_agent.keys())
     port_schema_paths = get_path_list_from_dict(first_agent)
+    # remove skipped paths
+    port_schema_paths = [path for path in port_schema_paths if path not in skip_paths]
 
     # get port columns, assign subplot locations
     port_rows = {port_id: [] for port_id in top_ports}

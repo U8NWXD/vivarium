@@ -200,7 +200,6 @@ class FlagellaActivity(Process):
             flagella.update(new_flagella_states)
 
         # states
-        # TODO -- chemoreceptor?
         CheY = internal['CheY']
         CheY_P = internal['CheY_P']
 

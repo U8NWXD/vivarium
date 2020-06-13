@@ -50,72 +50,91 @@ def make_chemotaxis_experiment(config={}):
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
-        'initial_state': config.get('initial_state', {})
-    })
+        'initial_state': config.get('initial_state', {})})
 
 
 
-# configurations
 def get_chemotaxis_experiment_config():
-    ligand_id = 'glc'
-    initial_ligand = 1e-1
-    bounds = [100, 500]
+    # agent parameters
     n_agents = 1
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    ligand_id = 'glc'
+    initial_ligand = 2.0
 
-    ## minimal chemotaxis agent
+    # environment parameters
+    initial_location = [0.5, 0.1]
+    bounds = [400, 2000]
+
+    # field parameters
+    field_scale = 1.0
+    exponential_base = 2e2
+    field_center = [0.5, 0.0]
+
+    # agents initial state
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    initial_agents_state = agent_body_config({
+        'bounds': bounds,
+        'agent_ids': agent_ids,
+        'location': initial_location})
+
+    # chemotaxis_minimal compartment config
     chemotaxis_config = {
         'ligand_id': ligand_id,
         'initial_ligand': initial_ligand,
         'external_path': ('global',),
         'agents_path': ('..', '..', 'agents')}
 
-    ## environment
-    # multibody
+    # multibody process config
     multibody_config = {
         'animate': False,
-        'jitter_force': 1e-3,
+        'jitter_force': 0.0,
         'bounds': bounds}
 
-    body_config = {
-        'bounds': bounds,
-        'agent_ids': agent_ids,
-        'location': [0.5, 0.1]}
-    multibody_config.update(agent_body_config(body_config))
-
-    # field
+    # static field config
     field_config = {
         'molecules': [ligand_id],
         'gradient': {
             'type': 'exponential',
             'molecules': {
                 ligand_id: {
-                    'center': [0.5, 0.0],
-                    'scale': initial_ligand,
-                    'base': 0.1}}},
+                    'center': field_center,
+                    'scale': field_scale,
+                    'base': exponential_base}}},
         'bounds': bounds}
 
     return {
+        'initial_state': initial_agents_state,
         'agent_ids': agent_ids,
         'chemotaxis': chemotaxis_config,
         'environment': {
             'multibody': multibody_config,
             'field': field_config}}
 
-def run_chemotaxis_experiment(out_dir='out'):
+def simulate_chemotaxis_experiment(out_dir='out'):
+    total_time = 360
+    timestep = 0.01
+
     chemotaxis_config = get_chemotaxis_experiment_config()
     experiment = make_chemotaxis_experiment(chemotaxis_config)
 
     # simulate
     settings = {
-        'total_time': 30,
-        'timestep': 0.01,
+        'total_time': total_time,
+        'timestep': timestep,
         'return_raw_data': True}
     raw_data = simulate_experiment(experiment, settings)
 
     # agents plot
     plot_settings = {
-        'agents_key': 'agents'}
+        'agents_key': 'agents',
+        'skip_paths': [
+            ('boundary', 'mass'),
+            ('boundary', 'length'),
+            ('boundary', 'width'),
+            ('boundary', 'location'),
+            ('cell', 'CheA'),
+            ('cell', 'CheB'),
+            ('cell', 'CheR'),
+        ]}
     plot_agents_multigen(raw_data, plot_settings, out_dir)
 
     # trajectory and motility plots
@@ -136,4 +155,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_chemotaxis_experiment(out_dir)
+    simulate_chemotaxis_experiment(out_dir)

@@ -37,7 +37,8 @@ def make_gradient(gradient, n_bins, size):
     if gradient.get('type') == 'gaussian':
         """
         gaussian gradient multiplies the base concentration of the given molecule
-        by a gaussian function of distance from center and deviation.
+        by a gaussian function of distance from center and deviation. Distance is 
+        scaled by 1/1000 from microns to millimeters.
 
         'gradient': {
             'type': 'gaussian',
@@ -63,7 +64,7 @@ def make_gradient(gradient, n_bins, size):
                     dx = (x_bin + 0.5) * length_x / bins_x - center[0]
                     dy = (y_bin + 0.5) * length_y / bins_y - center[1]
                     distance = np.sqrt(dx ** 2 + dy ** 2)
-                    scale = gaussian(deviation, distance)
+                    scale = gaussian(deviation, (distance/1000))
                     # multiply gradient by scale
                     field[x_bin][y_bin] *= scale
             fields[molecule_id] = field
@@ -72,7 +73,8 @@ def make_gradient(gradient, n_bins, size):
         """
         linear gradient sets a site's concentration (c) of the given molecule
         as a function of distance (d) from center and slope (b), and base 
-        concentration (a):
+        concentration (a). Distance is scaled by 1/1000 from microns to 
+        millimeters.
         
         c = a + b * d
 
@@ -102,7 +104,7 @@ def make_gradient(gradient, n_bins, size):
                     dx = (x_bin + 0.5) * length_x / bins_x - center[0]
                     dy = (y_bin + 0.5) * length_y / bins_y - center[1]
                     distance = np.sqrt(dx ** 2 + dy ** 2)
-                    field[x_bin][y_bin] += base + slope * distance
+                    field[x_bin][y_bin] += base + slope * (distance/1000)
             fields[molecule_id] = field
 
     elif gradient.get('type') == 'exponential':
@@ -110,7 +112,7 @@ def make_gradient(gradient, n_bins, size):
         exponential gradient sets a site's concentration (c) of the given 
         molecule as a function of distance (d) from center, with parameters 
         base (b) and scale (a). Distance is scaled by 1/1000 from microns to 
-        millimeters.
+        millimeters. Note: base > 1 makes concentrations increase from the center.
         
         c=a*b^d.
 
@@ -255,7 +257,7 @@ class DiffusionField(Process):
         fields_schema = {
              'fields': {
                  field: {
-                     '_value': self.initial_state.get(field, self.ones_field()),
+                     '_default': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
