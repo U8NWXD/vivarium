@@ -732,6 +732,9 @@ class Compartment(object):
             'processes': assoc_in({}, path, processes),
             'topology': assoc_in({}, path, topology)}
 
+    def or_default(self, parameters, key):
+        return parameters.get(key, self.defaults[key])
+
     def get_parameters(self):
         network = self.generate({})
         processes = network['processes']
