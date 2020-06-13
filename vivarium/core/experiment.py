@@ -25,7 +25,9 @@ from vivarium.core.process import Process
 from vivarium.core.repository import (
     divider_library,
     updater_library,
-    deriver_library)
+    deriver_library,
+    serializer_library,
+)
 
 
 INFINITY = float('inf')
@@ -116,6 +118,7 @@ class Store(object):
         '_value',
         '_properties',
         '_emit',
+        '_serializer',
         # '_units',
     ])
 
@@ -132,6 +135,7 @@ class Store(object):
         self.emit = False
         self.sources = {}
         self.deleted = False
+        self.serializer = None
 
         self.apply_config(config, source)
 
@@ -171,10 +175,18 @@ class Store(object):
 
         if self.schema_keys & config.keys():
             # self.units = config.get('_units', self.units)
+            if '_serializer' in config:
+                self.serializer = config['_serializer']
+                if isinstance(self.serializer, str):
+                    self.serializer = serializer_library[self.serializer]
+
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
                 if isinstance(self.default, Quantity):
                     self.units = self.default.units
+                if isinstance(self.default, np.ndarray):
+                    self.serializer = self.serializer or serializer_library['numpy']
+
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
                 if isinstance(self.value, Quantity):
@@ -332,7 +344,9 @@ class Store(object):
             return data
         else:
             if self.emit:
-                if isinstance(self.value, Process):
+                if self.serializer:
+                    return self.serializer.serialize(self.value)
+                elif isinstance(self.value, Process):
                     return self.value.pull_data()
                 else:
                     if self.units:
@@ -757,7 +771,7 @@ def timestamp(dt=None):
 class Experiment(object):
     def __init__(self, config):
         self.config = config
-        self.experiment_id = config.get('experiment_id', uuid.uuid1())
+        self.experiment_id = config.get('experiment_id', str(uuid.uuid1()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
@@ -800,9 +814,11 @@ class Experiment(object):
             'time_created': timestamp(),
             'experiment_id': self.experiment_id,
             'description': self.description,
-            'processes': self.processes,
-            'topology': self.topology,
-            'state': self.state.get_config()}
+            # TODO -- serialize processes, topology, state
+            # 'processes': self.processes,
+            # 'topology': self.topology,
+            # 'state': self.state.get_config()
+        }
         emit_config = {
             'table': 'configuration',
             'data': data}

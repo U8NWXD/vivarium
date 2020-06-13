@@ -184,6 +184,7 @@ class DatabaseEmitter(Emitter):
         'database': 'DB_NAME'}
     '''
     client = None
+    default_host = 'localhost:27017'
 
     def __init__(self, config):
         self.config = config
@@ -191,7 +192,7 @@ class DatabaseEmitter(Emitter):
 
         # create singleton instance of mongo client
         if DatabaseEmitter.client is None:
-            DatabaseEmitter.client = MongoClient(config['host'])
+            DatabaseEmitter.client = MongoClient(config.get('host', self.default_host))
 
         self.db = getattr(self.client, config.get('database', 'simulations'))
         self.history = getattr(self.db, 'history')
@@ -205,15 +206,15 @@ class DatabaseEmitter(Emitter):
         data = data_config['data']
         data.update({
             'experiment_id': self.experiment_id})
-
         table = getattr(self.db, data_config['table'])
         table.insert_one(data)
 
     def get_data(self):
         query = {'experiment_id': self.experiment_id}
-        data = self.client.find(query)
-
-        # TODO -- pull it out of data
-        import ipdb; ipdb.set_trace()
-
+        data = self.history.find(query)
+        data = list(data)
+        data = [{
+            key: value for key, value in datum.items()
+            if key not in ['_id', 'experiment_id']}
+            for datum in data]
         return data
