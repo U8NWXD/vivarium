@@ -30,6 +30,9 @@ from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
 from vivarium.processes.membrane_potential import MembranePotential
 from vivarium.processes.division_volume import DivisionVolume
 
+# compartments
+from vivarium.compartments.master import default_metabolism_config
+from vivarium.compartments.flagella_expression import get_flagella_expression_config
 
 NAME = 'chemotaxis_master'
 
@@ -37,21 +40,28 @@ NAME = 'chemotaxis_master'
 class ChemotaxisMaster(Compartment):
 
     defaults = {
-        'boundary_path': ('boundary',)
+        'boundary_path': ('boundary',),
+        'config': {
+            'transport': get_glc_lct_config(),
+            'metabolism': default_metabolism_config(),
+            'transcription': get_flagella_expression_config({})['transcription'],
+            'translation': get_flagella_expression_config({})['translation'],
+            'degradation': get_flagella_expression_config({})['degradation'],
+            'complexation': get_flagella_expression_config({})['complexation'],
+            'receptor': {'ligand': 'MeAsp'},
+            'flagella': {'flagella': 5},
+            'PMF': {},
+            'division': {},
+        }
     }
 
-    def __init__(self, config):
+
+
+    def __init__(self, config=None):
+        if config is None or not bool(config):
+            config = self.defaults['config']
         self.config = config
         self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
-
-        if 'transport' not in self.config:
-            self.config['transport'] = {}
-        self.config['transport']['global_deriver_config'] = {
-            'type': 'globals',
-            'source_port': self.boundary_path,
-            'derived_port': self.boundary_path,
-            'global_port': self.boundary_path,
-            'keys': []}
 
     def generate_processes(self, config):
         # Transport
@@ -60,28 +70,26 @@ class ChemotaxisMaster(Compartment):
         # Metabolism
         # add target fluxes from transport
         target_fluxes = transport.kinetic_rate_laws.reaction_ids
-        if 'metabolism' not in config:
-            config['metabolism'] = {}
         config['metabolism']['constrained_reaction_ids'] = target_fluxes
         metabolism = Metabolism(config['metabolism'])
 
         # flagella expression
-        transcription = Transcription(config.get('transcription'))
-        translation = Translation(config.get('translation'))
-        degradation = RnaDegradation(config.get('degradation'))
-        complexation = Complexation(config.get('complexation'))
+        transcription = Transcription(config['transcription'])
+        translation = Translation(config['translation'])
+        degradation = RnaDegradation(config['degradation'])
+        complexation = Complexation(config['complexation'])
 
         # chemotaxis -- flagella activity, receptor activity, and PMF
-        receptor = ReceptorCluster(config.get('receptor', ))
-        flagella = FlagellaActivity(config.get('flagella'))
-        PMF = MembranePotential(config.get('PMF'))
+        receptor = ReceptorCluster(config['receptor'])
+        flagella = FlagellaActivity(config['flagella'])
+        PMF = MembranePotential(config['PMF'])
 
         # Division
         # get initial volume from metabolism
         if 'division' not in config:
             config['division'] = {}
         config['division']['initial_state'] = metabolism.initial_state
-        division = DivisionVolume(config.get('division'))
+        division = DivisionVolume(config['division'])
 
         return {
             'PMF': PMF,
@@ -159,7 +167,9 @@ class ChemotaxisMaster(Compartment):
                 'global': self.boundary_path}}
 
 def run_chemotaxis_master(out_dir):
-    total_time = 5
+    total_time = 10
+
+    # make the compartment
     compartment = ChemotaxisMaster({})
 
     # save the topology network
@@ -169,18 +179,24 @@ def run_chemotaxis_master(out_dir):
         settings,
         out_dir)
 
-    timeseries = test_chemotaxis_master(total_time)
+    # run an experinet
+    settings = {
+        'timestep': 1,
+        'total_time': total_time}
+    timeseries =  simulate_compartment_in_experiment(compartment, settings)
+
     volume_ts = timeseries['boundary']['volume']
     print('growth: {}'.format(volume_ts[-1]/volume_ts[0]))
 
     # plots
+    # simulation output
     plot_settings = {
         'max_rows': 60,
         'remove_zeros': True,
-        # 'overlay': {'reactions': 'flux_bounds'},
-        'skip_ports': ['prior_state', 'null']}
+        'skip_ports': ['reactions', 'exchange', 'prior_state', 'null']}
     plot_simulation_output(timeseries, plot_settings, out_dir)
 
+    # gene expression plot
     gene_exp_plot_config = {
         'name': 'flagella_expression',
         'ports': {
@@ -193,12 +209,7 @@ def run_chemotaxis_master(out_dir):
         out_dir)
 
 def test_chemotaxis_master(total_time=10):
-    compartment_config = {
-        'external_path': ('external',),
-        'exchange_path': ('exchange',),
-        'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
-    compartment = ChemotaxisMaster(compartment_config)
+    compartment = ChemotaxisMaster({})
 
     settings = {
         'timestep': 1,
