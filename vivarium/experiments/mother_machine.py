@@ -29,7 +29,7 @@ from vivarium.plots.multibody_physics import plot_snapshots
 def mother_machine_experiment(config):
     # configure the experiment
     agent_ids = config.get('agent_ids', [])
-    emitter = config.get('emitter', {'type': 'database'})
+    emitter = config.get('emitter', {'type': 'timeseries'})
 
     # get the environment
     environment = Lattice(config.get('environment', {}))
@@ -143,4 +143,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(100, out_dir)
+    run_mother_machine(500, out_dir)
