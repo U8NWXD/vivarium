@@ -68,13 +68,6 @@ def get_chemotaxis_experiment_config():
 
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
-    ## minimal chemotaxis agent
-    chemotaxis_config = {
-        'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
-
     ## environment
     # multibody
     multibody_config = {
@@ -102,7 +95,7 @@ def get_chemotaxis_experiment_config():
 
     return {
         'agent_ids': agent_ids,
-        'chemotaxis': chemotaxis_config,
+        'chemotaxis': {},
         'environment': {
             'multibody': multibody_config,
             'diffusion': diffusion_config}}

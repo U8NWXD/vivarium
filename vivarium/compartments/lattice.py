@@ -30,37 +30,33 @@ class Lattice(Compartment):
     """
 
     defaults = {
-        'multibody': {
-            'bounds': [10, 10],
-            'size': [10, 10],
-            'agents': {}
-        },
-        'diffusion': {
-            'molecules': ['glc'],
-            'n_bins': [10, 10],
-            'size': [10, 10],
-            'depth': 3000.0,
-            'diffusion': 1e-2,
+        'config': {
+            'multibody': {
+                'bounds': [10, 10],
+                'size': [10, 10],
+                'agents': {}
+            },
+            'diffusion': {
+                'molecules': ['glc'],
+                'n_bins': [10, 10],
+                'size': [10, 10],
+                'depth': 3000.0,
+                'diffusion': 1e-2,
+            }
         }
     }
 
-    def __init__(self, config):
-        self.multibody_config = config.get('multibody', self.defaults['multibody'])
-        self.diffusion_config = config.get('diffusion', self.defaults['diffusion'])
+    def __init__(self, config=None):
+        if config is None or not bool(config):
+            config = self.defaults['config']
+        self.config = config
 
-    def generate_processes(self, config={}):
-        multibody = Multibody(config.get(
-            'multibody',
-            self.multibody_config))
-        diffusion = DiffusionField(config.get(
-            'diffusion_field',
-            self.diffusion_config))
-
+    def generate_processes(self, config):
         return {
-            'multibody': multibody,
-            'diffusion': diffusion}
+            'multibody': Multibody(config['multibody']),
+            'diffusion': DiffusionField(config['diffusion'])}
 
-    def generate_topology(self, config={}):
+    def generate_topology(self, config):
         return {
             'multibody': {
                 'agents': ('agents',)},
