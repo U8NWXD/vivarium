@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import copy
 import random
 
+import numpy as np
 
 from vivarium.library.dict_utils import deep_merge
 from vivarium.library.units import Quantity
@@ -88,4 +89,24 @@ deriver_library = {
     'counts_to_mmol': DeriveConcentrations,
     'mass': TreeMass,
     'globals': DeriveGlobals,
+}
+
+
+# Serializers
+class Serializer(object):
+    def serialize(self, data):
+        return data
+
+    def deserialize(self, data):
+        return data
+
+class NumpySerializer(Serializer):
+    def serialize(self, data):
+        return data.tolist()
+
+    def deserialize(self, data):
+        return np.array(data)
+
+serializer_library = {
+    'numpy': NumpySerializer(),
 }

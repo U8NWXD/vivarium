@@ -55,7 +55,6 @@ def make_chemotaxis_experiment(config={}):
 
 
 def get_chemotaxis_experiment_config():
-
     # agent parameters
     n_agents = 1
     ligand_id = 'glc'

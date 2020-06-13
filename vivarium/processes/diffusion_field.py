@@ -257,7 +257,7 @@ class DiffusionField(Process):
         fields_schema = {
              'fields': {
                  field: {
-                     '_value': self.initial_state.get(field, self.ones_field()),
+                     '_default': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
