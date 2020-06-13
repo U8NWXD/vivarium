@@ -211,6 +211,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
             ax.scatter(parameter_indices, param_data, label=condition)
 
         ax.legend(title='condition', bbox_to_anchor=(1.2, 1.0))
+        ax.set_yscale('log')
         ax.set_ylabel(metric)
         ax.set_xticks(parameter_indices)
         ax.set_xlabel('parameter set #')
@@ -252,46 +253,48 @@ class TestConvienceKinetics(Compartment):
     defaults = {
         'boundary_path': ('boundary',),
         'config':  {
-            'reactions': {
-                # reaction1 is the reaction ID
-                'reaction1': {
-                    'stoichiometry': {
-                        # 1 mol A is consumed per mol reaction
-                        ('internal', 'A'): -1,
-                        ('internal', 'B'): -1,
-                        # 2 mol C are produced per mol reaction
-                        ('internal', 'C'): 2,
-                    },
-                    'is reversible': False,
-                    'catalyzed by': [
-                        ('internal', 'E'),
-                    ],
-                }
-            },
-            'kinetic_parameters': {
-                'reaction1': {
-                    ('internal', 'E'): {
-                        'kcat_f': 1e1,  # kcat for forward reaction
-                        ('internal', 'A'): 1e-1,  # km for A
-                        ('internal', 'B'): 1e-1,  # km for B
+            'process': {
+                'reactions': {
+                    # reaction1 is the reaction ID
+                    'reaction1': {
+                        'stoichiometry': {
+                            # 1 mol A is consumed per mol reaction
+                            ('internal', 'A'): -1,
+                            ('internal', 'B'): -1,
+                            # 2 mol C are produced per mol reaction
+                            ('internal', 'C'): 2,
+                        },
+                        'is reversible': False,
+                        'catalyzed by': [
+                            ('internal', 'E'),
+                        ],
+                    }
+                },
+                'kinetic_parameters': {
+                    'reaction1': {
+                        ('internal', 'E'): {
+                            'kcat_f': 1e1,  # kcat for forward reaction
+                            ('internal', 'A'): 1e-1,  # km for A
+                            ('internal', 'B'): 1e-1,  # km for B
+                        },
                     },
                 },
-            },
-            'initial_state': {
-                'internal': {
-                    'A': 1e2,
-                    'B': 1e2,
-                    'C': 1e2,
-                    'E': 1e2,
+                'initial_state': {
+                    'internal': {
+                        'A': 1e2,
+                        'B': 1e2,
+                        'C': 1e2,
+                        'E': 1e2,
+                    },
+                    'fluxes': {
+                        'reaction1': 0.0,
+                    }
                 },
-                'fluxes': {
-                    'reaction1': 0.0,
-                }
-            },
-            'ports': {
-                'internal': ['A', 'B', 'C', 'E'],
-                'external': [],
-            },
+                'ports': {
+                    'internal': ['A', 'B', 'C', 'E'],
+                    'external': [],
+                },
+            }
         }
     }
 
@@ -300,14 +303,14 @@ class TestConvienceKinetics(Compartment):
         self.boundary_path = self.or_default(config, 'boundary_path')
 
     def generate_processes(self, config):
-        transport = ConvenienceKinetics(config)
-        return {'transport': transport}
+        process = ConvenienceKinetics(config['process'])
+        return {'process': process}
 
     def generate_topology(self, config):
         external_path = self.boundary_path + ('external',)
         return {
-            'transport': {
-                'internal': ('cytoplasm',),
+            'process': {
+                'internal': ('internal',),
                 'external': external_path,
                 'exchange': ('exchange',),
                 'fluxes': ('fluxes',),
@@ -322,12 +325,12 @@ def scan_test():
 
     # parameters to be scanned, and their values
     scan_params = {
-        ('transport',
+        ('process',
          'kinetic_parameters',
          'reaction1',
          ('internal', 'E'),
          'kcat_f'):
-            get_parameters_logspace(1e-4, 1e4, 6),
+            get_parameters_logspace(1e0, 1e5, 6),
     }
 
     # metrics are the outputs of a scan
@@ -335,12 +338,9 @@ def scan_test():
 
     # define conditions
     conditions = [
-        {
-        'internal': {'E': 1e-1}
-        },
-        {
-        'internal': {'E': 1e1}
-        },
+        {'internal': {'E': 1e0}},
+        {'internal': {'E': 1e1}},
+        {'internal': {'E': 1e2}},
     ]
 
     # set up scan options
@@ -369,4 +369,3 @@ if __name__ == '__main__':
 
     results = scan_test()
     plot_scan_results(results, out_dir, 'test_scan')
-    
