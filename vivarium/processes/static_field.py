@@ -26,11 +26,9 @@ class StaticField(Deriver):
 
     defaults = {
         'molecules': ['glc'],
-        'initial_state': {},
         'n_bins': [10, 10],
         'bounds': [10, 10],
         'gradient': {},
-        'agents': {},
         'boundary_port': 'boundary',
         'external_key': 'external',
     }
@@ -42,8 +40,6 @@ class StaticField(Deriver):
         # initial state
         self.molecules = self.or_default(
             initial_parameters, 'molecules')
-        self.initial_state = self.or_default(
-            initial_parameters, 'initial_state')
 
         # parameters
         self.bounds = self.or_default(
@@ -54,10 +50,8 @@ class StaticField(Deriver):
             initial_parameters, 'external_key')
 
         # initialize gradient fields
-        self.gradient = initial_parameters.get('gradient', self.defaults['gradient'])
-
-        # agents
-        self.initial_agents = initial_parameters.get('agents', self.defaults['agents'])
+        self.gradient = self.or_default(
+            initial_parameters, 'gradient')
 
         # make ports
         ports = {'agents': ['*']}
@@ -79,9 +73,8 @@ class StaticField(Deriver):
             '*': {
                 self.boundary_port: {
                     'location': {
-                        '_default': [0.5, 0.5],
+                        '_default': [0.5 * bound for bound in self.bounds],
                         '_updater': 'set'},
-                    # 'exchange': local_concentration_schema,
                     self.external_key: local_concentration_schema}}}
         schema['agents'] = glob_schema
         return schema
@@ -102,14 +95,12 @@ class StaticField(Deriver):
     def get_concentration(self, location):
         concentrations = {}
         if self.gradient['type'] == 'gaussian':
-            import ipdb;
-            ipdb.set_trace()
             for molecule_id, specs in self.gradient['molecules'].items():
                 deviation = specs['deviation']
                 dx = location[0] - specs['center'][0] * self.bounds[0]
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
-                concentrations[molecule_id] = gaussian(deviation, distance)
+                concentrations[molecule_id] = gaussian(deviation, (distance/1000))
 
         elif self.gradient['type'] == 'linear':
             for molecule_id, specs in self.gradient['molecules'].items():
@@ -118,7 +109,7 @@ class StaticField(Deriver):
                 dx = location[0] - specs['center'][0] * self.bounds[0]
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
-                concentrations[molecule_id] = base + slope * distance
+                concentrations[molecule_id] = base + slope * (distance/1000)
 
         elif self.gradient['type'] == 'exponential':
             for molecule_id, specs in self.gradient['molecules'].items():
@@ -128,7 +119,6 @@ class StaticField(Deriver):
                 dy = location[1] - specs['center'][1] * self.bounds[1]
                 distance = np.sqrt(dx ** 2 + dy ** 2)
                 concentrations[molecule_id] = scale * base ** (distance/1000)
-
         return concentrations
 
 

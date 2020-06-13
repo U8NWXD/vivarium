@@ -730,6 +730,7 @@ class Compartment(object):
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
+    state.apply_subschemas()
     state.set_value(initial_state)
     state.apply_defaults()
     return state
@@ -776,7 +777,7 @@ class Experiment(object):
         # run the derivers
         self.send_updates([])
 
-        # run emitter
+        # run the emitter
         self.emit_configuration()
         self.emit_data()
 
@@ -792,7 +793,7 @@ class Experiment(object):
         log.info(pf(self.state.get_value()))
 
         log.info('\nCONFIG:')
-        log.info(pf(self.state.get_config()))
+        log.info(pf(self.state.get_config(True)))
 
     def emit_configuration(self):
         data = {
