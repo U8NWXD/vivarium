@@ -146,8 +146,31 @@ def simulate_chemotaxis_experiment(config={}):
     return simulate_experiment(experiment, settings)
 
 
-def plot_chemotaxis_experiment(data, field_config={}, out_dir='out', filename='chemotaxis'):
-    # agents plot
+def run_minimal():
+    filename = 'minimal'
+
+    n_agents = 2
+    total_time = 360
+    timestep = 0.1
+
+    ## configure and run the experiment
+    agents_config = get_chemotaxis_config({
+        'n_agents': n_agents,
+        'agent_type': ChemotaxisMinimal,
+        'agent_config': {}})
+    environment_config = get_environment_config()
+    config = {
+        'agents': agents_config,
+        'environment': environment_config,
+        'initial_state': agents_config['initial_state'],
+        'simulation': {
+            'total_time': total_time,
+            'timestep': timestep}}
+    # run experiment and get the data
+    data = simulate_chemotaxis_experiment(config)
+
+    ## plots
+    # multigen agents plot
     plot_settings = {
         'agents_key': 'agents',
         'max_rows': 30,
@@ -159,15 +182,60 @@ def plot_chemotaxis_experiment(data, field_config={}, out_dir='out', filename='c
         ]}
     plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
 
-    # trajectory and motility plots
-    # get a sample field
-    field = make_field(field_config)
+    # trajectory and motility
     agents_timeseries = timeseries_from_data(data)
+    field_config = config['environment']['field']
+    field = make_field(field_config)
     trajectory_config = {
         'bounds': field_config['bounds'],
         'field': field}
 
+    plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
     plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
+
+
+def run_master():
+    filename = 'master'
+    n_agents = 1
+    total_time = 30
+    timestep = 0.1
+
+    # configure and run the experiment
+    agents_config = get_chemotaxis_config({
+        'n_agents': n_agents,
+        'agent_type': ChemotaxisMaster,
+        'agent_config': {}})
+    environment_config = get_environment_config()
+    config = {
+        'agents': agents_config,
+        'environment': environment_config,
+        'initial_state': agents_config['initial_state'],
+        'simulation': {
+            'total_time': total_time,
+            'timestep': timestep}}
+    data = simulate_chemotaxis_experiment(config)
+
+    ## plots
+    # multigen agents plot
+    plot_settings = {
+        'agents_key': 'agents',
+        'max_rows': 30,
+        'skip_paths': [
+            ('boundary', 'mass'),
+            ('boundary', 'length'),
+            ('boundary', 'width'),
+            ('boundary', 'location'),
+        ]}
+    plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
+
+    # trajectory
+    agents_timeseries = timeseries_from_data(data)
+    field_config = config['environment']['field']
+    field = make_field(field_config)
+    trajectory_config = {
+        'bounds': field_config['bounds'],
+        'field': field}
+
     plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
 
 
@@ -183,50 +251,7 @@ if __name__ == '__main__':
     no_args = (len(sys.argv) == 1)
 
     if args.minimal or no_args:
-        n_agents = 2
-        total_time = 360
-        timestep = 0.1
-
-        # configure and run the experiment
-        agents_config = get_chemotaxis_config({
-                'n_agents': n_agents,
-                'agent_type': ChemotaxisMinimal,
-                'agent_config': {}})
-        environment_config = get_environment_config()
-        config = {
-            'agents': agents_config,
-            'environment': environment_config,
-            'initial_state': agents_config['initial_state'],
-            'simulation': {
-                'total_time': total_time,
-                'timestep': timestep}}
-
-        data = simulate_chemotaxis_experiment(config)
-
-        # plot
-        field_config = config['environment']['field']
-        plot_chemotaxis_experiment(data, field_config, out_dir, 'minimal')
-
+        run_minimal()
     if args.master:
-        n_agents = 1
-        total_time = 10
-        timestep = 0.1
-
-        # configure and run the experiment
-        agents_config = get_chemotaxis_config({
-                'n_agents': n_agents,
-                'agent_type': ChemotaxisMaster,
-                'agent_config': {}})
-        environment_config = get_environment_config()
-        config = {
-            'agents': agents_config,
-            'environment': environment_config,
-            'initial_state': agents_config['initial_state'],
-            'simulation': {
-                'total_time': total_time,
-                'timestep': timestep}}
-        data = simulate_chemotaxis_experiment(config)
-
-        # plot
-        field_config = config['environment']['field']
-        plot_chemotaxis_experiment(data, field_config, out_dir, 'master')
+        run_master()
+        
