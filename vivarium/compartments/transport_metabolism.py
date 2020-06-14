@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 import os
 import argparse
 
-import matplotlib.pyplot as plt
-
+from vivarium.library.dict_utils import get_value_from_path
+from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
@@ -17,6 +17,7 @@ from vivarium.parameters.parameters import (
     plot_scan_results)
 
 # processes
+from vivarium.plots.transport_metabolism import plot_diauxic_shift
 from vivarium.processes.meta_division import MetaDivision
 from vivarium.processes.metabolism import (
     Metabolism,
@@ -111,7 +112,7 @@ class TransportMetabolism(Compartment):
         division_config = dict(
             config.get('division', {}),
             daughter_path=self.daughter_path,
-            cell_id=agent_id,
+            agent_id=agent_id,
             compartment=self)
         # initial_mass = metabolism.initial_mass
         # division_config.update({'constrained_reaction_ids': target_fluxes})
@@ -126,26 +127,29 @@ class TransportMetabolism(Compartment):
         }
 
     def generate_topology(self, config):
+        exchange_path =  self.boundary_path + ('exchange',)
+        external_path = self.boundary_path + ('external',)
+        # properties_path = self.boundary_path + ('properties',)
         return {
             'transport': {
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
                 'global': self.boundary_path,
             },
             'metabolism': {
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'reactions': ('reactions',),
-                'exchange': ('exchange',),
+                'exchange': exchange_path,
                 'flux_bounds': ('flux_bounds',),
                 'global': self.boundary_path,
             },
             'expression': {
                 'counts': ('cytoplasm_counts',),
                 'internal': ('cytoplasm',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'global': self.boundary_path,
             },
             'division': {
@@ -156,24 +160,53 @@ class TransportMetabolism(Compartment):
 
 
 # simulate
-def test_txp_mtb_ge(total_time=10):
-    # configure the compartment
-    compartment_config = {
-        'external_path': ('external',),
-        'exchange_path': ('exchange',),
-        'global_path': ('global',),
-        'agents_path': ('agents',)}
-    compartment = TransportMetabolism(compartment_config)
+default_compartment_config = {
+    'external_path': ('external',),
+    'exchange_path': ('exchange',),
+    'global_path': ('global',),
+    'agents_path': ('agents',)}
 
-    # simulate
-    settings = {
+def test_txp_mtb_ge():
+    default_test_setting = {
+        'environment': {
+            'volume': 1e-12 * units.L,
+            'ports': {
+                'exchange': ('boundary', 'exchange',),
+                'external': ('boundary', 'external'),
+            }},
         'timestep': 1,
-        'total_time': total_time}
-    return simulate_compartment_in_experiment(compartment, settings)
+        'total_time': 10}
 
-def simulate_txp_mtb_ge(config={}, out_dir='out'):
+    compartment = TransportMetabolism(default_compartment_config)
+    return simulate_compartment_in_experiment(compartment, default_test_setting)
+
+def simulate_txp_mtb_ge(config=default_compartment_config, out_dir='out'):
+
+    end_time = 200  # 2520 sec (42 min) is the expected doubling time in minimal media
+    timeline = [
+        (0, {
+            ('external', 'glc__D_e'): 3.0,
+            ('external', 'lcts_e'): 3.0,
+        }),
+        (end_time, {})]
+
+    sim_settings = {
+        'environment': {
+            'volume': 1e-14 * units.L,
+            'ports': {
+                'external': ('boundary', 'external'),
+                'exchange': ('boundary', 'exchange'),
+            }},
+        'timeline': {
+            'timeline': timeline,
+            'ports': {
+                'external': ('boundary', 'external')}}}
+
     # run simulation
-    timeseries = test_txp_mtb_ge(20)  # 2520 sec (42 min) is the expected doubling time in minimal media
+    compartment = TransportMetabolism(default_compartment_config)
+    timeseries = simulate_compartment_in_experiment(compartment, sim_settings)
+
+    # calculate growth
     volume_ts = timeseries['boundary']['volume']
     try:
         print('growth: {}'.format(volume_ts[-1] / volume_ts[0]))
@@ -183,10 +216,10 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
     ## plot
     # diauxic plot
     settings = {
-        'internal_port': 'cytoplasm',
-        'external_port': 'boundary',
-        'global_port': 'boundary',
-        'exchange_port': 'exchange',
+        'internal_path': ('cytoplasm',),
+        'external_path': ('boundary', 'external'),
+        'global_path': ('boundary',),
+        'exchange_path': ('boundary', 'exchange'),
         'environment_volume': 1e-13,  # L
         # 'timeline': timeline
     }
@@ -196,92 +229,9 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
     plot_settings = {
         'max_rows': 30,
         'remove_zeros': True,
-        'overlay': {
-            'reactions': 'flux_bounds'},
-        'skip_ports': ['null', 'exchange'],
-        'show_state': [
-            ('reactions', 'EX_glc__D_e'),
-            ('reactions', 'EX_lcts_e')]}
+        'skip_ports': ['null', 'reactions'],
+    }
     plot_simulation_output(timeseries, plot_settings, out_dir)
-
-# plots
-def plot_diauxic_shift(timeseries, settings={}, out_dir='out'):
-    external_port = settings.get('external_port', 'environment')
-    internal_port = settings.get('internal_port', 'cytoplasm')
-    internal_counts_port = settings.get('internal_counts_port', 'cytoplasm_counts')
-    reactions_port = settings.get('reactions_port', 'reactions')
-    global_port = settings.get('global_port', 'global')
-
-    time = [t/60 for t in timeseries['time']]  # convert to minutes
-    environment = timeseries[external_port]
-    cell = timeseries[internal_port]
-    cell_counts = timeseries[internal_counts_port]
-    reactions = timeseries[reactions_port]
-    globals = timeseries[global_port]
-
-    # environment
-    lactose = environment['lcts_e']
-    glucose = environment['glc__D_e']
-
-    # internal
-    LacY = cell['LacY']
-    lacy_RNA = cell['lacy_RNA']
-    LacY_counts = cell_counts['LacY']
-    lacy_RNA_counts = cell_counts['lacy_RNA']
-
-    # reactions
-    glc_exchange = reactions['EX_glc__D_e']
-    lac_exchange = reactions['EX_lcts_e']
-
-    # global
-    mass = globals['mass']
-
-    # settings
-    environment_volume = settings.get('environment_volume')
-
-    n_cols = 2
-    n_rows = 4
-
-    # make figure and plot
-    fig = plt.figure(figsize=(n_cols * 6, n_rows * 1.5))
-    grid = plt.GridSpec(n_rows, n_cols)
-
-    ax1 = fig.add_subplot(grid[0, 0])  # grid is (row, column)
-    ax1.plot(time, glucose, label='glucose')
-    ax1.plot(time, lactose, label='lactose')
-    set_axes(ax1)
-    ax1.title.set_text('environment, volume = {} L'.format(environment_volume))
-    ax1.set_ylabel('(mM)')
-    ax1.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-
-    ax2 = fig.add_subplot(grid[1, 0])  # grid is (row, column)
-    ax2.plot(time, lacy_RNA, label='lacy_RNA')
-    ax2.plot(time, LacY, label='LacY')
-    set_axes(ax2)
-    ax2.title.set_text('internal')
-    ax2.set_ylabel('(mM)')
-    ax2.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-
-    ax3 = fig.add_subplot(grid[2, 0])  # grid is (row, column)
-    ax3.plot(time, mass, label='mass')
-    set_axes(ax3, True)
-    ax3.title.set_text('global')
-    ax3.set_ylabel('(fg)')
-    ax3.set_xlabel('time (min)')
-    ax3.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-
-    ax4 = fig.add_subplot(grid[0, 1])  # grid is (row, column)
-    ax4.plot(time, glc_exchange, label='glucose exchange')
-    ax4.plot(time, lac_exchange, label='lactose exchange')
-    set_axes(ax4, True)
-    ax4.title.set_text('flux'.format(environment_volume))
-    ax4.set_xlabel('time (min)')
-    ax4.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-
-    # save figure
-    fig_path = os.path.join(out_dir, 'diauxic_shift')
-    plt.subplots_adjust(wspace=0.6, hspace=0.5)
-    plt.savefig(fig_path, bbox_inches='tight')
 
 # parameters
 def scan_txp_mtb_ge():

@@ -188,7 +188,7 @@ def test_mem_potential():
         (100, {('external', 'Na'): 2}),
         (500, {})]
 
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(mp, settings)
 
 

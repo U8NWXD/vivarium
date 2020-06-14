@@ -380,7 +380,7 @@ def get_flagella_expression():
 
 def test_expression(config=get_lacy_config(), timeline=[(100, {})]):
     expression = ODE_expression(config)
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(expression, settings)
 
 

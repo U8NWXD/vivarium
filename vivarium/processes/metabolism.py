@@ -15,6 +15,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import logging as log
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,6 +41,7 @@ from vivarium.library.units import units
 from vivarium.library.cobra_fba import CobraFBA
 from vivarium.library.dict_utils import tuplify_port_dicts
 from vivarium.library.regulation_logic import build_rule
+from vivarium.plots.metabolism import plot_exchanges, BiGG_energy_carriers, energy_synthesis_plot
 from vivarium.processes.derive_globals import AVOGADRO
 
 
@@ -163,7 +165,7 @@ class Metabolism(Process):
         internal_state = {mol_id: int(coeff * scaling_factor)
             for mol_id, coeff in composition.items()}
         self.initial_mass = get_fg_from_counts(internal_state, mw)
-        print('metabolism initial mass: {}'.format(self.initial_mass))
+        log.info('metabolism initial mass: {}'.format(self.initial_mass))
 
         ## Get external state from minimal_external fba solution
         external_state = {state_id: 0.0 for state_id in self.fba.external_molecules}
@@ -204,6 +206,7 @@ class Metabolism(Process):
         emit = {
             'internal': self.internal_state_ids,
             'external': self.fba.external_molecules,
+            'exchange': self.fba.external_molecules,
             'reactions': self.reaction_ids,
             'flux_bounds': self.constrained_reaction_ids,
             'global': ['mass']}
@@ -256,7 +259,7 @@ class Metabolism(Process):
         ## get the state
         external_state = states['external']
         constrained_reaction_bounds = states['flux_bounds']  # (units.mmol / units.L / units.s)
-        mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
+        mmol_to_counts = states['global']['mmol_to_counts']
 
         ## get flux constraints
         # exchange_constraints based on external availability
@@ -418,11 +421,6 @@ def make_kinetic_rate(mol_id, vmax, km=0.0):
         return flux
     return rate
 
-def make_random_rate(mu=0, sigma=1):
-    def rate(state):
-        return np.random.normal(loc=mu, scale=sigma)
-    return rate
-
 def toy_transport():
     # process-like function for transport kinetics, used by simulate_metabolism
     transport_kinetics = {
@@ -465,153 +463,11 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     nodes, edges = make_network(stoichiometry, info)
     save_network(nodes, edges, out_dir)
 
-def run_metabolism(metabolism, sim_settings):
-    environment_volume = sim_settings.get('environment_volume', 1e-12)
-    end_time = sim_settings.get('end_time', 10)
-    timestep = sim_settings.get('timestep', 1)
-    timeline = sim_settings.get('timeline')
-
-    settings = {
-        'environment': {
-            'volume': environment_volume,
-            'states': metabolism.ports['external'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
-        'timestep': timestep}
-    if timeline:
-        settings.update({'timeline': timeline})
-    else:
-        settings.update({'total_time': end_time})
-
+def run_metabolism(metabolism, settings=None):
+    if not settings:
+        settings = {
+            'end_time': 10}
     return simulate_process_in_experiment(metabolism, settings)
-
-# plots
-def plot_exchanges(timeseries, sim_config, out_dir='out', filename='exchanges'):
-    # plot focused on exchanges with the environment
-
-    nAvogadro = AVOGADRO
-    env_volume = sim_config['environment_volume']
-    timeline = sim_config['timeline']  # TODO -- add tickmarks for timeline events
-    external_ts = timeseries['external']
-    internal_ts = timeseries['internal']
-    global_ts = timeseries['global']
-
-    # pull volume and mass out from internal
-    volume = global_ts.pop('volume') * units.fL
-    mass = global_ts.pop('mass')
-
-    # conversion factor
-    mmol_to_counts = [nAvogadro.to('1/mmol') * vol.to('L') for vol in volume]
-
-    # plot results
-    cols = 1
-    rows = 3
-    plt.figure(figsize=(cols * 6, rows * 1.5))
-
-    # define subplots
-    ax1 = plt.subplot(rows, cols, 1)
-    ax2 = plt.subplot(rows, cols, 2)
-    ax3 = plt.subplot(rows, cols, 3)
-
-    # plot external state
-    for mol_id, series in external_ts.items():
-        ax1.plot(series, label=mol_id)
-    ax1.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), ncol=2)
-    ax1.title.set_text('environment: {} (L)'.format(env_volume))
-    ax1.set_ylabel('concentrations (logs)')
-    ax1.set_yscale('log')
-
-    # plot internal counts
-    for mol_id, counts_series in internal_ts.items():
-        # conc_series = [(count / conversion).to('mmol/L').magnitude
-        #    for count, conversion in zip(counts_series, mmol_to_counts)]
-        ax2.plot(counts_series, label=mol_id)
-
-    # # plot internal concentrations
-    # for mol_id, counts_series in internal_ts.items():
-    #     conc_series = [(count / conversion).to('mmol/L').magnitude
-    #        for count, conversion in zip(counts_series, mmol_to_counts)]
-    #     ax2.plot(conc_series, label=mol_id)
-
-    # ax2.legend(loc='center left', bbox_to_anchor=(1.6, 0.5), ncol=3)
-    # ax2.title.set_text('internal metabolites')
-    # ax2.set_ylabel('conc (mM)')
-
-    ax2.legend(loc='center left', bbox_to_anchor=(1.6, 0.5), ncol=3)
-    ax2.title.set_text('internal metabolites')
-    ax2.set_ylabel('delta counts (log)')
-    ax2.set_yscale('log')
-
-    # plot mass
-    ax3.plot(mass, label='mass')
-    ax3.set_ylabel('mass (fg)')
-
-    # adjust axes
-    for axis in [ax1, ax2, ax3]:
-        axis.spines['right'].set_visible(False)
-        axis.spines['top'].set_visible(False)
-
-    ax1.set_xticklabels([])
-    ax2.set_xticklabels([])
-    ax3.set_xlabel('time (s)', fontsize=12)
-
-    # save figure
-    fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)
-    plt.savefig(fig_path, bbox_inches='tight')
-
-# energy carriers in BiGG models
-BiGG_energy_carriers = [
-    'atp_c',
-    'gtp_c',
-    'nad_c',
-    'nadp_c',
-    'fad_c',
-]
-
-def energy_synthesis_plot(timeseries, settings, out_dir, figname='energy_use'):
-    # plot the synthesis of energy carriers in BiGG model output
-
-    energy_reactions = settings.get('reactions', {})
-    saved_reactions = timeseries['reactions']
-    time_vec = timeseries['time']
-
-    # get each energy carrier's total flux
-    carrier_use = {}
-    for reaction_id, coeffs in energy_reactions.items():
-        reaction_ts = saved_reactions[reaction_id]
-
-        for mol_id, coeff in coeffs.items():
-
-            # save if energy carrier is used
-            if coeff < 0:
-                added_flux = [-coeff*ts for ts in reaction_ts]
-                if mol_id not in carrier_use:
-                    carrier_use[mol_id] = added_flux
-                else:
-                    carrier_use[mol_id] = [
-                        sum(x) for x in zip(carrier_use[mol_id], added_flux)]
-
-    # make the figure
-    n_cols = 1
-    n_rows = 1
-    fig = plt.figure(figsize=(n_cols * 6, n_rows * 2))
-    grid = plt.GridSpec(n_rows, n_cols)
-
-    # first subplot
-    ax = fig.add_subplot(grid[0, 0])
-    for mol_id, series in carrier_use.items():
-        ax.plot(time_vec, series, label=mol_id)
-    ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-    ax.set_title('energy use')
-    ax.set_xlabel('time ($s$)')
-    ax.set_ylabel('$(mmol*L^{{{}}}*s^{{{}}})$'.format(-1, -1))  # TODO -- use unit schema in figures
-
-    # save figure
-    fig_path = os.path.join(out_dir, figname)
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)
-    plt.savefig(fig_path, bbox_inches='tight')
-
 
 # tests
 def test_toy_metabolism():
@@ -635,12 +491,13 @@ def test_toy_metabolism():
 
     settings = {
         'environment': {
-            'volume': 1e-8,
-            'states': toy_metabolism.ports['external'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
+            'volume': 1e-8 * units.L,
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)}},
         'timestep': 1.0,
-        'timeline': timeline}
+        'timeline': {
+            'timeline': timeline}}
     return simulate_process_in_experiment(toy_metabolism, settings)
 
 def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
@@ -648,7 +505,8 @@ def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
     run_metabolism(metabolism, settings)
 
 reference_sim_settings = {
-    'environment_volume': 1e-5,  # L
+    'environment': {
+        'volume': 1e-5 * units.L},
     'timestep': 1,
     'end_time': 20}
 
@@ -677,14 +535,20 @@ if __name__ == '__main__':
         metabolism = Metabolism(config)
 
         # simulation settings
-        timeline = [(2520, {})] # 2520 sec (42 min) is the expected doubling time in minimal media
         sim_settings = {
-            'environment_volume': 1e-5,  # L
-            'timestep': 1,
-            'timeline': timeline}
+            'environment': {
+                'volume': 1e-5 * units.L,
+                'ports': {
+                    'exchange': ('exchange',),
+                    'external': ('external',),
+                }},
+            # 'timestep': 1,
+            'total_time': 100,  # 2520 sec (42 min) is the expected doubling time in minimal media
+        }
 
         # run simulation
-        timeseries = run_metabolism(metabolism, sim_settings)
+        timeseries = simulate_process_in_experiment(metabolism, sim_settings)
+
         save_timeseries(timeseries, out_dir)
         volume_ts = timeseries['global']['volume']
         mass_ts = timeseries['global']['mass']
@@ -701,12 +565,12 @@ if __name__ == '__main__':
         plot_simulation_output(timeseries, plot_settings, out_dir, 'BiGG_simulation')
         plot_exchanges(timeseries, sim_settings, out_dir)
 
-        # make plot of energy reactions
-        stoichiometry = metabolism.fba.stoichiometry
-        energy_carriers = [get_synonym(mol_id) for mol_id in BiGG_energy_carriers]
-        energy_reactions = get_reactions(stoichiometry, energy_carriers)
-        energy_plot_settings = {'reactions': energy_reactions}
-        energy_synthesis_plot(timeseries, energy_plot_settings, out_dir)
+        # # make plot of energy reactions
+        # stoichiometry = metabolism.fba.stoichiometry
+        # energy_carriers = [get_synonym(mol_id) for mol_id in BiGG_energy_carriers]
+        # energy_reactions = get_reactions(stoichiometry, energy_carriers)
+        # energy_plot_settings = {'reactions': energy_reactions}
+        # energy_synthesis_plot(timeseries, energy_plot_settings, out_dir)
 
         # make a gephi network
         run_sim_save_network(get_iAF1260b_config(), out_dir)

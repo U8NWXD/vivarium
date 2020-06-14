@@ -3,9 +3,12 @@ from __future__ import absolute_import, division, print_function
 from pymongo import MongoClient
 from confluent_kafka import Producer
 import json
+import copy
 
 from vivarium.actor.actor import delivery_report
-from vivarium.library.dict_utils import merge_dicts
+from vivarium.library.dict_utils import (
+    merge_dicts, value_in_embedded_dict, get_path_list_from_dict, \
+    get_value_from_path, make_path_dict)
 
 HISTORY_INDEXES = [
     'time',
@@ -58,7 +61,29 @@ def configure_emitter(config, processes, topology):
     emitter_config['simulation_id'] = config.get('simulation_id')
     return get_emitter(emitter_config)
 
+def path_timeseries_from_data(data):
+    embedded_timeseries = timeseries_from_data(data)
+    return path_timeseries_from_embedded_timeseries(embedded_timeseries)
+
+def path_timeseries_from_embedded_timeseries(embedded_timeseries):
+    times_vector = embedded_timeseries['time']
+    path_timeseries = make_path_dict({key: value for key, value in embedded_timeseries.items() if key is not 'time'})
+    path_timeseries['time'] = times_vector
+    return path_timeseries
+
 def timeseries_from_data(data):
+    times_vector = list(data.keys())
+    embedded_timeseries = {}
+    for time, value in data.items():
+        if isinstance(value, dict):
+            embedded_timeseries = value_in_embedded_dict(value, embedded_timeseries)
+        else:
+            pass
+
+    embedded_timeseries['time'] = times_vector
+    return embedded_timeseries
+
+def timeseries_from_data_old(data):
     time_vec = list(data.keys())
     initial_state = data[time_vec[0]]
     timeseries = {port: {state: []
@@ -76,8 +101,6 @@ def timeseries_from_data(data):
                 timeseries[port][state_id].append(state)
     return timeseries
 
-
-
 class Emitter(object):
     '''
     Emit data to terminal
@@ -88,9 +111,18 @@ class Emitter(object):
     def emit(self, data):
         print(data)
 
+    def get_data(self):
+        return []
+
+    def get_path_timeseries(self):
+        return path_timeseries_from_data(self.get_data())
+
     def get_timeseries(self):
-        raise Exception('emitter does not get timeseries')
-        return {}
+        return timeseries_from_data(self.get_data())
+
+    def get_timeseries_old(self):
+        return timeseries_from_data_old(self.get_data())
+
 
 class NullEmitter(Emitter):
     '''
@@ -98,6 +130,7 @@ class NullEmitter(Emitter):
     '''
     def emit(self, data):
         pass
+
 
 class TimeSeriesEmitter(Emitter):
 
@@ -115,8 +148,6 @@ class TimeSeriesEmitter(Emitter):
     def get_data(self):
         return self.saved_data
 
-    def get_timeseries(self):
-        return timeseries_from_data(self.saved_data)
 
 class KafkaEmitter(Emitter):
     '''
@@ -153,6 +184,7 @@ class DatabaseEmitter(Emitter):
         'database': 'DB_NAME'}
     '''
     client = None
+    default_host = 'localhost:27017'
 
     def __init__(self, config):
         self.config = config
@@ -160,7 +192,7 @@ class DatabaseEmitter(Emitter):
 
         # create singleton instance of mongo client
         if DatabaseEmitter.client is None:
-            DatabaseEmitter.client = MongoClient(config['host'])
+            DatabaseEmitter.client = MongoClient(config.get('host', self.default_host))
 
         self.db = getattr(self.client, config.get('database', 'simulations'))
         self.history = getattr(self.db, 'history')
@@ -174,6 +206,15 @@ class DatabaseEmitter(Emitter):
         data = data_config['data']
         data.update({
             'experiment_id': self.experiment_id})
-
         table = getattr(self.db, data_config['table'])
         table.insert_one(data)
+
+    def get_data(self):
+        query = {'experiment_id': self.experiment_id}
+        data = self.history.find(query)
+        data = list(data)
+        data = [{
+            key: value for key, value in datum.items()
+            if key not in ['_id', 'experiment_id']}
+            for datum in data]
+        return data

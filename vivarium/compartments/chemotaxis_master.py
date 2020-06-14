@@ -107,19 +107,21 @@ class ChemotaxisMaster(Compartment):
             'division': division}
 
     def generate_topology(self, config):
+        external_path = self.boundary_path + ('external',)
+        exchange_path = self.boundary_path + ('exchange',)
         return {
             'transport': {
                 'internal': ('internal',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
                 'global': self.boundary_path},
 
             'metabolism': {
                 'internal': ('internal',),
-                'external': self.boundary_path,
+                'external': external_path,
                 'reactions': ('reactions',),
-                'exchange': ('exchange',),
+                'exchange': exchange_path,
                 'flux_bounds': ('flux_bounds',),
                 'global': self.boundary_path},
 
@@ -151,7 +153,7 @@ class ChemotaxisMaster(Compartment):
                 'global': self.boundary_path},
 
             'receptor': {
-                'boundary': self.boundary_path,
+                'external': external_path,
                 'internal': ('internal',)},
 
             'flagella': {
@@ -162,7 +164,7 @@ class ChemotaxisMaster(Compartment):
                 'external': self.boundary_path},
 
             'PMF': {
-                'external': self.boundary_path,
+                'external': external_path,
                 'membrane': ('membrane',),
                 'internal': ('internal',)},
 
@@ -213,7 +215,6 @@ def run_chemotaxis_master(out_dir):
 
 def test_chemotaxis_master(total_time=10):
     compartment = ChemotaxisMaster({})
-
     settings = {
         'timestep': 1,
         'total_time': total_time}

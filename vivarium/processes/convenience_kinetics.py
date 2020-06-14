@@ -472,10 +472,10 @@ def test_convenience_kinetics(end_time=2520):
 
     settings = {
         'environment': {
-            'volume': 1e-14,
-            'states': ['glc__D_e', 'lcts_e'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
+            'volume': 1e-14 * units.L,
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)}},
         'timestep': 1,
         'total_time': end_time}
 
