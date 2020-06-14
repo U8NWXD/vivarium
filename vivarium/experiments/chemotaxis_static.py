@@ -150,14 +150,12 @@ def plot_chemotaxis_experiment(data, field_config={}, out_dir='out', filename='c
     # agents plot
     plot_settings = {
         'agents_key': 'agents',
+        'max_rows': 30,
         'skip_paths': [
             ('boundary', 'mass'),
             ('boundary', 'length'),
             ('boundary', 'width'),
             ('boundary', 'location'),
-            ('cell', 'CheA'),
-            ('cell', 'CheB'),
-            ('cell', 'CheR'),
         ]}
     plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
 

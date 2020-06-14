@@ -64,6 +64,10 @@ class ChemotaxisMaster(Compartment):
         if config is None or not bool(config):
             config = self.defaults['config']
         self.config = config
+        for process_id in self.defaults['config'].keys():
+            if process_id not in self.config:
+                self.config[process_id] = self.defaults['config'][process_id]
+
         self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
 
     def generate_processes(self, config):
