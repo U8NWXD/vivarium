@@ -15,7 +15,7 @@ def plot_activity(output, out_dir='out', filename='motor_control'):
     CheY_P_vec = output['internal']['CheY_P']
     cw_bias_vec = output['internal']['cw_bias']
     motile_state_vec = output['internal']['motile_state']
-    motile_force_vec = output['internal']['motile_force']
+    thrust_vec = output['boundary']['thrust']
     flagella_activity = output['flagella_activity']['flagella']
     time_vec = output['time']
 
@@ -138,7 +138,7 @@ def plot_activity(output, out_dir='out', filename='motor_control'):
         bbox_to_anchor=(1, 0.5))
 
     # plot motor thrust
-    ax5.plot(time_vec, motile_force_vec)
+    ax5.plot(time_vec, thrust_vec)
     ax5.set_xlim(time_vec[0], time_vec[-1])
     ax5.set_ylabel('total motor thrust (pN)')
     ax5.set_xlabel('time (sec)')
@@ -152,7 +152,7 @@ def plot_activity(output, out_dir='out', filename='motor_control'):
 
 def plot_motor_PMF(output, out_dir='out', figname='motor_PMF'):
     motile_state = output['motile_state']
-    motile_force = output['motile_force']
+    thrust = output['thrust']
     motile_torque = output['motile_torque']
     PMF = output['PMF']
 
@@ -165,7 +165,7 @@ def plot_motor_PMF(output, out_dir='out', figname='motor_PMF'):
     ax1 = plt.subplot(rows, cols, 1)
 
     # plot motile_state
-    ax1.plot(PMF, motile_force)
+    ax1.plot(PMF, thrust)
     ax1.set_xlabel('PMF (mV)')
     ax1.set_ylabel('force')
 

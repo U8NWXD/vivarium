@@ -254,4 +254,3 @@ if __name__ == '__main__':
         run_minimal()
     if args.master:
         run_master()
-        
