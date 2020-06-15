@@ -1,10 +1,10 @@
-====
-Tree
-====
+=========
+Hierarchy
+=========
 
 In Vivarium, we combine processes and stores to form compartments as
 shown in panel B below. These compartments are in turn nested to form
-the model :term:`tree`, depicted in panel C.
+the model :term:`hierarchy`, depicted in panel C.
 
 .. figure:: ../_static/compartment.png
    :width: 100%
@@ -28,16 +28,16 @@ the model :term:`tree`, depicted in panel C.
    compartments (panel B) in the tree (panel C).
 
 Note that in panel C, only the compartments and boundary stores are
-shown. The full tree also contains the stores and processes within each
+shown. The full hierarchy also contains the stores and processes within each
 compartment.
 
 .. todo:: Link to environments topic guide
 
---------------
-Tree Structure
---------------
+-------------------
+Hierarchy Structure
+-------------------
 
-In the example below, we print out the full tree as a dictionary.
+In the example below, we print out the full hierarchy as a dictionary.
 
 >>> from vivarium.experiments.glucose_phosphorylation import (
 ...     glucose_phosphorylation_experiment,
@@ -121,9 +121,9 @@ In the example below, we print out the full tree as a dictionary.
     }
 }
 
-We can represent this tree graphically like this:
+We can represent this hierarchy graphically like this:
 
-.. image:: ../_static/tree.png
+.. image:: ../_static/hierarchy.png
    :width: 100%
    :align: center
    :alt: A tree with root node "root". The root has children "cell",
@@ -132,29 +132,30 @@ We can represent this tree graphically like this:
        "GLC", and "G6P". The node "global" has children "initial_mass"
        and "mass".
 
-.. todo:: This tree figure is ugly. Fix it.
+.. todo:: This hierarchy figure is ugly. Fix it.
 
 Notice that in the dictionary above, each leaf node in the tree is a key
 with a value that is a dictionary of :term:`schema keys`.
 
-----------
-Tree Paths
-----------
+---------------
+Hierarhcy Paths
+---------------
 
-A tree in Vivarium is like a directory tree on a filesystem. In line
-with this analogy, we specify nodes in the tree with paths. Each path is
-a tuple of node names (variable names or store names) relative to some
-other node. For example, in the topology from the example above, we used
-the path ``('cell', )`` to say that the ``cell`` store maps to the
-injector's ``internal`` :term:`port`. This path was relative to the
-compartment root (``root`` in our diagram) as is the case for all
-topologies. Thus the path is analogous to ``./cell`` in a directory.
+A hierarhcy in Vivarium is like a directory tree on a filesystem. In
+line with this analogy, we specify nodes in the hierarchy with paths.
+Each path is a tuple of node names (variable names or store names)
+relative to some other node. For example, in the topology from the
+example above, we used the path ``('cell', )`` to say that the ``cell``
+store maps to the injector's ``internal`` :term:`port`. This path was
+relative to the compartment root (``root`` in our diagram) as is the
+case for all topologies. Thus the path is analogous to ``./cell`` in a
+directory.
 
 Special Symbols
 ===============
 
-Continuing our analogy between tree paths and file paths, the following
-symbols have special meanings in tree paths:
+Continuing our analogy between hierarchy paths and file paths, the
+following symbols have special meanings in hierarchy paths:
 
 * ``..`` refers to a parent node. One example use for this is a division
   process that needs to access the parent (environment) compartment to
@@ -167,5 +168,5 @@ symbols have special meanings in tree paths:
   ``glucose_phosphorylation``, and ``my_deriver`` processes. **Note
   that wild-cards don't make sense in topologies!** We just used it here
   to explain how they work. One example use for wild-cards is in the
-  mass deriver, which uses it to sum masses throughout the tree:
+  mass deriver, which uses it to sum masses throughout the hierarchy:
   :py:class:`vivarium.processes.tree_mass.TreeMass`.

@@ -14,8 +14,8 @@ Overview
 
 Below we see an overview of the topics we will discuss in this document.
 Processes and stores are combined to form compartments as shown in panel
-B, and these compartments form a hierarchy known as the tree shown in
-panel C.
+B, and these compartments form a tree known as the hierarchy and shown
+in panel C.
 
 .. _fig-compartment:
 
@@ -267,8 +267,9 @@ compartments, these tuples could contain many elements that specify a
 kind of file path. We represent the total model state as a tree, and we
 can create a store at any node to represent the sub-tree rooted at that
 node. This tree is analogous to directory trees on a filesystem, and we
-use tuples of store names to specify a path through this tree. We
-discuss this tree in more detail in the :doc:`tree guide <tree>`.
+use tuples of store names to specify a path through this tree. We call
+this tree the hierarchy, and we discuss it in more detail in the
+:doc:`hierarhcy guide <hierarchy>`.
 
 ------------------------
 Compartment Interactions

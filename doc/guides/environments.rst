@@ -1,16 +1,26 @@
-============
-Environments
-============
+==========================
+Environmental Compartments
+==========================
 
-In the processes and compartments we have discussed so far, we have
-assumed that the locations of molecules tracked in :term:`stores` were
-unimportant. This assumption breaks down for some parent compartments
-like environments whose modeled space is too large to be homogenized by
-diffusion faster than the model's :term:`timestep`. To model this
-spatial heterogeneity, we employ space discretization, diffusion
-processes, and multi-body physics.
+In the :term:`processes` and :term:`compartments` we have discussed so
+far, we have assumed that the locations of molecules tracked in
+:term:`stores` were unimportant. This assumption breaks down for some
+parent compartments like environments whose modeled space is too large
+to be homogenized by diffusion faster than the model's :term:`timestep`.
+To model this spatial heterogeneity, we employ space discretization,
+diffusion processes, and multi-body physics.
 
 .. todo:: Add code references once implementation is finalized
+
+----------------------------
+Environments as Compartments
+----------------------------
+
+We model environments as compartments with an ``agents`` :term:`store`
+and a ``fields`` store. The diffusion and multibody physics processes we
+discuss below operate on these stores, and the compartments for the
+cells in the environment plug their :term:`boundary stores` into
+``agents`` and read from ``fields``.
 
 .. _space-discretization-lattice:
 

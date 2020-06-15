@@ -14,5 +14,5 @@ through the :doc:`getting started guide <../getting_started>` first.
    compartments
    environments
    experiments
-   tree
+   hierarchy
    docs

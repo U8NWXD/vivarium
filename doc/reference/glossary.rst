@@ -247,14 +247,13 @@ Glossary
         :py:class:`vivarium.core.experiment.Experiment` for a more
         detailed specification of the form of a topology.
 
-    Tree
-    Trees
-        We nest the :term:`stores` of a model to form a hierarchy called
-        a tree. This hierarchy is also a tree in the graph theory sense
-        where each internal node is a store and each leaf node is a
+    Hierarchy
+    Hierarchies
+        We nest the :term:`stores` of a model to form a tree called a
+        hierarchy. Each internal node is a store and each leaf node is a
         :term:`variable`. This tree can be traversed like a directory
         tree, and stores are identified by paths. For details see the
-        :doc:`tree guide <../guides/tree>`.
+        :doc:`hierarchy guide <../guides/hierarchy>`.
 
     Update
     Updates
