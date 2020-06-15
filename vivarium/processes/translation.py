@@ -8,7 +8,6 @@ import copy
 import numpy as np
 import random
 import logging as log
-
 from arrow import StochasticSystem
 
 from vivarium.core.process import Process
@@ -35,9 +34,6 @@ def random_string(alphabet, length):
         string += random.choice(alphabet)
     return string
 
-#: Whether to print the parameters when initializing
-#: :py:class:`Translation`
-VERBOSE = True
 #: Variable name for unbound ribosomes
 UNBOUND_RIBOSOME_KEY = 'Ribosome'
 
@@ -255,9 +251,8 @@ class Translation(Process):
         ...     'monomer_ids': amino_acids.values(),
         ...     'concentration_keys': []
         ... }
-        >>> # We omit output using "..." below
+        >>> # make the translation process, and initialize the states
         >>> translation = Translation(configurations)  # doctest:+ELLIPSIS
-        translation parameters: ...
         >>> states = {
         ...     'ribosomes': {},
         ...     'molecules': {},

@@ -975,7 +975,6 @@ def inverse_topology(update, topology):
     return inverse
 
 
-# Compartment
 def generate_derivers(processes, topology):
     deriver_processes = {}
     deriver_topology = {}
@@ -1042,6 +1041,9 @@ class Compartment(object):
         return {
             'processes': assoc_in({}, path, processes),
             'topology': assoc_in({}, path, topology)}
+
+    def or_default(self, parameters, key):
+        return parameters.get(key, self.defaults[key])
 
     def get_parameters(self):
         network = self.generate({})
