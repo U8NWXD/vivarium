@@ -511,6 +511,7 @@ def get_glc_lct_config():
         'initial_state': transport_initial_state,
         'ports': transport_ports}
 
+
 def get_toy_config():
     '''
     Returns
@@ -575,6 +576,7 @@ def test_convenience_kinetics(end_time=2520):
         'total_time': end_time}
 
     return simulate_process_in_experiment(kinetic_process, settings)
+
 
 def test_convenience_kinetics_correlated_to_reference():
     timeseries = test_convenience_kinetics()

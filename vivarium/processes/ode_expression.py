@@ -384,10 +384,8 @@ def get_flagella_expression():
     initial_state = {
         'counts': counts,
         'internal': concentrations}
-        # 'global': {
-        #     'volume': 1.2}}
 
-    return  {
+    return {
         'transcription_rates': transcription,
         'translation_rates': translation,
         'degradation_rates': degradation,
