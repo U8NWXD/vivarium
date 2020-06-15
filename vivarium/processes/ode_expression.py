@@ -278,7 +278,6 @@ class ODE_expression(Process):
         for transcript, rate in self.transcription.items():
             transcript_state = internal_state[transcript]
             # do not transcribe inhibited genes
-            # do not transcribe inhibited genes
             if transcript in regulation_state and not regulation_state[transcript]:
                 if random.uniform(0, 1) < abs(random.gauss(0, self.transcription_leak_sigma)):
                     rate = self.transcription_leak_magnitude
