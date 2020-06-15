@@ -456,11 +456,15 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     col_idx = 0
     ordered_paths = {port_id: {} for port_id in top_ports}
     for port_id, path_list in port_rows.items():
+        if not path_list:
+            continue
         # order target names and assign subplot location
         ordered_targets = order_list_of_paths(path_list)
         for target in ordered_targets:
-            ordered_paths[port_id][target] = [col_idx, row_idx]
-            if row_idx >= max_rows:
+            ordered_paths[port_id][target] = [row_idx, col_idx]
+
+            # next column/row
+            if row_idx >= max_rows - 1:
                 row_idx = 0
                 col_idx += 1
             else:
@@ -472,24 +476,26 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
         col_idx += 1
 
     # initialize figure
-    n_rows = highest_row
-    n_cols = col_idx
+    n_rows = highest_row + 1
+    n_cols = col_idx + 1
     fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
-    grid = plt.GridSpec(n_rows, n_cols, wspace=0.4, hspace=1.5)
+    grid = plt.GridSpec(ncols=n_cols, nrows=n_rows, wspace=0.4, hspace=1.5)
 
     # make the subplot axes
     port_axes = {}
     for port_id, paths in ordered_paths.items():
         for path_idx, (path, location) in enumerate(paths.items()):
-            row_idx = location[1]
-            col_idx = location[0]
+            row_idx = location[0]
+            col_idx = location[1]
+
+            # make the subplot axis
             ax = fig.add_subplot(grid[row_idx, col_idx])
             ax.title.set_text(path)
             ax.title.set_fontsize(16)
             ax.set_xlim([time_vec[0], time_vec[-1]])
 
             # if last state in this port, add time ticks
-            if row_idx >= max_rows - 1 or path_idx >= len(ordered_paths[port_id]) - 1:
+            if row_idx > max_rows or path_idx > len(ordered_paths[port_id]):
                 set_axes(ax, True)
                 ax.set_xlabel('time (s)')
             else:
