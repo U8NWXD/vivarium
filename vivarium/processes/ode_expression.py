@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import random
 
 from vivarium.core.process import Process
 from vivarium.library.dict_utils import deep_merge, tuplify_port_dicts
@@ -170,6 +171,10 @@ class ODE_expression(Process):
         'translation_rates': {},
         'degradation_rates': {},
         'protein_map': {},
+        'transcription_leak': {
+            'sigma': 0.0,
+            'magnitude': 0.0},
+
         'regulation': {},
         'regulators': [],
         'initial_state': {},
@@ -191,6 +196,10 @@ class ODE_expression(Process):
             'degradation_rates', self.defaults['degradation_rates'])
         self.protein_map = initial_parameters.get(
             'protein_map', self.defaults['protein_map'])
+        transcription_leak = initial_parameters.get(
+            'transcription_leak', self.defaults['transcription_leak'])
+        self.transcription_leak_sigma = transcription_leak['sigma']
+        self.transcription_leak_magnitude = transcription_leak['magnitude']
 
         # boolean regulation
         regulation_logic = initial_parameters.get(
@@ -270,7 +279,10 @@ class ODE_expression(Process):
             transcript_state = internal_state[transcript]
             # do not transcribe inhibited genes
             if transcript in regulation_state and not regulation_state[transcript]:
-                rate = 0
+                if random.uniform(0, 1) < abs(random.gauss(0, self.transcription_leak_sigma)):
+                    rate = self.transcription_leak_magnitude
+                else:
+                    rate = 0.0
 
             internal_update[transcript] = \
                 (rate - self.degradation.get(transcript, 0) * transcript_state) * timestep
@@ -315,6 +327,9 @@ def get_lacy_config():
     # define regulation
     regulators = [('external', 'glc__D_e')]
     regulation = {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
+    transcription_leak = {
+        'sigma': 2.0e-4,
+        'magnitude': 6e-6}
 
     # initial state
     initial_state = {
@@ -331,6 +346,7 @@ def get_lacy_config():
         'protein_map': protein_map,
         'regulators': regulators,
         'regulation': regulation,
+        'transcription_leak': transcription_leak,
         'initial_state': initial_state}
 
 def get_flagella_expression():
@@ -367,10 +383,8 @@ def get_flagella_expression():
     initial_state = {
         'counts': counts,
         'internal': concentrations}
-        # 'global': {
-        #     'volume': 1.2}}
 
-    return  {
+    return {
         'transcription_rates': transcription,
         'translation_rates': translation,
         'degradation_rates': degradation,
