@@ -7,10 +7,12 @@ import numpy as np
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
 
+NAME = 'toxin_antitoxin'
 
 class ToxinAntitoxin(Process):
     mazF = 4
@@ -37,7 +39,9 @@ class ToxinAntitoxin(Process):
         }
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         ports = {
             'internal': list(self.defaults['initial_state'].keys()),
@@ -184,7 +188,7 @@ def test_toxin_antitoxin(time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'toxin_antitoxin')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

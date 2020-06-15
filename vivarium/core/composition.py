@@ -7,179 +7,63 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
-from vivarium.core.tree import (
+from vivarium.core.emitter import (
+    make_path_dict,
+    path_timeseries_from_embedded_timeseries,
+    path_timeseries_from_data,
+)
+from vivarium.core.experiment import (
     Experiment,
     update_in,
     generate_derivers,
-    deriver_library
 )
+from vivarium.core.process import Process, Deriver
+from vivarium.core.experiment import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
-from vivarium.utils.dict_utils import (
+from vivarium.library.dict_utils import (
     deep_merge,
     deep_merge_check,
     flatten_timeseries,
+    get_path_list_from_dict,
 )
-from vivarium.core.process import (
-    initialize_state,
-    Compartment,
-    COMPARTMENT_STATE,
-    Process,
-    Store)
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.processes.timeline import Timeline
-from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
+from vivarium.processes.timeline import TimelineProcess
+from vivarium.processes.one_dim_environment import OneDimEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
-
-
-
-def get_derivers(processes, topology, config={}):
-    '''
-    get the derivers for a list of processes
-
-    requires:
-        - processes: (dict) with configured processes
-        - topology: (dict) with topology of the processes connected to compartment ports
-        - config: (dict) with deriver configurations, which are used to make deriver processes
-
-    returns: (dict) with:
-        {'deriver_processes': processes,
-        'deriver_topology': topology}
-    '''
-
-    # get deriver configuration from processes
-    process_derivers = get_deriver_config_from_proceses(processes, topology)
-    deriver_configs = process_derivers['deriver_configs']
-    deriver_topology = process_derivers['deriver_topology']
-
-    # update deriver_configs
-    deriver_configs = deep_merge(deriver_configs, config)
-
-    # update topology based on deriver_configs
-    for process_id, deriver_config in deriver_configs.items():
-        if process_id not in deriver_topology:
-            try:
-                ports = deriver_config['ports']
-                deriver_topology[process_id] = ports
-            except:
-                print('{} deriver requires topology in deriver_config'.format(process_id))
-                raise
-
-    # configure the deriver processes
-    deriver_processes = {}
-    for deriver_type, deriver_config in deriver_configs.items():
-        deriver_processes[deriver_type] = deriver_library[deriver_type](deriver_config)
-
-    return {
-        'deriver_processes': deriver_processes,
-        'deriver_topology': deriver_topology}
-
-def get_deriver_config_from_proceses(processes, topology):
-    ''' get the deriver configuration from processes' deriver_settings'''
-
-    deriver_configs = {}
-    full_deriver_topology = {}
-
-    for process_id, process in processes.items():
-        process_settings = process.default_settings()
-        deriver_setting = process_settings.get('deriver_setting', [])
-        try:
-            port_map = topology[process_id]
-        except:
-            print('{} topology port mismatch'.format(process_id))
-            raise
-
-        for setting in deriver_setting:
-            deriver_type = setting['type']
-            keys = setting['keys']
-            source_port = setting['source_port']
-            target_port = setting['derived_port']
-            try:
-                source_compartment_port = port_map[source_port]
-                target_compartment_port = port_map[target_port]
-            except:
-                print('source/target port mismatch for process "{}"'.format(process_id))
-                raise
-
-            # make deriver_topology, add to full_deriver_topology
-            deriver_topology = {
-                deriver_type: {
-                    source_port: source_compartment_port,
-                    target_port: target_compartment_port,
-                    'global': 'global'}}
-            deep_merge(full_deriver_topology, deriver_topology)
-
-            # TODO -- what if multiple different source/targets?
-            # TODO -- merge overwrites them. need list extend
-            ports_config = {
-                'source_ports': {source_port: keys},
-                'target_ports': {target_port: keys}}
-
-            # ports for configuration
-            deriver_config = {deriver_type: ports_config}
-            deep_merge(deriver_configs, deriver_config)
-
-    return {
-        'deriver_configs': deriver_configs,
-        'deriver_topology': full_deriver_topology}
-
-def get_schema(process_list, topology):
-    schema = {}
-    for level in process_list:
-        for process_id, process in level.items():
-            process_settings = process.default_settings()
-            process_schema = process_settings.get('schema', {})
-            try:
-                port_map = topology[process_id]
-            except:
-                print('{} topology port mismatch'.format(process_id))
-                raise
-
-            # go through each port, and get the schema
-            for process_port, settings in process_schema.items():
-                compartment_port = port_map[process_port]
-                compartment_schema = {
-                    compartment_port: settings}
-
-                ## TODO -- check for mismatch
-                deep_merge_check(schema, compartment_schema)
-
-    return schema
+PROCESS_OUT_DIR = os.path.join('out', 'processes')
+COMPARTMENT_OUT_DIR = os.path.join('out', 'compartments')
+EXPERIMENT_OUT_DIR = os.path.join('out', 'experiments')
 
 
 # loading functions
-def make_agents(keys, compartment, config=None):
-    processes = {}
-    topology = {}
+def make_agents(agent_ids, compartment, config=None):
+
     if config is None:
         config = {}
 
-    for agent in keys:
-        # agent_id = str(uuid.uuid1())
-        agent_id = str(agent)
-
-        # make the agent
-        agent_config = config.copy()
+    processes = {}
+    topology = {}
+    for agent_id in agent_ids:
+        agent_config = copy.deepcopy(config)
         agent = compartment.generate(dict(
             agent_config,
             agent_id=agent_id))
 
         # save processes and topology
-        processes[agent_id] = {
-            'cell': agent['processes']}
-        topology[agent_id] = {
-            'cell': agent['topology']}
+        processes[agent_id] = agent['processes']
+        topology[agent_id] = agent['topology']
 
     return {
         'processes': processes,
         'topology': topology}
 
 def process_in_experiment(process, settings={}):
-    process_settings = process.default_settings()
+    initial_state = settings.get('initial_state', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
@@ -187,21 +71,31 @@ def process_in_experiment(process, settings={}):
     processes = {'process': process}
     topology = {
         'process': {
-            port: (port,) for port in process.ports}}
+            port: (port,) for port in process.ports_schema().keys()}}
 
     if timeline:
-        timeline_process = Timeline({'timeline': timeline})
+        '''
+        adding a timeline to a process requires only the timeline
+        '''
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
         processes.update({'timeline_process': timeline_process})
         topology.update({
             'timeline_process': {
                 port: (port,) for port in timeline_process.ports}})
 
     if environment:
-        environment_process = HomogeneousEnvironment(environment)
+        '''
+        environment requires ports for exchange and external
+        '''
+        ports = environment.get(
+            'ports',
+            {'external': ('external',), 'exchange': ('exchange',)})
+        environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port: (port,) for port in environment_process.ports}})
+                port_id: ports[port_id]
+                for port_id in environment_process.ports}})
 
     # add derivers
     derivers = generate_derivers(processes, topology)
@@ -212,12 +106,11 @@ def process_in_experiment(process, settings={}):
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
-        'initial_state': process_settings.get('state', {})})
+        'initial_state': initial_state})
 
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
-    emitter = settings.get('emitter', {'type': 'timeseries'})
-    timeline = settings.get('timeline', [])
+    timeline = settings.get('timeline', {})
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
 
@@ -226,47 +119,35 @@ def compartment_in_experiment(compartment, settings={}):
     topology = network['topology']
 
     if timeline:
-        timeline_port_mapping = settings['timeline_port_mapping']
-        timeline_port_mapping.update({'global': ('global',)})  # timeline requires a global port
-        timeline_process = Timeline({'timeline': timeline})
-
-        update_in(
-            processes,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'timeline': timeline_process}))
-
-        update_in(
-            topology,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'timeline': {
-                    port: (port,) for port in timeline_process.ports}}))
+        '''
+        environment requires ports for all states defined in the timeline
+        '''
+        ports = timeline['ports']
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
+        processes.update({'timeline_process': timeline_process})
+        topology.update({
+            'timeline_process': {'global': ('global',)}
+        })
+        topology['timeline_process'].update({
+                port_id: ports[port_id]
+                for port_id in timeline_process.ports if port_id is not 'global'})
 
     if environment:
-        environment_process = HomogeneousEnvironment(environment)
-
-        update_in(
-            processes,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': environment_process}))
-
-        update_in(
-            topology,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': {
-                    port: (port,) for port in environment_process.ports}}))
+        '''
+        environment requires ports for exchange and external
+        '''
+        ports = environment['ports']
+        environment_process = OneDimEnvironment(environment)
+        processes.update({'environment_process': environment_process})
+        topology.update({
+            'environment_process': {
+                port_id: outer_path + ports[port_id]
+                for port_id in environment_process.ports}})
 
     return Experiment({
         'processes': processes,
         'topology': topology,
-        'emitter': emitter,
+        'emitter': settings.get('emitter', {'type': 'timeseries'}),
         'initial_state': settings.get('initial_state', {})})
 
 
@@ -296,182 +177,20 @@ def simulate_experiment(experiment, settings={}):
     timestep = settings.get('timestep', 1)
     total_time = settings.get('total_time', 10)
     return_raw_data = settings.get('return_raw_data', False)
+    return_old_timeseries = settings.get('return_old_timeseries', False)
 
     if 'timeline' in settings:
-        total_time = settings['timeline'][-1][0]
+        total_time = settings['timeline']['timeline'][-1][0]
 
     # run simulation
     experiment.update_interval(total_time, timestep)
 
     if return_raw_data:
         return experiment.emitter.get_data()
+    elif return_old_timeseries:
+        return experiment.emitter.get_timeseries_old()
     else:
         return experiment.emitter.get_timeseries()
-
-
-
-
-
-
-# TODO -- remove the following functions!
-def load_compartment(composite, boot_config={}):
-    '''
-    put a composite function into a compartment
-
-    inputs:
-        - composite is a function that returns a dict with 'processes', 'states', and 'options'
-        for configuring a compartment
-        - boot_config (dict) with specific parameters for the processes
-    return:
-        - a compartment object for testing
-    '''
-
-    composite_config = composite(boot_config)
-    processes = composite_config['processes']
-    derivers = composite_config.get('derivers', {})
-    states = composite_config['states']
-    options = composite_config['options']
-    options['emitter'] = boot_config.get('emitter', 'timeseries')
-
-    return Compartment(processes, derivers, states, options)
-
-def process_in_compartment(process, settings={}):
-    ''' put a process in a compartment, with all derivers added '''
-    process_settings = process.default_settings()
-    compartment_state_port = settings.get('compartment_state_port')
-    emitter = settings.get('emitter', 'timeseries')
-    deriver_config = settings.get('deriver_config', {})
-
-    processes = {'process': process}
-    topology = {
-        'process': {
-            port: port for port in process.ports
-            if (not compartment_state_port
-                or port != compartment_state_port)
-        }
-    }
-
-    if compartment_state_port:
-        topology['process'][compartment_state_port] = COMPARTMENT_STATE
-
-    # add derivers
-    derivers = get_derivers(processes, topology, deriver_config)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = processes.copy()
-    all_processes.update(deriver_processes)
-    topology.update(derivers['deriver_topology'])
-
-    # make the state
-    state_dict = process_settings['state']
-    states = initialize_state(
-        all_processes,
-        topology,
-        state_dict)
-
-    options = {
-        'topology': topology,
-        'emitter': emitter}
-
-    return Compartment(processes, deriver_processes, states, options)
-
-def simulate_process_with_environment(process, settings={}):
-    ''' simulate a process in a compartment with an environment '''
-    compartment = process_in_compartment(process, settings)
-    return simulate_with_environment(compartment, settings)
-
-def simulate_with_environment(compartment, settings={}):
-    '''
-    run a compartment simulation with an environment.
-    Requires:
-        - a compartment with environment_port and exchange_port
-
-    Returns:
-        - a timeseries of variables from all ports.
-        - if 'return_raw_data' is True, it returns the raw data instead
-    '''
-
-    # parameters
-    nAvogadro = AVOGADRO
-
-    # get environment configuration
-    environment_port = settings['environment_port']
-    env_volume = settings.get('environment_volume', 1e-12) * units.L
-    exchange_port = settings.get('exchange_port')
-    if exchange_port:
-        exchange_ids = list(compartment.states[exchange_port].keys())
-    else:
-        print('no exchange port! simulate environment without exchange')
-    environment = compartment.states.get(environment_port)
-    exchange = compartment.states.get(exchange_port)
-
-    # get timeline
-    total_time = settings.get('total_time', 10)
-    timeline = copy.deepcopy(settings.get('timeline', [(total_time, {})]))
-    end_time = timeline[-1][0]
-    timestep = compartment.time_step
-
-    # data settings
-    return_raw_data = settings.get('return_raw_data', False)
-
-    ## run simulation
-    time = 0
-    while time < end_time:
-        time += timestep
-        for (t, change_dict) in timeline:
-            if time >= t:
-                for port_id, change in change_dict.items():
-                    port = compartment.states.get(port_id)
-                    port.assign_values(change)
-                timeline.pop(0)
-
-        # update compartment
-        compartment.update(timestep)
-
-        ## apply exchange to environment
-        # get counts, convert to change in concentration
-        if exchange:
-            delta_counts = exchange.state_for(exchange_ids)
-            mmol_to_counts = (nAvogadro.to('1/mmol') * env_volume).to('L/mmol').magnitude
-            delta_concs = {mol_id: counts / mmol_to_counts for mol_id, counts in delta_counts.items()}
-            environment.apply_update(delta_concs)
-
-            # reset exchange
-            reset_exchange = {key: 0 for key in exchange_ids}
-            exchange.assign_values(reset_exchange)
-
-    if return_raw_data:
-        return compartment.emitter.get_data()
-    else:
-        return compartment.emitter.get_timeseries()
-
-def simulate_compartment(compartment, settings={}):
-    '''
-    run a compartment simulation
-        Requires:
-        - a compartment
-
-    Returns:
-        - a timeseries of variables from all ports.
-        - if 'return_raw_data' is True, it returns the raw data instead
-    '''
-
-    timestep = settings.get('timestep', 1)
-    total_time = settings.get('total_time', 10)
-
-    # data settings
-    return_raw_data = settings.get('return_raw_data', False)
-
-    # run simulation
-    time = 0
-    while time < total_time:
-        time += timestep
-        compartment.update(timestep)
-
-    if return_raw_data:
-        return compartment.emitter.get_data()
-    else:
-        return compartment.emitter.get_timeseries()
-
 
 
 # plotting functions
@@ -574,6 +293,10 @@ def set_axes(ax, show_xaxis=False):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(right=False, top=False)
+
+    # move offset axis text (typically scientific notation)
+    t = ax.yaxis.get_offset_text()
+    t.set_x(-0.4)
     if not show_xaxis:
         ax.spines['bottom'].set_visible(False)
         ax.tick_params(bottom=False, labelbottom=False)
@@ -590,117 +313,86 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'remove_zeros': (bool) if True, timeseries with all zeros get removed
             'remove_flat': (bool) if True, timeseries with all the same value get removed
             'skip_ports': (list) entire ports that won't be plotted
-            'overlay': (dict) with
-                {'bottom_port': 'top_port'}  ports plotted together by matching state_ids, with 'top_port' in red
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
             }
-    TODO -- some molecules have 'inf' concentrations for practical reasons. How should these be plotted?
     '''
+
+    plot_fontsize = 8
+    plt.rc('font', size=plot_fontsize)
+    plt.rc('axes', titlesize=plot_fontsize)
 
     skip_keys = ['time']
 
     # get settings
-    timeseries = copy.deepcopy(timeseries_raw)
     max_rows = settings.get('max_rows', 25)
-    remove_zeros = settings.get('remove_zeros', False)
+    remove_zeros = settings.get('remove_zeros', True)
     remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
-    overlay = settings.get('overlay', {})
-    show_state = settings.get('show_state', [])
-    top_ports = list(overlay.values())
-    bottom_ports = list(overlay.keys())
 
-    ports = [port for port in timeseries.keys() if port not in skip_keys + skip_ports]
-    time_vec = timeseries['time']
+    # make a flat 'path' timeseries, with keys being path
+    top_level = list(timeseries_raw.keys())
+    timeseries = path_timeseries_from_embedded_timeseries(timeseries_raw)
+    time_vec = timeseries.pop('time')
 
-    # remove selected states
-    removed_states = []
-    if remove_flat:
-        # find series with all the same value
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if series.count(series[0]) == len(series):
-                    removed_states.append((port, state_id))
-    elif remove_zeros:
-        # find series with all zeros
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if all(v == 0 for v in series):
-                    removed_states.append((port, state_id))
+    # remove select states from timeseries
+    removed_states = set()
+    for path, series in timeseries.items():
+        if path[0] in skip_ports:
+            removed_states.add(path)
+        elif remove_flat:
+            if series.count(series[0]) == len(series):
+                removed_states.add(path)
+        elif remove_zeros:
+            if all(v == 0 for v in series):
+                removed_states.add(path)
+    for path in removed_states:
+        del timeseries[path]
 
-    # if specified in show_state, keep in timeseries
-    for port_state in show_state:
-        if port_state in removed_states:
-            removed_states.remove(port_state)
-
-    # remove from timeseries
-    for (port, state_id) in removed_states:
-        del timeseries[port][state_id]
-
-    # get the number of states in each port
-    n_data = [len(timeseries[key]) for key in ports if key not in top_ports]
-    if 0 in n_data:
-        n_data.remove(0)
-
-    # limit number of rows to max_rows by adding new columns
+    ## get figure columns
+    # get length of each top-level port
+    port_lengths = {}
+    for path in timeseries.keys():
+        if path[0] in top_level:
+            if path[0] not in port_lengths:
+                port_lengths[path[0]] = 0
+            port_lengths[path[0]] += 1
+    n_data = [length for port, length in port_lengths.items() if length > 0]
     columns = []
     for n_states in n_data:
         new_cols = n_states / max_rows
         if new_cols > 1:
             for col in range(int(new_cols)):
                 columns.append(max_rows)
-
             mod_states = n_states % max_rows
             if mod_states > 0:
                 columns.append(mod_states)
         else:
             columns.append(n_states)
-    n_cols = len(columns)
-    n_rows = max(columns)
 
     # make figure and plot
-    fig = plt.figure(figsize=(n_cols * 6, n_rows * 1.5))
+    n_cols = len(columns)
+    n_rows = max(columns)
+    fig = plt.figure(figsize=(n_cols * 3, n_rows * 1))
     grid = plt.GridSpec(n_rows, n_cols)
-
     row_idx = 0
     col_idx = 0
-    for port in ports:
-        top_timeseries = {}
-
-        # set up overlay
-        if port in bottom_ports:
-            top_port = overlay[port]
-            top_timeseries = timeseries[top_port]
-        elif port in top_ports + skip_ports:
-            # don't give this row its own plot
-            continue
-
-        for state_id, series in sorted(timeseries[port].items()):
+    for port in port_lengths.keys():
+        # get this port's states
+        port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
+        for state_id, series in sorted(port_timeseries.items()):
             ax = fig.add_subplot(grid[row_idx, col_idx])  # grid is (row, column)
 
-            # check if series is a list of ints or floats
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
+                # check if series is a list of ints or floats
                 ax.title.set_text(str(port) + ': ' + str(state_id) + ' (non numeric)')
-                ax.title.set_fontsize(16)
             else:
                 # plot line at zero if series crosses the zero line
                 if any(x == 0.0 for x in series) or (any(x < 0.0 for x in series) and any(x > 0.0 for x in series)):
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
-
-                if (port, state_id) in show_state:
-                    ax.plot(time_vec, series, 'indigo', linewidth=2)
-                else:
-                    ax.plot(time_vec, series)
-
-                # overlay
-                if state_id in top_timeseries.keys():
-                    ax.plot(time_vec, top_timeseries[state_id], 'm', label=top_port)
-                    ax.legend()
-
+                ax.plot(time_vec, series)
                 ax.title.set_text(str(port) + ': ' + str(state_id))
-                ax.title.set_fontsize(16)
 
             if row_idx == columns[col_idx]-1:
                 # if last row of column
@@ -711,14 +403,147 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             else:
                 set_axes(ax)
                 row_idx += 1
+            ax.set_xlim([time_vec[0], time_vec[-1]])
 
     # save figure
     fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)
+    plt.subplots_adjust(wspace=0.8, hspace=1.0)
+    plt.savefig(fig_path, bbox_inches='tight')
+
+
+
+def order_list_of_paths(path_list):
+    # make the lists equal in length:
+    length = max(map(len, path_list))
+    lol = np.array([list(path) + [None] * (length - len(path)) for path in path_list])
+
+    # sort by first two columns. TODO -- sort by all available columns
+    ind = np.lexsort((lol[:, 1], lol[:, 0]))
+    sorted_path_list = sorted(zip(ind, path_list))
+    forward_order = [idx_path[1] for idx_path in sorted_path_list]
+    forward_order.reverse()
+    return forward_order
+
+def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
+    '''
+    Make a plot of all agent data
+    TODO -- add agent color
+    '''
+    agents_key = settings.get('agents_key', 'agents')
+    max_rows = settings.get('max_rows', 25)
+    skip_paths = settings.get('skip_paths', [])
+    time_vec = list(data.keys())
+    timeseries = path_timeseries_from_data(data)
+
+    # get the agents' port_schema in a list of paths
+    # assume the initial agents have the same port schema as all subsequent agents
+    initial_agents = data[time_vec[0]][agents_key]
+    initial_agent_ids = list(initial_agents.keys())
+    first_agent = initial_agents[initial_agent_ids[0]]
+    top_ports = list(first_agent.keys())
+    port_schema_paths = get_path_list_from_dict(first_agent)
+    # remove skipped paths
+    port_schema_paths = [path for path in port_schema_paths if path not in skip_paths]
+
+    # get port columns, assign subplot locations
+    port_rows = {port_id: [] for port_id in top_ports}
+    for path in port_schema_paths:
+        top_port = path[0]
+        port_rows[top_port].append(path)
+
+    highest_row = 0
+    row_idx = 0
+    col_idx = 0
+    ordered_paths = {port_id: {} for port_id in top_ports}
+    for port_id, path_list in port_rows.items():
+        if not path_list:
+            continue
+        # order target names and assign subplot location
+        ordered_targets = order_list_of_paths(path_list)
+        for target in ordered_targets:
+            ordered_paths[port_id][target] = [row_idx, col_idx]
+
+            # next column/row
+            if row_idx >= max_rows - 1:
+                row_idx = 0
+                col_idx += 1
+            else:
+                row_idx += 1
+            if row_idx > highest_row:
+                highest_row = row_idx
+        # new column for next port
+        row_idx = 0
+        col_idx += 1
+
+    # initialize figure
+    n_rows = highest_row + 1
+    n_cols = col_idx + 1
+    fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
+    grid = plt.GridSpec(ncols=n_cols, nrows=n_rows, wspace=0.4, hspace=1.5)
+
+    # make the subplot axes
+    port_axes = {}
+    for port_id, paths in ordered_paths.items():
+        for path_idx, (path, location) in enumerate(paths.items()):
+            row_idx = location[0]
+            col_idx = location[1]
+
+            # make the subplot axis
+            ax = fig.add_subplot(grid[row_idx, col_idx])
+            ax.title.set_text(path)
+            ax.title.set_fontsize(16)
+            ax.set_xlim([time_vec[0], time_vec[-1]])
+
+            # if last state in this port, add time ticks
+            if row_idx > max_rows or path_idx > len(ordered_paths[port_id]):
+                set_axes(ax, True)
+                ax.set_xlabel('time (s)')
+            else:
+                set_axes(ax)
+            ax.set_xlim([time_vec[0], time_vec[-1]])
+            # save axis
+            port_axes[path] = ax
+
+    # plot the agents
+    plotted_agents = []
+    for time_idx, (time, time_data) in enumerate(data.items()):
+        agents = time_data[agents_key]
+        for agent_id, agent_data in agents.items():
+            if agent_id not in plotted_agents:
+                plotted_agents.append(agent_id)
+                for port_schema_path in port_schema_paths:
+                    series = timeseries[(agents_key, agent_id) + port_schema_path]
+                    if not isinstance(series[0], (float, int)):
+                        continue
+                    n_times = len(series)
+                    plot_times = time_vec[time_idx:time_idx+n_times]
+
+                    ax = port_axes[port_schema_path]
+                    ax.plot(plot_times, series)
+
+    # save figure
+    fig_path = os.path.join(out_dir, filename)
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
     plt.savefig(fig_path, bbox_inches='tight')
 
 
 # timeseries functions
+def agent_timeseries_from_data(data, agents_key='cells'):
+    timeseries = {}
+    for time, all_states in data.items():
+        agent_data = all_states[agents_key]
+        for agent_id, ports in agent_data.items():
+            if agent_id not in timeseries:
+                timeseries[agent_id] = {}
+            for port_id, states in ports.items():
+                if port_id not in timeseries[agent_id]:
+                    timeseries[agent_id][port_id] = {}
+                for state_id, state in states.items():
+                    if state_id not in timeseries[agent_id][port_id]:
+                        timeseries[agent_id][port_id][state_id] = []
+                    timeseries[agent_id][port_id][state_id].append(state)
+    return timeseries
+
 def save_timeseries(timeseries, out_dir='out'):
     '''Save a timeseries as a CSV in out_dir'''
     flattened = flatten_timeseries(timeseries)
@@ -908,27 +733,29 @@ def assert_timeseries_close(
 class ToyLinearGrowthDeathProcess(Process):
 
     GROWTH_RATE = 1.0
-    THRESHOLD = 5.0
+    THRESHOLD = 6.0
 
     def __init__(self, initial_parameters={}):
+        self.targets = initial_parameters.get('targets')
         ports = {
-            'compartment': ['processes'],
             'global': ['mass'],
         }
         super(ToyLinearGrowthDeathProcess, self).__init__(
             ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'emitter_keys': {
-                'global': ['mass']},
-            'state': {
-                'global': {
-                    'mass': 0.0
-                }
-            },
-        }
-        return default_settings
+    def ports_schema(self):
+        schema = {
+            'global': {
+                'mass': {
+                    '_default': 0.0,
+                    '_emit': True}}}
+
+        schema['global'].update({
+            target: {
+                '_default': None}
+            for target in self.targets})
+        return schema
+
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
@@ -938,19 +765,18 @@ class ToyLinearGrowthDeathProcess(Process):
             'global': {'mass': mass_grown},
         }
         if mass > ToyLinearGrowthDeathProcess.THRESHOLD:
-            update['compartment'] = {
-                'processes': {},
-            }
+            update['global'] = {
+                '_delete': [(target,) for target in self.targets]}
+
         return update
 
 class TestSimulateProcess:
 
-    def test_compartment_state_port(self):
-        '''Check that compartment state ports are handled'''
-        process = ToyLinearGrowthDeathProcess()
-        settings = {
-            'compartment_state_port': 'compartment',
-        }
+    def test_process_deletion(self):
+        '''Check that processes are successfully deleted'''
+        process = ToyLinearGrowthDeathProcess({'targets': ['process']})
+        settings = {}
+
         timeseries = simulate_process(process, settings)
         expected_masses = [
             # Mass stops increasing the iteration after mass > 5 because
@@ -959,178 +785,174 @@ class TestSimulateProcess:
         masses = timeseries['global']['mass']
         assert masses == expected_masses
 
-def toy_composite(config):
-    '''
-    a toy composite function for testing
-    returns a dictionary with 'processes', 'states', and 'options'
 
-    '''
+# toy processes
+class ToyMetabolism(Process):
+    def __init__(self, initial_parameters={}):
+        ports = {'pool': ['GLC', 'MASS']}
+        parameters = {'mass_conversion_rate': 1}
+        parameters.update(initial_parameters)
 
-    # toy processes
-    class ToyMetabolism(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {'pool': ['GLC', 'MASS']}
-            parameters = {'mass_conversion_rate': 1}
-            parameters.update(initial_parameters)
+        super(ToyMetabolism, self).__init__(ports, parameters)
 
-            super(ToyMetabolism, self).__init__(ports, parameters)
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_default': 0.0,
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()}
 
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            update = {}
-            glucose_required = timestep / self.parameters['mass_conversion_rate']
-            if states['pool']['GLC'] >= glucose_required:
-                update = {
-                    'pool': {
-                        'GLC': -2,
-                        'MASS': 1}}
-
-            return update
-
-    class ToyTransport(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'external': ['GLC'],
-                'internal': ['GLC']}
-            parameters = {'intake_rate': 2}
-            parameters.update(initial_parameters)
-
-            super(ToyTransport, self).__init__(ports, parameters)
-
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            update = {}
-            intake = timestep * self.parameters['intake_rate']
-            if states['external']['GLC'] >= intake:
-                update = {
-                    'external': {'GLC': -2, 'MASS': 1},
-                    'internal': {'GLC': 2}}
-
-            return update
-
-    class ToyDeriveVolume(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'compartment': ['MASS', 'DENSITY', 'VOLUME']}
-            parameters = {}
-
-            super(ToyDeriveVolume, self).__init__(ports, parameters)
-
-        def default_settings(self):
-            return {
-                'emitter_keys': {
-                    port_id: keys for port_id, keys in self.ports.items()}
-            }
-
-        def next_update(self, timestep, states):
-            volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
+    def next_update(self, timestep, states):
+        update = {}
+        glucose_required = timestep / self.parameters['mass_conversion_rate']
+        if states['pool']['GLC'] >= glucose_required:
             update = {
-                'compartment': {'VOLUME': volume}}
+                'pool': {
+                    'GLC': -2,
+                    'MASS': 1}}
 
-            return update
+        return update
 
-    class ToyDeath(Process):
-        def __init__(self, initial_parameters={}):
-            ports = {
-                'compartment': ['VOLUME'],
-                'global': ['processes']}
-            super(ToyDeath, self).__init__(ports, {})
+class ToyTransport(Process):
+    def __init__(self, initial_parameters={}):
+        ports = {
+            'external': ['GLC'],
+            'internal': ['GLC']}
+        parameters = {'intake_rate': 2}
+        parameters.update(initial_parameters)
 
-        def next_update(self, timestep, states):
-            volume = states['compartment']['VOLUME']
-            update = {}
+        super(ToyTransport, self).__init__(ports, parameters)
 
-            if volume > 1.0:
-                # kill the cell
-                update = {
-                    'global': {
-                        'processes': {}}}
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_default': 0.0,
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()}
 
-            return update
+    def next_update(self, timestep, states):
+        update = {}
+        intake = timestep * self.parameters['intake_rate']
+        if states['external']['GLC'] >= intake:
+            update = {
+                'external': {'GLC': -2, 'MASS': 1},
+                'internal': {'GLC': 2}}
 
+        return update
 
-    processes = {
-        'metabolism': ToyMetabolism(
-            {'mass_conversion_rate': 0.5}), # example of overriding default parameters
-        'transport': ToyTransport(),
-        'death': ToyDeath()}
+class ToyDeriveVolume(Deriver):
+    def __init__(self, initial_parameters={}):
+        ports = {
+            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
+        parameters = {}
 
-    # deriver processes
-    derivers_processes = {
-        'external_volume': ToyDeriveVolume(),
-        'internal_volume': ToyDeriveVolume()}
+        super(ToyDeriveVolume, self).__init__(ports, parameters)
 
-    # declare the states
-    states = {
-        'periplasm': Store(
-            initial_state={'GLC': 20, 'MASS': 100, 'DENSITY': 10, 'VOLUME': 100/10},
-            schema={
+    def ports_schema(self):
+        return {
+            port_id: {
+                key: {
+                    '_updater': 'set' if key == 'VOLUME' else 'accumulate',
+                    '_default': 0.0,
+                    '_emit': True}
+                for key in keys}
+            for port_id, keys in self.ports.items()}
+
+    def next_update(self, timestep, states):
+        volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
+        update = {
+            'compartment': {'VOLUME': volume}}
+
+        return update
+
+class ToyDeath(Process):
+    def __init__(self, initial_parameters={}):
+        self.targets = initial_parameters.get('targets', [])
+        ports = {
+            'compartment': ['VOLUME'],
+            'global': self.targets}
+        super(ToyDeath, self).__init__(ports, {})
+
+    def ports_schema(self):
+        return {
+            'compartment': {
                 'VOLUME': {
-                    'updater': 'set'}}),
-        'cytoplasm': Store(
-            initial_state={'MASS': 3, 'DENSITY': 10, 'VOLUME': 3/10},
-            schema={
-                'VOLUME': {
-                    'updater': 'set'}})}
+                    '_default': 0.0,
+                    '_emit': True}},
+            'global': {
+                target: {
+                    '_default': None}
+                for target in self.targets}}
 
-    # hook up the ports in each process to compartment states
-    topology = {
-        'metabolism': {
-            'pool': 'cytoplasm'},
-        'transport': {
-            'external': 'periplasm',
-            'internal': 'cytoplasm'},
-        'death': {
-            'compartment': 'cytoplasm',
-            'global': COMPARTMENT_STATE},
-        'external_volume': {
-            'compartment': 'periplasm'},
-        'internal_volume': {
-            'compartment': 'cytoplasm'}}
+    def next_update(self, timestep, states):
+        volume = states['compartment']['VOLUME']
+        update = {}
 
-    # emitter that prints to the terminal
-    emitter = emit.get_emitter({
-        'type': 'print',
-        'keys': {
-            'periplasm': ['GLC', 'MASS'],
-            'cytoplasm': ['MASS']}})
+        if volume > 1.0:
+            # kill the cell
+            update = {
+                'global': {
+                    '_delete': [
+                        (target,)
+                        for target in self.targets]}}
 
-    # schema for states
-    schema = {}
+        return update
 
-    options = {
-        # 'environment_port': 'environment',
-        # 'exchange_port': 'exchange',
-        'schema': schema,
-        'emitter': emitter,
-        'topology': topology,
-        'initial_time': 0.0}
+class ToyCompartment(TreeCompartment):
+    '''
+    a toy compartment for testing
 
-    return {
-        'processes': processes,
-        'derivers': derivers_processes,
-        'states': states,
-        'options': options}
+    '''
+    def __init__(self, config):
+        self.config = config
 
-def test_compartment(composite=toy_composite):
-    compartment = load_compartment(composite)
+    def generate_processes(self, config):
+        return {
+            'metabolism': ToyMetabolism(
+                {'mass_conversion_rate': 0.5}), # example of overriding default parameters
+            'transport': ToyTransport(),
+            'death': ToyDeath({'targets': [
+                'metabolism',
+                'transport']}),
+            'external_volume': ToyDeriveVolume(),
+            'internal_volume': ToyDeriveVolume()
+        }
+
+    def generate_topology(self, config):
+        return{
+            'metabolism': {
+                'pool': ('cytoplasm',)},
+            'transport': {
+                'external': ('periplasm',),
+                'internal': ('cytoplasm',)},
+            'death': {
+                'global': tuple(),
+                'compartment': ('cytoplasm',)},
+            'external_volume': {
+                'compartment': ('periplasm',)},
+            'internal_volume': {
+                'compartment': ('cytoplasm',)}}
+
+
+def test_compartment():
+    toy_compartment = ToyCompartment({})
     settings = {
         'timestep': 1,
-        'total_time': 20,
-        'emit_timeseries': True,}
-
-    return simulate_compartment(compartment, settings)
-
+        'total_time': 10,
+        'initial_state': {
+            'periplasm': {
+                'GLC': 20,
+                'MASS': 100,
+                'DENSITY': 10},
+            'cytoplasm': {
+                'GLC': 0,
+                'MASS': 3,
+                'DENSITY': 10}}}
+    data = simulate_compartment_in_experiment(toy_compartment, settings)
 
 if __name__ == '__main__':
     timeseries = test_compartment()

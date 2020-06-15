@@ -7,11 +7,15 @@ import scipy.constants as constants
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
+
+
+NAME = 'membrane_potential'
 
 # PMF ~170mV at pH 7. ~140mV at pH 7.7 (Berg)
 # Ecoli internal pH in range 7.6-7.8 (Berg)
@@ -72,17 +76,18 @@ class MembranePotential(Process):
             }
     }
 
-
-    def __init__(self, config={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
         # set states
-        self.initial_states = config.get('states', self.defaults['states'])
-        self.permeability = config.get('permeability', self.defaults['permeability'])
-        self.charge = config.get('charge', self.defaults['charge'])
+        self.initial_states = initial_parameters.get('states', self.defaults['states'])
+        self.permeability = initial_parameters.get('permeability', self.defaults['permeability'])
+        self.charge = initial_parameters.get('charge', self.defaults['charge'])
 
         # set parameters
         parameters = self.defaults['constants']
-        parameters.update(config.get('parameters', self.defaults['parameters']))
+        parameters.update(initial_parameters.get('parameters', self.defaults['parameters']))
 
         # get list of internal and external states
         internal_states = list(self.initial_states['internal'].keys())
@@ -183,12 +188,12 @@ def test_mem_potential():
         (100, {('external', 'Na'): 2}),
         (500, {})]
 
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(mp, settings)
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'membrane_potential')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

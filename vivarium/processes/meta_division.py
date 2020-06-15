@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import uuid
+
 from vivarium.core.process import Deriver
 
 
@@ -23,21 +25,26 @@ class CountForever(object):
         self.index += self.by
         return value
 
+def get_uuid():
+    return str(uuid.uuid1())
 
 class MetaDivision(Deriver):
 
     defaults = {
         'initial_state': {},
         'daughter_path': ('cell',),
-        'id_function': CountForever(start=33).generate}
+        'id_function': get_uuid}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.division = 0
 
         # must provide a compartment to generate new daughters
         self.compartment = initial_parameters['compartment']
         self.id_function = self.or_default(initial_parameters, 'id_function')
-        self.cell_id = initial_parameters.get('cell_id', str(self.id_function()))
+        self.agent_id = initial_parameters['agent_id']
         self.daughter_path = initial_parameters.get('daughter_path', self.defaults['daughter_path'])
 
         ports = {
@@ -80,7 +87,7 @@ class MetaDivision(Deriver):
             return {
                 'cells': {
                     '_divide': {
-                        'mother': self.cell_id,
+                        'mother': self.agent_id,
                         'daughters': daughter_updates}}}
         else:
              return {}   

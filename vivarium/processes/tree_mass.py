@@ -1,20 +1,18 @@
 from __future__ import absolute_import, division, print_function
 
 from vivarium.core.process import Deriver
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 from vivarium.processes.derive_globals import AVOGADRO
 
 
 def calculate_mass(value, path, node):
-    if 'mass' in node.properties:
-        unit_mass = node.properties['mass']
+    if 'mw' in node.properties:
         count = node.value
-        mw = unit_mass * (units.g / units.mol)
+        mw = node.properties['mw']
         mol = count / AVOGADRO
         added_mass = mw * mol
-        mass = added_mass.to('fg')
-        return value + mass.magnitude
+        return value + added_mass
     else:
         return value
 
@@ -28,15 +26,19 @@ class TreeMass(Deriver):
 
     defaults = {
         'from_path': ('..', '..'),
-        'initial_mass': 0.0 * units.fg,  # wet mass in fg
+        'initial_mass': 0.0 * units.fg,
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.from_path = self.or_default(initial_parameters, 'from_path')
-        self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
+        self.initial_mass = self.or_default(initial_parameters, 'initial_mass')
 
         ports = {
             'global': [
+                'initial_mass',
                 'mass']}
 
         super(TreeMass, self).__init__(ports, initial_parameters)
@@ -44,15 +46,20 @@ class TreeMass(Deriver):
     def ports_schema(self):
         return {
             'global': {
+                'initial_mass': {
+                    '_default': self.initial_mass,
+                    '_updater': 'set',
+                    '_divider': 'split'},
                 'mass': {
-                    '_default': self.initial_mass.magnitude,
+                    '_emit': True,
                     '_updater': 'set'}}}
 
     def next_update(self, timestep, states):
+        initial_mass = states['global']['initial_mass']
         return {
             'global': {
                 'mass': {
                     '_reduce': {
                         'reducer': calculate_mass,
                         'from': self.from_path,
-                        'initial': 0.0}}}}
+                        'initial': initial_mass}}}}

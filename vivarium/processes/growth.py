@@ -4,11 +4,16 @@ import os
 
 import numpy as np
 
+from vivarium.library.units import units
 from vivarium.core.process import Process
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
+
+
+NAME = 'growth'
 
 
 class Growth(Process):
@@ -36,13 +41,17 @@ class Growth(Process):
     >>> # growth rate chosen so mass doubles each timestep
     >>> configuration = {'growth_rate': math.log(2.0)}
     >>> growth_process = Growth(configuration)
-    >>> state = growth_process.default_settings()['state']
-    >>> state
-    {'global': {'mass': 1339}}
+    >>> state = growth_process.default_state()
+    >>> # the initial mass magnitude (femtograms)
+    >>> mass = state['global']['mass'].magnitude
+    >>> mass
+    1339
     >>> update = growth_process.next_update(TIMESTEP, state)
-    >>> update
-    {'global': {'mass': 2678.0}}
-    >>> update['global']['mass'] / state['global']['mass']
+    >>> # the new mass magnitude (femtograms)
+    >>> new_mass = update['global']['mass'].magnitude
+    >>> new_mass
+    2678.0
+    >>> new_mass / mass
     2.0
 
     """
@@ -52,7 +61,10 @@ class Growth(Process):
         'global_deriver_key': 'global_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         ports = {
             'global': [
                 'mass',
@@ -72,6 +84,7 @@ class Growth(Process):
             'global': {
                 'mass': {
                     '_emit': True,
+                    '_default': 1339 * units.fg,
                     '_updater': 'set',
                     '_divider': 'split'},
                 'volume': {
@@ -90,15 +103,6 @@ class Growth(Process):
                 'config': {
                     'width': 1.0}}}
 
-    def default_settings(self):
-        # default state
-        mass = 1339  # (wet mass in fg)
-        internal = {'mass': mass}
-        default_state = {'global': internal}
-
-        return {
-            'state': default_state}
-
     def next_update(self, timestep, states):
         mass = states['global']['mass']
         new_mass = mass * np.exp(self.parameters['growth_rate'] * timestep)
@@ -108,7 +112,7 @@ class Growth(Process):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'growth')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

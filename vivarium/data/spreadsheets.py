@@ -14,7 +14,7 @@ try:
 except ImportError:
     pass
 
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 TSV_DIALECT = csv.excel_tab
 

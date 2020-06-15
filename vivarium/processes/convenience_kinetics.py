@@ -30,8 +30,8 @@ import os
 
 from scipy import constants
 
+from vivarium.core.experiment import schema_for
 from vivarium.core.process import Process
-from vivarium.core.tree import schema_for
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,
@@ -39,12 +39,12 @@ from vivarium.core.composition import (
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
-from vivarium.utils.kinetic_rate_laws import KineticFluxModel
-from vivarium.utils.dict_utils import tuplify_port_dicts
-from vivarium.utils.units import units
+from vivarium.library.kinetic_rate_laws import KineticFluxModel
+from vivarium.library.dict_utils import tuplify_port_dicts
+from vivarium.library.units import units
 
 
 #: The name of the process, which is used to name the subdirectory under
@@ -53,6 +53,164 @@ NAME = 'convenience_kinetics'
 
 
 class ConvenienceKinetics(Process):
+    '''Michaelis-Menten-style enzyme kinetics model
+
+     Arguments:
+         initial_parameters: Configures the :term:`process` with the
+             following configuration options:
+
+             * **reactions** (:py:class:`dict`): Specifies the
+               stoichiometry, reversibility, and catalysts of each
+               reaction to model. For a non-reversible reaction
+               :math:`A + B \\rightleftarrows 2C` catalized by an
+               enzyme :math:`E`, we have the following reaction
+               specification:
+
+               .. code-block:: python
+
+                 {
+                     # reaction1 is a reaction ID
+                     'reaction1': {
+                         'stoichiometry': {
+                             # 1 mol A is consumd per mol reaction
+                             ('internal', 'A'): -1,
+                             ('internal', 'B'): -1,
+                             # 2 mol C are produced per mol reaction
+                             ('internal', 'C'): 2,
+                         },
+                         'is reversible': False,
+                         'catalyzed by': [
+                             ('internal', 'E'),
+                         ],
+                     }
+                 }
+
+               Note that for simplicity, we assumed all the molecules
+               and enzymes were in the ``internal`` port, but this is
+               not necessary.
+             * **kinetic_parameters** (:py:class:`dict`): Specifies
+               the kinetics of the reaction by providing
+               :math:`k_{cat}` and :math:`K_M` parameters for each
+               enzyme. For example, let's say that for the reaction
+               described above, :math:`k{cat} = 1`, :math:`K_A = 2`,
+               and :math:`K_B = 3`. Then the reaction kinetics would
+               be specified by:
+
+               .. code-block:: python
+
+                 {
+                     'reaction1': {
+                         ('internal', 'E'): {
+                             'kcat_f': 1,  # kcat for forward reaction
+                             ('internal', 'A'): 2,
+                             ('internal', 'B'): 3,
+                         },
+                     },
+                 }
+
+               If the reaction were reversible, we could have
+               specified ``kcat_r`` as the :math:`k_{cat}` of the
+               reverse reaction.
+             * **initial_state** (:py:class:`dict`): Provides the
+               initial quantities of the molecules and enzymes. The
+               initial reaction flux must also be specified. For
+               example, to start with :math:`[E] = 1.2 mM` and
+               :math:`[A] = [B] = [C] = 0 mM` with an initial
+               reaction flux of `0`, we would have:
+
+               .. code-block:: python
+
+                 {
+                     'internal': {
+                         'A': 0.0,
+                         'B': 0.0,
+                         'C': 0.0,
+                         'E': 1.2,
+                     },
+                     'fluxes': {
+                         'reaction1': 0.0,
+                     }
+                 }
+
+               .. note:: Unlike the previous configuration options,
+                   the initial state dictionary is not divided up by
+                   reaction.
+
+               If no initial state is specified,
+               :py:const:`EMPTY_STATES` is used.
+             * **ports** (:py:class:`dict`): Each item in the
+               dictionary has a :term:`port` name as its key and a
+               list of the :term:`variables` in that port as its
+               value. Each port should be specified only once. For
+               example, the reaction we have been using as an example
+               would have:
+
+               .. code-block:: python
+
+                 {
+                     'internal': ['A', 'B', 'C', 'E'],
+                 }
+
+               If no ports are specified, :py:const:`EMPTY_ROLES` is
+               used.
+
+     The ports of the process are the ports configured by the
+     user, with the following modifications:
+
+     * A ``fluxes`` port is added with variable names equal to
+       the IDs of the configured reactions.
+     * An ``exchange`` port is added with the same variables as the
+       ``external`` port.
+     * A ``global`` port is added with a variable named
+       ``mmol_to_counts``, which is set by a :term:`deriver`.
+
+     Example configuring a process to model the kinetics and reaction
+     described above.
+
+     >>> configuration = {
+     ...     'reactions': {
+     ...         # reaction1 is the reaction ID
+     ...         'reaction1': {
+     ...             'stoichiometry': {
+     ...                 # 1 mol A is consumd per mol reaction
+     ...                 ('internal', 'A'): -1,
+     ...                 ('internal', 'B'): -1,
+     ...                 # 2 mol C are produced per mol reaction
+     ...                 ('internal', 'C'): 2,
+     ...             },
+     ...             'is reversible': False,
+     ...             'catalyzed by': [
+     ...                 ('internal', 'E'),
+     ...             ],
+     ...         }
+     ...     },
+     ...     'kinetic_parameters': {
+     ...         'reaction1': {
+     ...             ('internal', 'E'): {
+     ...                 'kcat_f': 1,  # kcat for forward reaction
+     ...                 ('internal', 'A'): 2,
+     ...                 ('internal', 'B'): 3,
+     ...             },
+     ...         },
+     ...     },
+     ...     'initial_state': {
+     ...         'internal': {
+     ...             'A': 0.0,
+     ...             'B': 0.0,
+     ...             'C': 0.0,
+     ...             'E': 1.2,
+     ...         },
+     ...         'fluxes': {
+     ...             'reaction1': 0.0,
+     ...         }
+     ...     },
+     ...     'ports': {
+     ...         'internal': ['A', 'B', 'C', 'E'],
+     ...         'external': [],
+     ...     },
+     ... }
+     >>> kinetic_process = ConvenienceKinetics(configuration)
+     '''
 
     defaults = {
         'reactions': {},
@@ -65,165 +223,10 @@ class ConvenienceKinetics(Process):
             'external': []},
         'global_deriver_key': 'global_deriver'}
 
-    def __init__(self, initial_parameters={}):
-        '''Michaelis-Menten-style enzyme kinetics model
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
-        Arguments:
-            initial_parameters: Configures the :term:`process` with the
-                following configuration options:
-
-                * **reactions** (:py:class:`dict`): Specifies the
-                  stoichiometry, reversibility, and catalysts of each
-                  reaction to model. For a non-reversible reaction
-                  :math:`A + B \\rightleftarrows 2C` catalized by an
-                  enzyme :math:`E`, we have the following reaction
-                  specification:
-
-                  .. code-block:: python
-
-                    {
-                        # reaction1 is a reaction ID
-                        'reaction1': {
-                            'stoichiometry': {
-                                # 1 mol A is consumd per mol reaction
-                                ('internal', 'A'): -1,
-                                ('internal', 'B'): -1,
-                                # 2 mol C are produced per mol reaction
-                                ('internal', 'C'): 2,
-                            },
-                            'is reversible': False,
-                            'catalyzed by': [
-                                ('internal', 'E'),
-                            ],
-                        }
-                    }
-
-                  Note that for simplicity, we assumed all the molecules
-                  and enzymes were in the ``internal`` port, but this is
-                  not necessary.
-                * **kinetic_parameters** (:py:class:`dict`): Specifies
-                  the kinetics of the reaction by providing
-                  :math:`k_{cat}` and :math:`K_M` parameters for each
-                  enzyme. For example, let's say that for the reaction
-                  described above, :math:`k{cat} = 1`, :math:`K_A = 2`,
-                  and :math:`K_B = 3`. Then the reaction kinetics would
-                  be specified by:
-
-                  .. code-block:: python
-
-                    {
-                        'reaction1': {
-                            ('internal', 'E'): {
-                                'kcat_f': 1,  # kcat for forward reaction
-                                ('internal', 'A'): 2,
-                                ('internal', 'B'): 3,
-                            },
-                        },
-                    }
-
-                  If the reaction were reversible, we could have
-                  specified ``kcat_r`` as the :math:`k_{cat}` of the
-                  reverse reaction.
-                * **initial_state** (:py:class:`dict`): Provides the
-                  initial quantities of the molecules and enzymes. The
-                  initial reaction flux must also be specified. For
-                  example, to start with :math:`[E] = 1.2 mM` and
-                  :math:`[A] = [B] = [C] = 0 mM` with an initial
-                  reaction flux of `0`, we would have:
-
-                  .. code-block:: python
-
-                    {
-                        'internal': {
-                            'A': 0.0,
-                            'B': 0.0,
-                            'C': 0.0,
-                            'E': 1.2,
-                        },
-                        'fluxes': {
-                            'reaction1': 0.0,
-                        }
-                    }
-
-                  .. note:: Unlike the previous configuration options,
-                      the initial state dictionary is not divided up by
-                      reaction.
-
-                  If no initial state is specified,
-                  :py:const:`EMPTY_STATES` is used.
-                * **ports** (:py:class:`dict`): Each item in the
-                  dictionary has a :term:`port` name as its key and a
-                  list of the :term:`variables` in that port as its
-                  value. Each port should be specified only once. For
-                  example, the reaction we have been using as an example
-                  would have:
-
-                  .. code-block:: python
-
-                    {
-                        'internal': ['A', 'B', 'C', 'E'],
-                    }
-
-                  If no ports are specified, :py:const:`EMPTY_ROLES` is
-                  used.
-
-        The ports of the process are the ports configured by the
-        user, with the following modifications:
-
-        * A ``fluxes`` port is added with variable names equal to
-          the IDs of the configured reactions.
-        * An ``exchange`` port is added with the same variables as the
-          ``external`` port.
-        * A ``global`` port is added with a variable named
-          ``mmol_to_counts``, which is set by a :term:`deriver`.
-
-        Example configuring a process to model the kinetics and reaction
-        described above.
-
-        >>> configuration = {
-        ...     'reactions': {
-        ...         # reaction1 is the reaction ID
-        ...         'reaction1': {
-        ...             'stoichiometry': {
-        ...                 # 1 mol A is consumd per mol reaction
-        ...                 ('internal', 'A'): -1,
-        ...                 ('internal', 'B'): -1,
-        ...                 # 2 mol C are produced per mol reaction
-        ...                 ('internal', 'C'): 2,
-        ...             },
-        ...             'is reversible': False,
-        ...             'catalyzed by': [
-        ...                 ('internal', 'E'),
-        ...             ],
-        ...         }
-        ...     },
-        ...     'kinetic_parameters': {
-        ...         'reaction1': {
-        ...             ('internal', 'E'): {
-        ...                 'kcat_f': 1,  # kcat for forward reaction
-        ...                 ('internal', 'A'): 2,
-        ...                 ('internal', 'B'): 3,
-        ...             },
-        ...         },
-        ...     },
-        ...     'initial_state': {
-        ...         'internal': {
-        ...             'A': 0.0,
-        ...             'B': 0.0,
-        ...             'C': 0.0,
-        ...             'E': 1.2,
-        ...         },
-        ...         'fluxes': {
-        ...             'reaction1': 0.0,
-        ...         }
-        ...     },
-        ...     'ports': {
-        ...         'internal': ['A', 'B', 'C', 'E'],
-        ...         'external': [],
-        ...     },
-        ... }
-        >>> kinetic_process = ConvenienceKinetics(configuration)
-        '''
         self.nAvogadro = constants.N_A * 1 / units.mol
 
         # retrieve initial parameters
@@ -254,7 +257,7 @@ class ConvenienceKinetics(Process):
 
     def ports_schema(self):
         set_ports = ['fluxes']
-        emit_ports = ['internal', 'external']
+        emit_ports = ['internal', 'external', 'fluxes']
 
         schema = {}
         for port, states in self.ports.items():
@@ -264,12 +267,15 @@ class ConvenienceKinetics(Process):
                 if port in self.initial_state:
                     if state_id in self.initial_state[port]:
                         schema[port][state_id]['_default'] = self.initial_state[port][state_id]
+                else:
+                    schema[port][state_id]['_default'] = 0.0
             if port in set_ports:
                 for state_id in states:
                     schema[port][state_id]['_updater'] = 'set'
-            if port in emit_ports:
-                for state_id in states:
-                    schema[port][state_id]['_emit'] = True
+
+            emitting = port in emit_ports
+            for state_id in states:
+                schema[port][state_id]['_emit'] = emitting
 
         return schema
 
@@ -561,10 +567,10 @@ def test_convenience_kinetics(end_time=2520):
 
     settings = {
         'environment': {
-            'volume': 5e-14,
-            'states': ['glc__D_e', 'lcts_e'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
+            'volume': 1e-14 * units.L,
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)}},
         'timestep': 1,
         'total_time': end_time}
 
@@ -579,7 +585,7 @@ def test_convenience_kinetics_correlated_to_reference():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

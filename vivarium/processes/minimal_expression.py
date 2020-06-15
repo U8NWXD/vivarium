@@ -4,13 +4,16 @@ import os
 import random
 
 from vivarium.core.process import Process
-from vivarium.utils.dict_utils import tuplify_port_dicts
-from vivarium.utils.regulation_logic import build_rule
+from vivarium.library.dict_utils import tuplify_port_dicts
+from vivarium.library.regulation_logic import build_rule
 from vivarium.core.composition import (
     simulate_process_in_experiment,
-    plot_simulation_output
+    plot_simulation_output,
+    PROCESS_OUT_DIR,
 )
 
+
+NAME = 'minimal_expression'
 
 
 class MinimalExpression(Process):
@@ -28,7 +31,9 @@ class MinimalExpression(Process):
         'concentrations_deriver_key': 'expression_concentrations_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         expression_rates = initial_parameters.get('expression_rates')
         self.internal_states = list(expression_rates.keys()) if expression_rates else []
@@ -59,6 +64,9 @@ class MinimalExpression(Process):
 
     def ports_schema(self):
         return {
+            'global': {},
+            'concentrations': {},
+            'external': {},
             'internal': {
                 state : {
                     '_updater': 'accumulate',
@@ -120,7 +128,7 @@ def test_expression(end_time=10):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'minimal_expression')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

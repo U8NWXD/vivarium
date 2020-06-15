@@ -1,7 +1,8 @@
 import os
 
-from vivarium.utils.fasta import read_sequence
-from vivarium.utils.polymerize import generate_template
+from vivarium.library.units import units
+from vivarium.library.fasta import read_sequence
+from vivarium.library.polymerize import generate_template
 from vivarium.data.knowledge_base import KnowledgeBase
 from vivarium.states.chromosome import Chromosome
 
@@ -26,31 +27,31 @@ class FlagellaChromosome(object):
             self.ecoli_sequence = read_sequence(ECOLI_GENOME_PATH)
 
         self.factor_thresholds = {
-            ('flhDp', 'CRP'): 1e-05,
-            ('fliLp1', 'flhDC'): 1e-06,
-            ('fliLp1', 'fliA'): 1.3e-05,
-            ('fliEp1', 'flhDC'): 4e-06,
-            ('fliEp1', 'fliA'): 1.1e-05,
-            ('fliFp1', 'flhDC'): 7e-06,
-            ('fliFp1', 'fliA'): 1e-05,
-            ('flgBp', 'flhDC'): 1e-05,
-            ('flgBp', 'fliA'): 8e-06,
-            ('flgAp', 'flhDC'): 1.3e-05,
-            ('flgAp', 'fliA'): 6e-06,
-            ('flhBp', 'flhDC'): 1.5e-05,
-            ('flhBp', 'fliA'): 5e-06,
-            ('fliAp1', 'flhDC'): 1.7e-05,
-            ('fliAp1', 'fliA'): 4e-06,
-            ('flgEp', 'flhDC'): 1.9e-05,
-            ('flgEp', 'fliA'): 3e-06,
-            ('fliDp', 'flhDC'): 1.9e-05,
-            ('fliDp', 'fliA'): 3e-06,
-            ('flgKp', 'flhDC'): 2.1e-05,
-            ('flgKp', 'fliA'): 1e-06,
-            ('fliCp', 'fliA'): 5e-06,
-            ('tarp', 'fliA'): 7e-06,
-            ('motAp', 'fliA'): 9e-06,
-            ('flgMp', 'fliA'): 1.1e-06}
+            ('flhDp', 'CRP'): 1e-05 * units.mM,
+            ('fliLp1', 'flhDC'): 1e-06 * units.mM,
+            ('fliLp1', 'fliA'): 1.3e-05 * units.mM,
+            ('fliEp1', 'flhDC'): 4e-06 * units.mM,
+            ('fliEp1', 'fliA'): 1.1e-05 * units.mM,
+            ('fliFp1', 'flhDC'): 7e-06 * units.mM,
+            ('fliFp1', 'fliA'): 1e-05 * units.mM,
+            ('flgBp', 'flhDC'): 1e-05 * units.mM,
+            ('flgBp', 'fliA'): 8e-06 * units.mM,
+            ('flgAp', 'flhDC'): 1.3e-05 * units.mM,
+            ('flgAp', 'fliA'): 6e-06 * units.mM,
+            ('flhBp', 'flhDC'): 1.5e-05 * units.mM,
+            ('flhBp', 'fliA'): 5e-06 * units.mM,
+            ('fliAp1', 'flhDC'): 1.7e-05 * units.mM,
+            ('fliAp1', 'fliA'): 4e-06 * units.mM,
+            ('flgEp', 'flhDC'): 1.9e-05 * units.mM,
+            ('flgEp', 'fliA'): 3e-06 * units.mM,
+            ('fliDp', 'flhDC'): 1.9e-05 * units.mM,
+            ('fliDp', 'fliA'): 3e-06 * units.mM,
+            ('flgKp', 'flhDC'): 2.1e-05 * units.mM,
+            ('flgKp', 'fliA'): 1e-06 * units.mM,
+            ('fliCp', 'fliA'): 5e-06 * units.mM,
+            ('tarp', 'fliA'): 7e-06 * units.mM,
+            ('motAp', 'fliA'): 9e-06 * units.mM,
+            ('flgMp', 'fliA'): 1.1e-06 * units.mM}
 
         self.factor_thresholds.update(parameters.get('thresholds', {}))
 
@@ -254,7 +255,7 @@ class FlagellaChromosome(object):
                     'lead': 0,
                     'lag': 0,
                     'children': []}},
-            'rnaps': []}
+            'rnaps': {}}
 
         # build chromosome and apply thresholds
         self.chromosome = Chromosome(self.chromosome_config)

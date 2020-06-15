@@ -6,41 +6,51 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import networkx as nx
 
-from vivarium.core.tree import Compartment
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
-    simulate_compartment_in_experiment
+    COMPARTMENT_OUT_DIR,
+    simulate_compartment_in_experiment,
+    plot_simulation_output,
 )
-from vivarium.utils.make_network import save_network
-
+from vivarium.library.make_network import save_network
+from vivarium.library.units import units
 # processes
+from vivarium.data.amino_acids import amino_acids
+from vivarium.processes.tree_mass import TreeMass
 from vivarium.processes.transcription import Transcription, UNBOUND_RNAP_KEY
 from vivarium.processes.translation import Translation, UNBOUND_RIBOSOME_KEY
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
-from vivarium.processes.division import Division, divide_condition
+from vivarium.processes.division_volume import DivisionVolume
 from vivarium.data.amino_acids import amino_acids
 from vivarium.data.nucleotides import nucleotides
 
 
 
+NAME = 'gene_expression'
+
 class GeneExpression(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global')
-    }
+        'global_path': ('global',),
+        'initial_mass': 1339.0 * units.fg}
 
     def __init__(self, config):
         self.config = config
         self.global_path = config.get('global_path', self.defaults['global_path'])
+        self.initial_mass = config.get('initial_mass', self.defaults['initial_mass'])
 
     def generate_processes(self, config):
-        transcription = Transcription(config.get('transcription', {}))
-        translation = Translation(config.get('translation', {}))
-        degradation = RnaDegradation(config.get('degradation', {}))
-        complexation = Complexation(config.get('complexation', {}))
-        division = Division(config)
+        transcription = Transcription(config.get('transcription', self.config.get('transcription')))
+        translation = Translation(config.get('translation', self.config.get('translation')))
+        degradation = RnaDegradation(config.get('degradation', self.config.get('degradation')))
+        complexation = Complexation(config.get('complexation', self.config.get('complexation')))
+        mass_deriver = TreeMass(config.get('mass_deriver', {
+            'initial_mass': config.get('initial_mass', self.initial_mass)}))
+        division = DivisionVolume(config)
 
         return {
+            'mass_deriver': mass_deriver,
             'transcription': transcription,
             'translation': translation,
             'degradation': degradation,
@@ -51,12 +61,16 @@ class GeneExpression(Compartment):
         global_path = config.get('global_path', self.global_path)
 
         return {
+            'mass_deriver': {
+                'global': global_path},
+
             'transcription': {
                 'chromosome': ('chromosome',),
                 'molecules': ('molecules',),
                 'proteins': ('proteins',),
                 'transcripts': ('transcripts',),
-                'factors': ('concentrations',)},
+                'factors': ('concentrations',),
+                'global': global_path},
 
             'translation': {
                 'ribosomes': ('ribosomes',),
@@ -367,7 +381,6 @@ def gene_network_plot(data, out_dir, filename='gene_network'):
     plt.figure(3, figsize=(12, 12))
     plt.axis('off')
     plt.savefig(fig_path, bbox_inches='tight')
-
     plt.close()
 
 def plot_gene_expression_output(timeseries, config, out_dir='out'):
@@ -446,8 +459,8 @@ def plot_gene_expression_output(timeseries, config, out_dir='out'):
 
 
 # test
-def run_gene_expression(out_dir):
-    timeseries = test_gene_expression()
+def run_gene_expression(total_time=10, out_dir='out'):
+    timeseries = test_gene_expression(total_time)
     plot_settings = {
         'name': 'gene_expression',
         'ports': {
@@ -456,26 +469,50 @@ def run_gene_expression(out_dir):
             'proteins': 'proteins'}}
     plot_gene_expression_output(timeseries, plot_settings, out_dir)
 
-def test_gene_expression():
+    sim_plot_settings = {'max_rows': 25}
+    plot_simulation_output(timeseries, sim_plot_settings, out_dir)
+
+def test_gene_expression(total_time=10):
     # load the compartment
     compartment_config = {
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',)}
     compartment = GeneExpression(compartment_config)
+
+    molecules = {
+        nt: 1000
+        for nt in nucleotides.values()}
+    molecules.update({
+        aa: 1000
+        for aa in amino_acids.values()})
+
+    proteins = {
+        polymerase: 100
+        for polymerase in [
+                UNBOUND_RNAP_KEY,
+                UNBOUND_RIBOSOME_KEY]}
+
+    proteins.update({
+        polymerase: 1000000
+        for polymerase in [
+                'tfA',
+                'tfB']})
 
     # simulate
     settings = {
         'timestep': 1,
-        'total_time': 10}
+        'total_time': total_time,
+        'initial_state': {
+            'proteins': proteins,
+            'molecules': molecules}}
     return simulate_compartment_in_experiment(compartment, settings)
 
 
-
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'gene_expression_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_gene_expression(out_dir)
+    run_gene_expression(600, out_dir)

@@ -2,13 +2,17 @@ from __future__ import absolute_import, division, print_function
 
 import copy
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
+from vivarium.core.experiment import Compartment
 from vivarium.core.process import Process
 
 
-class Timeline(Process):
+class TimelineProcess(Process):
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.timeline = copy.deepcopy(initial_parameters['timeline'])
 
         # get ports
@@ -17,11 +21,10 @@ class Timeline(Process):
             for state in list(event[1].keys()):
                 port = {state[0]: [state[1]]}
                 ports = deep_merge(ports, port)
-
         parameters = {
             'timeline': self.timeline}
 
-        super(Timeline, self).__init__(ports, parameters)
+        super(TimelineProcess, self).__init__(ports, parameters)
 
     def ports_schema(self):
         return {
@@ -31,9 +34,7 @@ class Timeline(Process):
                     '_updater': 'accumulate'}}}
 
     def next_update(self, timestep, states):
-
         time = states['global']['time']
-
         update = {'global': {'time': timestep}}
         for (t, change_dict) in self.timeline:
             if time >= t:
@@ -46,5 +47,4 @@ class Timeline(Process):
                         '_value': value,
                         '_updater': 'set'}
                 self.timeline.pop(0)
-
         return update

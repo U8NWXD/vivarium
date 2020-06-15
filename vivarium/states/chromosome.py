@@ -4,8 +4,8 @@ import numpy as np
 
 from vivarium.data.chromosomes.toy_chromosome import toy_chromosome_config
 from vivarium.data.nucleotides import nucleotides
-from vivarium.utils.datum import Datum
-from vivarium.utils.polymerize import Polymerase, BindingSite, Terminator, Template, Elongation, polymerize_to, add_merge
+from vivarium.library.datum import Datum
+from vivarium.library.polymerize import Polymerase, BindingSite, Terminator, Template, Elongation, polymerize_to, add_merge
 
 INFINITY = float('inf')
 
@@ -61,7 +61,7 @@ class Operon(Datum):
         'genes': []}
 
     def __init__(self, config):
-        super(Operon, self).__init__(config, self.defaults)
+        super(Operon, self).__init__(config)
 
 class Domain(Datum):
     defaults = {
@@ -71,7 +71,7 @@ class Domain(Datum):
         'children': []}
 
     def __init__(self, config):
-        super(Domain, self).__init__(config, self.defaults)
+        super(Domain, self).__init__(config)
 
     def contains(self, position):
         if position < 0:
@@ -128,7 +128,7 @@ class Rnap(Polymerase):
         'position': 0}
 
     def __init__(self, config):
-        super(Rnap, self).__init__(config, self.defaults)
+        super(Rnap, self).__init__(config)
 
 class Chromosome(Datum):
     schema = {
@@ -149,7 +149,7 @@ class Chromosome(Datum):
                 'children': []}},
         'root_domain': 0,
         'rnap_id': 0,
-        'rnaps': []}
+        'rnaps': {}}
 
     def operons(self):
         return [
@@ -179,7 +179,7 @@ class Chromosome(Datum):
             promoter_key: {}
             for promoter_key in self.promoter_order}
 
-        for rnap in self.rnaps:
+        for rnap in self.rnaps.values():
             if rnap.is_occluding():
                 by_promoter[rnap.template][rnap.domain] = rnap
 
@@ -223,12 +223,12 @@ class Chromosome(Datum):
             'domain': domain,
             'position': 0})
         new_rnap.bind()
-        self.rnaps.append(new_rnap)
+        self.rnaps[new_rnap.id] = new_rnap
         return new_rnap
 
     def terminator_distance(self):
         distance = INFINITY
-        for rnap in self.rnaps:
+        for rnap in self.rnaps.values():
             if rnap.is_polymerizing():
                 promoter = self.promoters[rnap.template]
 
@@ -317,7 +317,7 @@ class Chromosome(Datum):
             domain = self.domains[domain_key]
             lead, lag = distances[domain_key]
 
-            for rnap in self.rnaps:
+            for rnap in self.rnaps.values():
                 if rnap.domain == domain_key:
                     promoter = self.promoters[rnap.template]
                     position = promoter.position
@@ -335,14 +335,14 @@ class Chromosome(Datum):
                 'promoters': {id: promoter.to_dict() for id, promoter in self.promoters.items()},
                 'domains': {domain.id: domain.to_dict()},
                 'root_domain': domain.id,
-                'rnaps': [
-                    rnap.to_dict()
-                    for rnap in self.rnaps
-                    if rnap.domain == domain.id]}
+                'rnaps': {
+                    rnap.id: rnap.to_dict()
+                    for rnap in self.rnaps.items()
+                    if rnap.domain == domain.id}}
 
         else:
             division['domains'][domain.id] = domain.to_dict()
-            for rnap in self.rnaps:
+            for rnap in self.rnaps.values():
                 if rnap.domain == domain.id:
                     division['rnaps'].append(rnap.to_dict())
 
@@ -367,8 +367,8 @@ class Chromosome(Datum):
         return [Chromosome(fork) for fork in divided]
 
     def __init__(self, config):
-        super(Chromosome, self).__init__(config, self.defaults)
-        if not self.promoter_order:
+        super(Chromosome, self).__init__(config)
+        if self.promoter_order:
             self.promoter_order = list(self.promoters.keys())
 
 
@@ -414,7 +414,7 @@ def test_chromosome():
     print(chromosome.promoter_domains())
 
     print('rnaps')
-    print([rnap.to_dict() for rnap in chromosome.rnaps])
+    print([rnap.to_dict() for rnap in chromosome.rnaps.values()])
 
     print('completed after advancing 5')
     print(chromosome.polymerize(5, {

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from vivarium.processes.derive_globals import AVOGADRO
 from vivarium.core.process import Deriver
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 
 def get_default_state():
@@ -13,8 +13,8 @@ def get_default_state():
 
     return {
         'global': {
-            'volume': volume.magnitude,
-            'mmol_to_counts': mmol_to_counts.magnitude}}
+            'volume': volume.to('fL'),
+            'mmol_to_counts': mmol_to_counts}}
 
 
 class DeriveCounts(Deriver):
@@ -24,7 +24,9 @@ class DeriveCounts(Deriver):
     defaults = {
         'concentration_keys': []}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         self.initial_state = initial_parameters.get('initial_state', get_default_state())
 
@@ -45,9 +47,9 @@ class DeriveCounts(Deriver):
         return {
             'global': {
                 'volume': {
-                    '_default': 0.0},
+                    '_default': 0.0 * units.fL},
                 'mmol_to_counts': {
-                    '_default': 0.0}},
+                    '_default': 0.0 * units.L / units.mmol}},
             'counts': {
                 molecule: {
                     '_divider': 'split',
@@ -55,7 +57,7 @@ class DeriveCounts(Deriver):
                 for molecule in self.concentration_keys}}
 
     def next_update(self, timestep, states):
-        mmol_to_counts = states['global']['mmol_to_counts']
+        mmol_to_counts = states['global']['mmol_to_counts'].to('L/mmol').magnitude
         concentrations = states['concentrations']
 
         counts = {}

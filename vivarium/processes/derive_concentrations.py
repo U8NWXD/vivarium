@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from vivarium.processes.derive_globals import AVOGADRO
 from vivarium.core.process import Deriver
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
 
 
@@ -14,7 +14,10 @@ class DeriveConcentrations(Deriver):
     defaults = {
         'concentration_keys': []}
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         self.avogadro = AVOGADRO
         self.concentration_keys = self.or_default(
             initial_parameters, 'concentration_keys')
@@ -31,17 +34,15 @@ class DeriveConcentrations(Deriver):
         super(DeriveConcentrations, self).__init__(ports, parameters)
 
     def ports_schema(self):
-        volume = 1.2
-        mmol_to_counts = (self.avogadro * volume * units.fL).to('L/mmol').magnitude
+        volume = 1.2 * units.fL
+        mmol_to_counts = (self.avogadro * volume).to('L/mmol')
 
         return {
             'global': {
                 'volume': {
-                    '_default': volume,
-                    '_units': units.fL},
+                    '_default': volume},
                 'mmol_to_counts': {
-                    '_default': mmol_to_counts,
-                    '_units': units.L/units.mmol}},
+                    '_default': mmol_to_counts}},
             'counts': {
                 concentration: {
                     '_divider': 'split'}

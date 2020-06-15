@@ -3,30 +3,23 @@ from __future__ import absolute_import, division, print_function
 import math
 import os
 
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
+    simulate_compartment_in_experiment,
     plot_simulation_output,
-    simulate_with_environment,
-    get_derivers,
     flatten_timeseries,
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    COMPARTMENT_OUT_DIR,
     assert_timeseries_close,
-    load_compartment)
-from vivarium.core.process import (
-    initialize_state,
-    COMPARTMENT_STATE,
 )
 from vivarium.processes.antibiotic_transport import AntibioticTransport
 from vivarium.processes.antibiotic_transport import (
     DEFAULT_INITIAL_STATE as ANTIBIOTIC_DEFAULT_INITIAL_STATE,
 )
 from vivarium.processes.death import DeathFreezeState
-from vivarium.processes.division import (
-    Division,
-    divide_condition,
-)
+from vivarium.processes.division_volume import DivisionVolume
 from vivarium.processes.growth import Growth
 from vivarium.processes.ode_expression import ODE_expression
 
@@ -36,118 +29,91 @@ NUM_DIVISIONS = 3
 DIVISION_TIME = 2400  # seconds to divide
 
 
-def compose_antibiotics(config):
 
-    division_time = config.get('cell_cycle_division_time', 2400)
+class Antibiotics(Compartment):
 
-    # Expression Config
-    transcription_config = config.setdefault('transcription_rates', {})
-    transcription_config.setdefault('AcrAB-TolC_RNA', 1e-3)
-    translation_config = config.setdefault('translation_rates', {})
-    translation_config.setdefault('AcrAB-TolC', 1.0)
-    degradation_config = config.setdefault('degradation_rates', {})
-    degradation_config.setdefault('AcrAB-TolC', 1.0)
-    degradation_config.setdefault('AcrAB-TolC_RNA', 1e-3)
-    protein_map = config.setdefault('protein_map', {})
-    protein_map.setdefault(
-        'AcrAB-TolC', 'AcrAB-TolC_RNA')
+    def __init__(self, config):
+        self.config = config
+        division_time = self.config.get('cell_cycle_division_time', 2400)
 
-    initial_state_config = config.setdefault(
-        'initial_state', ANTIBIOTIC_DEFAULT_INITIAL_STATE)
-    internal_initial_config = initial_state_config.setdefault(
-        'internal', {})
-    internal_initial_config['AcrAB-TolC'] = 0.0
+        # Expression Config
+        transcription_config = self.config.setdefault('transcription_rates', {})
+        transcription_config.setdefault('AcrAB-TolC_RNA', 1e-3)
+        translation_config = self.config.setdefault('translation_rates', {})
+        translation_config.setdefault('AcrAB-TolC', 1.0)
+        degradation_config = self.config.setdefault('degradation_rates', {})
+        degradation_config.setdefault('AcrAB-TolC', 1.0)
+        degradation_config.setdefault('AcrAB-TolC_RNA', 1e-3)
+        protein_map = self.config.setdefault('protein_map', {})
+        protein_map.setdefault(
+            'AcrAB-TolC', 'AcrAB-TolC_RNA')
 
-    # Death Config
-    checkers_config = config.setdefault('checkers', {})
-    antibiotic_checker_config = checkers_config.setdefault(
-        'antibiotic', {})
-    antibiotic_checker_config.setdefault('antibiotic_threshold', 0.09)
+        initial_state_config = self.config.setdefault(
+            'initial_state', ANTIBIOTIC_DEFAULT_INITIAL_STATE)
+        internal_initial_config = initial_state_config.setdefault(
+            'internal', {})
+        internal_initial_config['AcrAB-TolC'] = 0.0
 
-    # Growth Config
-    # Growth rate calculated so that 2 = exp(DIVISION_TIME * rate)
-    # because division process divides once cell doubles in size
-    config.setdefault('growth_rate', math.log(2) / division_time)
+        # Death Config
+        checkers_config = self.config.setdefault('checkers', {})
+        antibiotic_checker_config = checkers_config.setdefault(
+            'antibiotic', {})
+        antibiotic_checker_config.setdefault('antibiotic_threshold', 0.09)
 
-    # declare the processes
-    antibiotic_transport = AntibioticTransport(config)
-    growth = Growth(config)
-    expression = ODE_expression(config)
-    death = DeathFreezeState(config)
-    division = Division(config)
+        # Growth Config
+        # Growth rate calculated so that 2 = exp(DIVISION_TIME * rate)
+        # because division process divides once cell doubles in size
+        self.config.setdefault('growth_rate', math.log(2) / division_time)
 
-    # place processes in layers
-    processes = {
-        'antibiotic_transport': antibiotic_transport,
-        'growth': growth,
-        'expression': expression,
-        'death': death,
-        'division': division,
-    }
+    def generate_processes(self, config):
+        # TODO -- use config to update self.config
+        antibiotic_transport = AntibioticTransport(self.config)
+        growth = Growth(self.config)
+        expression = ODE_expression(self.config)
+        death = DeathFreezeState(self.config)
+        division = DivisionVolume(self.config)
 
-    # make the topology.
-    # for each process, map process ports to compartment ports
-    topology = {
-        'antibiotic_transport': {
-            'internal': 'cell',
-            'external': 'environment',
-            'exchange': 'exchange',
-            'fluxes': 'fluxes',
-            'global': 'global',
-        },
-        'growth': {
-            'global': 'global',
-        },
-        'expression': {
-            'counts': 'cell_counts',
-            'internal': 'cell',
-            'external': 'environment',
-        },
-        'division': {
-            'global': 'global',
-        },
-        'death': {
-            'internal': 'cell',
-            'compartment': COMPARTMENT_STATE,
-            'global': 'global',
-        },
-    }
+        return {
+            'antibiotic_transport': antibiotic_transport,
+            'growth': growth,
+            'expression': expression,
+            'death': death,
+            'division': division,
+        }
 
-    # add derivers
-    derivers = get_derivers(processes, topology)
-    deriver_processes = derivers['deriver_processes']
-    all_processes = {}
-    all_processes.update(processes)
-    all_processes.update(deriver_processes)
-    topology.update(derivers['deriver_topology'])
+    def generate_topology(self, config):
+        return {
+            'antibiotic_transport': {
+                'internal': ('cell',),
+                'external': ('environment',),
+                'exchange': ('exchange',),
+                'fluxes': ('fluxes',),
+                'global': ('global',),
+            },
+            'growth': {
+                'global': ('global',),
+            },
+            'expression': {
+                'counts': ('cell_counts',),
+                'internal': ('cell',),
+                'external': ('environment',),
+                'global': ('global',),
+            },
+            'division': {
+                'global': ('global',),
+            },
+            'death': {
+                'internal': ('cell',),
+                'global': ('global',),
+            },
+        }
 
-    # initialize the states
-    states = initialize_state(
-        all_processes,
-        topology,
-        config.get('initial_state', {}))
-
-    options = {
-        'name': 'antibiotic_growth_composite',
-        'environment_port': 'environment',
-        'exchange_port': 'exchange',
-        'topology': topology,
-        'initial_time': config.get('initial_time', 0.0),
-        'divide_condition': divide_condition,
-    }
-
-    return {
-        'processes': processes,
-        'derivers': deriver_processes,
-        'states': states,
-        'options': options}
 
 
 def run_antibiotics_composite():
-    options = compose_antibiotics({})['options']
-    settings = {
-        'environment_port': options['environment_port'],
-        'exchange_port': options['exchange_port'],
+    sim_settings = {
+        'environment_port': ('environment',),
+        'exchange_port': ('exchange',),
         'environment_volume': 1e-5,  # L
         'timestep': 1,
         'total_time': DIVISION_TIME * NUM_DIVISIONS,
@@ -169,10 +135,8 @@ def run_antibiotics_composite():
             },
         },
     }
-    compartment = load_compartment(compose_antibiotics, config)
-    saved_state = simulate_with_environment(compartment, settings)
-    return saved_state
-
+    compartment = Antibiotics(config)
+    return simulate_compartment_in_experiment(compartment, sim_settings)
 
 def test_antibiotics_composite_similar_to_reference():
     timeseries = run_antibiotics_composite()
@@ -183,13 +147,12 @@ def test_antibiotics_composite_similar_to_reference():
 
 
 def main():
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     plot_settings = {
         'max_rows': 25,
-        'skip_ports': ['prior_state'],
     }
 
     timeseries = run_antibiotics_composite()

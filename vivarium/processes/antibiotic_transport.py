@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
+from vivarium.library.units import units
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,
@@ -12,7 +13,7 @@ from vivarium.core.composition import (
     save_timeseries,
     load_timeseries,
     REFERENCE_DATA_DIR,
-    TEST_OUT_DIR,
+    PROCESS_OUT_DIR,
     assert_timeseries_close,
 )
 from vivarium.processes.convenience_kinetics import ConvenienceKinetics
@@ -132,11 +133,11 @@ def run_antibiotic_transport():
     settings = {
         'total_time': 4000,
         'environment': {
-            'volume': 1e-15,
-            'states': ['antibiotic'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
-    }
+            'volume': 1e-15 * units.L,
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)
+            }}}
     return simulate_process_in_experiment(process, settings)
 
 
@@ -149,7 +150,7 @@ def test_antibiotic_transport():
 
 
 def main():
-    out_dir = os.path.join(TEST_OUT_DIR, NAME)
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     timeseries = run_antibiotic_transport()

@@ -41,14 +41,11 @@ import os
 
 from vivarium.core.composition import (
     plot_simulation_output,
-    simulate_compartment,
-    load_compartment)
-from vivarium.core.process import (
-    Process,
-    initialize_state,
-    COMPARTMENT_STATE,
+    simulate_compartment_in_experiment,
+    PROCESS_OUT_DIR,
 )
-
+from vivarium.core.experiment import Compartment
+from vivarium.core.process import Process
 
 TOY_ANTIBIOTIC_THRESHOLD = 5.0
 TOY_INJECTION_RATE = 2.0
@@ -134,10 +131,9 @@ class DeathFreezeState(Process):
         '''Model Death by Removing Processes
 
         This process class models death by, with a few exceptions,
-        frezing the internal state of the cell. We implement this by
+        freezing the internal state of the cell. We implement this by
         removing from this process's :term:`compartment` all processes,
-        except those specified with the ``enduring_processes``
-        configuration.
+        specified with the ``targets`` configuration.
 
         Configuration:
 
@@ -145,16 +141,13 @@ class DeathFreezeState(Process):
           to include. Death will be triggered if any one of these
           triggers death. Names are specified in
           :py:const:`DETECTOR_CLASSES`.
-        * **``enduring_processes``: A list of the names of the processes
-          that will not be removed when the cell dies. The names are
+        * **``targets``: A list of the names of the processes
+          that will be removed when the cell dies. The names are
           specified in the compartment's :term:`topology`.
 
         :term:`Ports`:
 
         * **``internal``**: The internal state of the cell.
-        * **``compartment``**: The compartment within which this process
-          is embedded. In the topology, the store name should be
-          :py:const:`vivarium.core.process.COMPARTMENT_STATE`.
         * **``global``**: Should be linked to the ``global``
           :term:`store`.
         '''
@@ -166,13 +159,12 @@ class DeathFreezeState(Process):
                 'detectors', {}).items()
         ]
         # List of names of processes that will remain after death
-        self.enduring_processes = initial_parameters.get(
-            'enduring_processes', {})
+        self.targets = initial_parameters.get('targets', [])
+
         ports = {
             'internal': set(),
-            'compartment': ['processes'],
-            'global': ['dead'],
-        }
+            'global': ['dead']}
+
         for detector in self.detectors:
             needed_keys = detector.needed_state_keys
             for port in needed_keys:
@@ -182,21 +174,40 @@ class DeathFreezeState(Process):
             ports[port] = list(keys)
         super(DeathFreezeState, self).__init__(ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'state': {
-                'internal': {},
-                'global': {
-                    'dead': 0,
-                },
-            },
-            'emitter_keys': {'global': ['dead']},
-            'updaters': {
-                'compartment': {'processes': 'set'},
-                'global': {'dead': 'set'},
-            },
-        }
-        return default_settings
+    def ports_schema(self):
+        emit_keys = {
+            'global': ['dead']}
+        set_update = {
+            'global': {'dead': 'set'}}
+        set_ports_zero = [
+            'internal',
+            'global']
+
+        schema = {}
+        for port, states in self.ports.items():
+            schema[port] = {}
+            for state_id in states:
+                schema[port][state_id] = {}
+
+                if port in set_ports_zero:
+                    schema[port][state_id][
+                        '_default'] = 0
+
+                if port in set_update:
+                    if state_id in set_update[port]:
+                        schema[port][state_id][
+                            '_updater'] = set_update[port][state_id]
+
+                if port in emit_keys:
+                    if state_id in emit_keys[port]:
+                        schema[port][state_id][
+                            '_emit'] = True
+
+        schema['global'].update({
+            target: {
+                '_default': None}
+            for target in self.targets})
+        return schema
 
     def next_update(self, timestep, states):
         '''If any detector triggers death, kill the cell
@@ -207,18 +218,13 @@ class DeathFreezeState(Process):
         '''
         for detector in self.detectors:
             if not detector.check_can_survive(states):
-                cur_processes = states['compartment']['processes']
+                # kill the cell
                 return {
-                    'compartment': {
-                        'processes': {
-                            process_name: cur_processes[process_name]
-                            for process_name in self.enduring_processes
-                        }
-                    },
                     'global': {
-                        'dead': 1,
-                    },
-                }
+                        '_delete': [
+                            ('..', target,)
+                            for target in self.targets],
+                        'dead': 1}}
         return {}
 
 
@@ -234,85 +240,79 @@ class ToyAntibioticInjector(Process):
         ports = {'internal': [self.antibiotic_name]}
         super(ToyAntibioticInjector, self).__init__(ports, initial_parameters)
 
-    def default_settings(self):
-        default_settings = {
-            'state': {
-                'internal': {
-                    self.antibiotic_name: 0.0
-                }
-            },
-            'emitter_keys': {'internal': [self.antibiotic_name]},
-        }
-        return default_settings
+    def ports_schema(self):
+        return {
+            'internal': {
+                self.antibiotic_name: {
+                    '_default': 0.0,
+                    '_emit': True}}}
 
     def next_update(self, timestep, states):
         delta = timestep * self.injection_rate
         return {'internal': {self.antibiotic_name: delta}}
 
 
-def compose_toy_death(config):
-    death_parameters = {
-        'detectors': {
-            'antibiotic': {
-                'antibiotic_threshold': TOY_ANTIBIOTIC_THRESHOLD,
-            }
-        },
-        'enduring_processes': ['enduring_injector'],
-    }
-    death_process = DeathFreezeState(death_parameters)
-    injector_parameters = {
-        'injection_rate': TOY_INJECTION_RATE,
-    }
-    injector_process = ToyAntibioticInjector(injector_parameters)
-    enduring_parameters = {
-        'injection_rate': TOY_INJECTION_RATE,
-        'antibiotic_name': 'enduring_antibiotic'
-    }
-    enduring_process = ToyAntibioticInjector(enduring_parameters)
-    processes = {
-        'death': death_process,
-        'injector': injector_process,
-        'enduring_injector': enduring_process,
-    }
-    topology = {
-        'death': {
-            'internal': 'cell',
-            'compartment': COMPARTMENT_STATE,
-            'global': 'global',
-        },
-        'injector': {
-            'internal': 'cell',
-        },
-        'enduring_injector': {
-            'internal': 'cell',
-        },
-    }
-    init_state = {
-        'cell': {
-            'antibiotic': 0.0,
-            'enduring_antibiotic': 0.0,
-        },
-        'global': {
-            'dead': 0,
-        },
-    }
-    states = initialize_state(processes, topology, init_state)
-    options = {
-        'topology': topology,
-    }
-    return {
-        'processes': processes,
-        'states': states,
-        'options': options,
-    }
+class ToyDeath(Compartment):
+
+    def generate_processes(self, config):
+        death_parameters = {
+            'detectors': {
+                'antibiotic': {
+                    'antibiotic_threshold': TOY_ANTIBIOTIC_THRESHOLD,
+                }
+            },
+            'targets': ['injector', 'death'],
+        }
+        death_process = DeathFreezeState(death_parameters)
+        injector_parameters = {
+            'injection_rate': TOY_INJECTION_RATE,
+        }
+        injector_process = ToyAntibioticInjector(injector_parameters)
+        enduring_parameters = {
+            'injection_rate': TOY_INJECTION_RATE,
+            'antibiotic_name': 'enduring_antibiotic'
+        }
+        enduring_process = ToyAntibioticInjector(enduring_parameters)
+
+        return {
+            'death': death_process,
+            'injector': injector_process,
+            'enduring_injector': enduring_process,
+        }
+
+    def generate_topology(self, config):
+        return {
+            'death': {
+                'internal': ('cell',),
+                'global': ('global',),
+            },
+            'injector': {
+                'internal': ('cell',),
+            },
+            'enduring_injector': {
+                'internal': ('cell',),
+            },
+        }
+
 
 
 def test_death_freeze_state(end_time=10, asserts=True):
-    compartment = load_compartment(compose_toy_death)
+    toy_death_compartment = ToyDeath({})
+
+    init_state = {
+        'cell': {
+            'antibiotic': 0.0,
+            'enduring_antibiotic': 0.0},
+        'global': {
+            'dead': 0}}
+
     settings = {
-        'timeline': [(end_time, {})],
-    }
-    saved_states = simulate_compartment(compartment, settings)
+        'total_time': end_time,
+        'initial_state': init_state}
+    saved_states = simulate_compartment_in_experiment(
+        toy_death_compartment,
+        settings)
+
     if asserts:
         # Add 1 because dies when antibiotic strictly above threshold
         expected_death = 1 + TOY_ANTIBIOTIC_THRESHOLD // TOY_INJECTION_RATE
@@ -343,14 +343,14 @@ def test_death_freeze_state(end_time=10, asserts=True):
                 time * TOY_INJECTION_RATE)
             expected_saved_states['global']['dead'].append(
                 0 if time <= expected_death else 1)
-            expected_saved_states['time'].append(time)
+            expected_saved_states['time'].append(float(i))
         assert expected_saved_states == saved_states
 
     return saved_states
 
 
 def plot_death_freeze_state_test():
-    out_dir = os.path.join('out', 'tests', 'death_freeze_state')
+    out_dir = os.path.join(PROCESS_OUT_DIR, 'death_freeze_state')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     timeseries = test_death_freeze_state(asserts=False)

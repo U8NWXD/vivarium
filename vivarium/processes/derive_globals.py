@@ -7,8 +7,8 @@ from scipy import constants
 import numpy as np
 
 from vivarium.core.process import Deriver
-from vivarium.utils.units import units
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.units import units
+from vivarium.library.dict_utils import deep_merge
 
 
 PI = math.pi
@@ -59,7 +59,9 @@ class DeriveGlobals(Deriver):
         'initial_mass': 1339 * units.fg,  # wet mass in fg
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         self.width = initial_parameters.get('width', self.defaults['width'])
         self.initial_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
@@ -94,10 +96,10 @@ class DeriveGlobals(Deriver):
 
         default_state = {
             'global': {
-                'mass': mass.magnitude,
-                'volume': volume.to('fL').magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude,
-                'density': density.magnitude,
+                'mass': mass,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
+                'density': density,
                 'width': self.width,
                 'length': length,
                 'surface_area': surface_area}}
@@ -119,9 +121,8 @@ class DeriveGlobals(Deriver):
         return schema
 
     def next_update(self, timestep, states):
-        # states
-        density = states['global']['density'] * units.g / units.L
-        mass = states['global']['mass'] * units.fg
+        density = states['global']['density']
+        mass = states['global']['mass']
         width = states['global']['width']
 
         # get volume from mass, and more variables from volume
@@ -132,8 +133,8 @@ class DeriveGlobals(Deriver):
 
         return {
             'global': {
-                'volume': volume.to('fL').magnitude,
-                'mmol_to_counts': mmol_to_counts.magnitude,
+                'volume': volume.to('fL'),
+                'mmol_to_counts': mmol_to_counts,
                 'length': length,
                 'surface_area': surface_area}}
 

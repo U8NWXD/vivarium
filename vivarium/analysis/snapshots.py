@@ -10,7 +10,7 @@ from matplotlib.colors import hsv_to_rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from vivarium.analysis.analysis import Analysis, get_compartment
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 
 
 

@@ -1,26 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import uuid
+import copy
 
-from vivarium.core.process import (
-    initialize_state)
-
-from vivarium.core.tree import (
-    Compartment,
-)
-
+from vivarium.library.units import units
+from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
+    COMPARTMENT_OUT_DIR,
     simulate_compartment_in_experiment,
-    plot_simulation_output
+    plot_agents_multigen,
 )
 
 # processes
 from vivarium.processes.growth_protein import GrowthProtein
 from vivarium.processes.minimal_expression import MinimalExpression
-from vivarium.processes.division import (
-    Division,
-    divide_condition
-)
 from vivarium.processes.meta_division import MetaDivision
 from vivarium.processes.convenience_kinetics import (
     ConvenienceKinetics,
@@ -28,53 +22,51 @@ from vivarium.processes.convenience_kinetics import (
 )
 from vivarium.processes.tree_mass import TreeMass
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 
+
+NAME = 'growth_division'
 
 class GrowthDivision(Compartment):
 
     defaults = {
-        'global_path': ('..', 'global',),
-        'external_path': ('..', 'external',),
-        'exchange_path': ('..', 'exchange',),
-        'cells_path': ('..', '..', 'cells',),
+        'boundary_path': ('boundary',),
+        'agents_path': ('..', '..', 'agents',),
+        'transport': get_glc_lct_config(),
         'daughter_path': tuple()}
 
     def __init__(self, config):
-        self.config = config
+        self.config = copy.deepcopy(config)
+        for key, value in self.defaults.items():
+            if key not in self.config:
+                self.config[key] = value
 
         # paths
-        self.global_path = config.get('global_path', self.defaults['global_path'])
-        self.external_path = config.get('external_path', self.defaults['external_path'])
-        self.exchange_path = config.get('exchange_path', self.defaults['exchange_path'])
-        self.cells_path = config.get('cells_path', self.defaults['cells_path'])
-        self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
+        self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
+        self.agents_path = config.get('agents_path', self.defaults['agents_path'])
+        # self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
-        # process configs
-        self.transport_config = self.config.get('transport', get_glc_lct_config())
-        self.transport_config['global_deriver_config'] = {
+        # # process configs
+        self.config['transport'] = self.config.get('transport', self.defaults['transport'])
+        self.config['transport']['global_deriver_config'] = {
             'type': 'globals',
             'source_port': 'global',
             'derived_port': 'global',
-            'global_port': self.global_path,
+            'global_port': self.boundary_path,
             'keys': []}
 
     def generate_processes(self, config):
-        # declare the processes
-        agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
-
-        transport_config = deep_merge(
-            config.get('transport', {}),
-            self.transport_config)
+        daughter_path = config['daughter_path']
+        agent_id = config['agent_id']
 
         division_config = dict(
             config.get('division', {}),
-            daughter_path=self.daughter_path,
-            cell_id=agent_id,
+            daughter_path=daughter_path,
+            agent_id=agent_id,
             compartment=self)
 
         growth = GrowthProtein(config.get('growth', {}))
-        transport = ConvenienceKinetics(transport_config)
+        transport = ConvenienceKinetics(config.get('transport', {}))
         division = MetaDivision(division_config)
         expression = MinimalExpression(config.get('expression', {}))
         mass = TreeMass(config.get('mass', {}))
@@ -87,12 +79,8 @@ class GrowthDivision(Compartment):
             'mass': mass}
 
     def generate_topology(self, config):
-        # make the topology.
-        # for each process, map process ports to store ids
-        external_path = config.get('external_path', self.external_path)
-        exchange_path = config.get('external_path', self.exchange_path)
-        global_path = config.get('global_path', self.global_path)
-        cells_path = config.get('cells_path', self.cells_path)
+        external_path = self.boundary_path + ('external',)
+        exchange_path = self.boundary_path + ('exchange',)
 
         return {
             'transport': {
@@ -100,44 +88,44 @@ class GrowthDivision(Compartment):
                 'external': external_path,
                 'exchange': exchange_path,
                 'fluxes': ('fluxes',),
-                'global': global_path},
+                'global': self.boundary_path},
             'growth': {
                 'internal': ('internal',),
-                'global': global_path},
+                'global': self.boundary_path},
             'mass': {
-                'global': global_path},
+                'global': self.boundary_path},
             'division': {
-                'global': global_path,
-                'cells': cells_path},
+                'global': self.boundary_path,
+                'cells': self.agents_path},
             'expression': {
                 'internal': ('internal',),
                 'external': external_path,
                 'concentrations': ('internal_concentrations',),
-                'global': global_path}}
+                'global': self.boundary_path}}
 
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'growth_division_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    compartment_config = {
-        'external_path': ('external',),
-        'exchange_path': ('exchange',),
-        'global_path': ('global',),
-        'cells_path': ('..', '..', 'cells',)}
-    compartment = GrowthDivision(compartment_config)
+    agent_id = '0'
+    compartment = GrowthDivision({'agent_id': agent_id})
 
     # settings for simulation and plot
     settings = {
         'environment': {
-            'volume': 1e-6,  # L
-            'environment_port': 'external',
-            'states': list(compartment.transport_config['initial_state']['external'].keys()),
+            'volume': 1e-6 * units.L,  # L
+            'ports': {
+                'exchange': ('boundary', 'exchange',),
+                'external': ('boundary', 'external',)}
         },
-        'outer_path': ('cells', '0'),
+        'outer_path': ('agents', agent_id),  # TODO -- need to set the agent_id through here?
         'return_raw_data': True,
         'timestep': 1,
-        'total_time': 100}
-    data = simulate_compartment_in_experiment(compartment, settings)
+        'total_time': 500}
+    output_data = simulate_compartment_in_experiment(compartment, settings)
+
+    plot_settings = {}
+    plot_agents_multigen(output_data, plot_settings, out_dir)

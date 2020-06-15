@@ -5,18 +5,20 @@ from vivarium.core.process import Process
 
 class Template(Process):
     '''
-    Need to add a boot method for this process to vivarium/environment/boot.py for it to run on its own
+    This mock process provides a basic template that can be used for a new process
     '''
 
     defaults = {
         'parameters': {}
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         ports = {
-            'internal': ['states'],
-            'external': ['states'],
+            'internal': ['A'],
+            'external': ['B'],
         }
 
         parameters = initial_parameters.get(
@@ -24,60 +26,38 @@ class Template(Process):
 
         super(Template, self).__init__(ports, parameters)
 
-    def default_settings(self):
+    def ports_schema(self):
         '''
-        state is a dictionary with:
-        default_state = {
-            'external': states (dict) -- external states ids with default initial values
-            'internal': states (dict) -- internal states ids with default initial values
+        schema is is a dictionary that declares how each state will behave.
 
-        emitter_keys is a dictionary with:
-        keys = {
-            'internal': states (list), # a list of states to emit from internal
-            'external': states (list), # a list of states to emit from external
+        TODO -- describe the schema
+            '_value'
+            '_default'
+            '_updater'
+            '_divider'
+            '_emit'
+        '''
+
+        return {
+            'internal': {
+                'A': {
+                    '_default': 1.0,
+                    '_emit': True,
+                }
+            },
+            'external': {
+                'A': {
+                    '_default': 1.0,
+                    '_emit': True,
+                }
+            },
         }
 
-        updaters defines the updater type for each state in ports.
-        The default updater is to pass a delta,
-        which is accumulated and passed to the environment at every exchange step
+    def derivers(self):
         '''
-
-        # default state
-        internal_state = {}
-        external_state = {}
-        default_state = {
-            'internal': internal_state,
-            'external': external_state}
-
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': ['states'],
-            'external': ['states']}
-
-        # schema -- define how each state is updater, divided, and its units
-        schema = {
-            'internal': {
-                state_id : {
-                    'updater': 'accumulate'}
-                for state_id in self.ports['internal']}}
-
-        # default derivers -- create a new derived port for these ports: keys
-        deriver_setting = [{
-            'type': 'mmol_to_counts',
-            'source_port': 'internal',
-            'derived_port': 'counts',
-            'keys': self.ports['internal']}]
-
-        default_settings = {
-            'process_id': 'template',
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
-            'time_step': 1.0}
-
-        return default_settings
-
+        declare which derivers are needed for this process
+        '''
+        pass
 
     def next_update(self, timestep, states):
         internal_state = states['internal']

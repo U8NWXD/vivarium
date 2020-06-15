@@ -7,14 +7,19 @@ import random
 
 import matplotlib.pyplot as plt
 
-from vivarium.core.composition import simulate_process_in_experiment
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR
+)
 from vivarium.core.process import Process
-from vivarium.utils.units import units
+from vivarium.library.units import units
 
+
+NAME = 'Endres2006_chemoreceptor'
 
 STEADY_STATE_DELTA = 1e-6
 
-INITIAL_STATE = {
+INITIAL_INTERNAL_STATE = {
     'n_methyl': 2.0,  # initial number of methyl groups on receptor cluster (0 to 8)
     'chemoreceptor_activity': 1./3.,  # initial probability of receptor cluster being on
     'CheR': 0.00016,  # (mM) wild type concentration. 0.16 uM = 0.00016 mM
@@ -65,15 +70,23 @@ class ReceptorCluster(Process):
     defaults = {
         'ligand_id': 'MeAsp',
         'initial_ligand': 5.0,
-        'initial_state': INITIAL_STATE,
+        'initial_internal_state': INITIAL_INTERNAL_STATE,
         'parameters': DEFAULT_PARAMETERS
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
-        self.ligand_id = initial_parameters.get('ligand_id', self.defaults['ligand_id'])
-        self.initial_ligand = initial_parameters.get('initial_ligand', self.defaults['initial_ligand'])
-        self.initial_state = initial_parameters.get('initial_state', self.defaults['initial_state'])
+        self.ligand_id = self.or_default(
+            initial_parameters, 'ligand_id')
+        self.initial_ligand = self.or_default(
+            initial_parameters, 'initial_ligand')
+        initial_internal_state = self.or_default(
+            initial_parameters, 'initial_internal_state')
+        self.initial_state = {
+            'internal': initial_internal_state,
+            'external': {self.ligand_id: self.initial_ligand}}
 
         ports = {
             'internal': ['n_methyl', 'chemoreceptor_activity', 'CheR', 'CheB'],
@@ -84,14 +97,15 @@ class ReceptorCluster(Process):
 
         super(ReceptorCluster, self).__init__(ports, parameters)
 
+        # initialize the state by running until steady
+        run_to_steady_state(self, self.initial_state, 1.0)
+
     def ports_schema(self):
         set_keys = {'internal': ['chemoreceptor_activity', 'n_methyl']}
-        default_states = {
-            'internal': self.initial_state,
-            'external': {self.ligand_id: self.initial_ligand}}
+        default_states = self.initial_state
         set_emit = {
-            'internal': list(self.initial_state.keys()),
-            'external': [self.ligand_id]}
+            'internal': list(self.initial_state['internal'].keys()),
+            'external':  [self.ligand_id]}
 
         schema = {}
         for port, states in self.ports.items():
@@ -114,6 +128,7 @@ class ReceptorCluster(Process):
         Monod-Wyman-Changeux model for mixed cluster activity from:
             Endres & Wingreen. (2006). Precise adaptation in bacterial chemotaxis through "assistance neighborhoods"
         '''
+
         # states
         n_methyl = copy.copy(states['internal']['n_methyl'])
         P_on = copy.copy(states['internal']['chemoreceptor_activity'])
@@ -244,7 +259,9 @@ def test_receptor(timeline=get_pulse_timeline(), timestep = 1):
     receptor = ReceptorCluster(process_config)
 
     # run experiment
-    experiment_settings = {'timeline': timeline}
+    experiment_settings = {
+        'timeline': {
+            'timeline': timeline}}
     return simulate_process_in_experiment(receptor, experiment_settings)
 
 
@@ -292,7 +309,7 @@ def plot_output(output, out_dir='out', filename='response'):
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Endres2006_chemoreceptor')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

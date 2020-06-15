@@ -28,7 +28,7 @@ setup(
         'vivarium.data.flat',
         'vivarium.data.flat.media',
         'vivarium.data.json_files',
-        'vivarium.utils'],
+        'vivarium.library'],
     author='Eran Agmon, Ryan Spangler',
     author_email='eagmon@stanford.edu, spanglry@stanford.edu',
     url='https://github.com/CovertLab/vivarium',

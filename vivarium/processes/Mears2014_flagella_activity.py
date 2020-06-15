@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+import sys
 import random
 import math
 import uuid
@@ -8,14 +9,16 @@ import argparse
 
 import numpy as np
 from numpy import linspace
-import matplotlib.pyplot as plt
-from matplotlib import colors
-from matplotlib.patches import Patch
 
-from vivarium.utils.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge
 from vivarium.core.process import Process
-from vivarium.core.composition import simulate_process_in_experiment
+from vivarium.core.composition import (
+    simulate_process_in_experiment,
+    PROCESS_OUT_DIR
+)
+from vivarium.plots.Mears2014_flagella_activity import plot_activity
 
+NAME = 'Mears2014_flagella_activity'
 
 DEFAULT_PARAMETERS = {
     # parameters from Mears, Koirala, Rao, Golding, Chemla (2014)
@@ -41,16 +44,6 @@ DEFAULT_PARAMETERS = {
     'K_D': 3.06,  # binding constant of Chey-P to base of the motor
 }
 
-# initial state
-INITIAL_STATE = {
-    'CheY': 2.59,
-    'CheY_P': 2.59,  # (uM) mean concentration of CheY-P
-    'cw_bias': 0.5,  # (made up)
-    'motile_state': 0, # 1 for tumble, -1 for run, 0 for none
-    'motile_force': 0,
-    'motile_torque': 0,
-}
-
 
 
 class FlagellaActivity(Process):
@@ -70,20 +63,30 @@ class FlagellaActivity(Process):
     defaults = {
         'flagella': 5,
         'parameters': DEFAULT_PARAMETERS,
-        'initial_state': INITIAL_STATE,
+        'initial_internal_state': {
+            'CheY': 2.59,
+            'CheY_P': 2.59,  # (uM) mean concentration of CheY-P
+            'cw_bias': 0.5,
+            'motile_state': 0,  # 1 for tumble, -1 for run, 0 for none
+        },
 
         # motile force parameters
         'PMF': 170,  # PMF ~170mV at pH 7, ~140mV at pH 7.7 (Berg H, E. coli in motion, 2004, pg 113)
         'flagellum_thrust': 25,  # (pN) (Berg H, E. coli in motion, 2004, pg 113)
-        'tumble_jitter': 0.4,
+        'tumble_jitter': 120.0,
         'time_step': 0.01,  # 0.001
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
-        self.n_flagella = initial_parameters.get('flagella', self.defaults['flagella'])
-        self.flagellum_thrust = initial_parameters.get('flagellum_thrust', self.defaults['flagellum_thrust'])
-        self.tumble_jitter = initial_parameters.get('tumble_jitter', self.defaults['tumble_jitter'])
+        self.n_flagella = self.or_default(
+            initial_parameters, 'flagella')
+        self.flagellum_thrust = self.or_default(
+            initial_parameters, 'flagellum_thrust')
+        self.tumble_jitter = self.or_default(
+            initial_parameters, 'tumble_jitter')
         self.tumble_scaling = 0.5/self.defaults['PMF']
         self.run_scaling = 1 / self.defaults['PMF']
 
@@ -95,9 +98,10 @@ class FlagellaActivity(Process):
                 'CheY',
                 'CheY_P',
                 'cw_bias',
-                'motile_state',
-                'motile_force',
-                'motile_torque'],
+                'motile_state'],
+            'boundary': [
+                'thrust',
+                'torque'],
             'flagella_counts': [
                 'flagella'],
             'membrane': [
@@ -120,15 +124,17 @@ class FlagellaActivity(Process):
                 'CheY',
                 'CheY_P',
                 'cw_bias',
-                'motile_state',
-                'motile_force',
-                'motile_torque'],
+                'motile_state'],
+            'boundary': [
+                'thrust',
+                'torque'],
             'flagella_activity': ['flagella']}
 
         split_dict_divider = {'flagella_activity': ['flagella']}
 
         set_emit = {
-            'internal': ['motile_force', 'motile_torque', 'motile_state', 'CheY', 'CheY_P', 'cw_bias'],
+            'internal': ['motile_state', 'CheY', 'CheY_P', 'cw_bias'],
+            'boundary': ['thrust', 'torque'],
             'flagella_counts': ['flagella'],
             'flagella_activity': ['flagella']}
 
@@ -145,7 +151,10 @@ class FlagellaActivity(Process):
             'flagella_activity': {
                 'flagella': {
                     flagella_id: random.choice([-1, 1]) for flagella_id in self.flagella_ids}},
-            'internal': self.defaults['initial_state']}
+            'internal': self.defaults['initial_internal_state'],
+            'boundary': {
+                'thrust': 0.0,
+                'torque': 0.0}}
 
         # schema
         schema = {}
@@ -196,7 +205,6 @@ class FlagellaActivity(Process):
             flagella.update(new_flagella_states)
 
         # states
-        # TODO -- chemoreceptor?
         CheY = internal['CheY']
         CheY_P = internal['CheY_P']
 
@@ -229,25 +237,26 @@ class FlagellaActivity(Process):
         # motile state: -1 for run, 1 for tumble, 0 for no state
         if any(state == 1 for state in flagella_update.values()):
             motile_state = 1
-            [force, torque] = self.tumble(n_flagella, PMF)
+            [thrust, torque] = self.tumble(n_flagella, PMF)
         elif len(flagella_update) > 0:
             motile_state = -1
-            [force, torque] = self.run(n_flagella, PMF)
+            [thrust, torque] = self.run(n_flagella, PMF)
         else:
             motile_state = 0
-            force = 0
+            thrust = 0
             torque = 0
 
         return {
             'flagella_activity': {
                 'flagella': flagella_update},
-            'internal' : {
+            'internal': {
                 'CheY': CheY,
                 'CheY_P': CheY_P,
                 'cw_bias': cw_bias,
-                'motile_state': motile_state,
-                'motile_force': force,
-                'motile_torque': torque,
+                'motile_state': motile_state},
+            'boundary': {
+                'thrust': thrust,
+                'torque': torque,
             }}
 
     def update_flagellum(self, motor_state, cw_bias, CheY_P, timestep):
@@ -290,14 +299,14 @@ class FlagellaActivity(Process):
         return new_motor_state
 
     def tumble(self, n_flagella, PMF):
-        force = self.tumble_scaling * PMF * self.flagellum_thrust * n_flagella
+        thrust = self.tumble_scaling * PMF * self.flagellum_thrust * n_flagella
         torque = random.normalvariate(0, self.tumble_jitter)
-        return [force, torque]
+        return [thrust, torque]
 
     def run(self, n_flagella, PMF):
-        force = self.run_scaling * PMF * self.flagellum_thrust * n_flagella
+        thrust = self.run_scaling * PMF * self.flagellum_thrust * n_flagella
         torque = 0.0
-        return [force, torque]
+        return [thrust, torque]
 
 
 # testing functions
@@ -305,7 +314,9 @@ default_params = {'flagella': 5}
 default_timeline = [(10, {})]
 def test_activity(parameters=default_params, timeline=default_timeline):
     motor = FlagellaActivity(parameters)
-    settings = {'timeline': timeline}
+    settings = {
+        'timeline': {'timeline': timeline},
+        'return_old_timeseries': True}
     return simulate_process_in_experiment(motor, settings)
 
 def test_motor_PMF():
@@ -319,191 +330,28 @@ def test_motor_PMF():
     state = motor.default_state()
 
     motor_state_vec = []
-    motor_force_vec = []
-    motor_torque_vec = []
+    thrust_vec = []
+    torque_vec = []
     for PMF in PMF_values:
         state['membrane']['PMF'] = PMF
         update = motor.next_update(timestep, state)
 
         motile_state = update['internal']['motile_state']
-        motile_force = update['internal']['motile_force']
-        motile_torque = update['internal']['motile_torque']
+        thrust = update['boundary']['thrust']
+        torque = update['boundary']['torque']
 
         # save
         motor_state_vec.append(motile_state)
-        motor_force_vec.append(motile_force)
-        motor_torque_vec.append(motile_torque)
+        thrust_vec.append(thrust)
+        torque_vec.append(torque)
 
     return {
         'motile_state': motor_state_vec,
-        'motile_force': motor_force_vec,
-        'motile_torque': motor_torque_vec,
+        'thrust': thrust_vec,
+        'torque': torque_vec,
         'PMF': PMF_values,
     }
 
-def plot_activity(output, out_dir='out', filename='motor_control'):
-    # receptor_activities = output['receptor_activities']
-    CheY_vec = output['internal']['CheY']
-    CheY_P_vec = output['internal']['CheY_P']
-    cw_bias_vec = output['internal']['cw_bias']
-    motile_state_vec = output['internal']['motile_state']
-    motile_force_vec = output['internal']['motile_force']
-    flagella_activity = output['flagella_activity']['flagella']
-    time_vec = output['time']
-
-    # get flagella ids by order appearance
-    flagella_ids = []
-    for state in flagella_activity:
-        flg_ids = list(state.keys())
-        for flg_id in flg_ids:
-            if flg_id not in flagella_ids:
-                flagella_ids.append(flg_id)
-
-    # make flagella activity grid
-    activity_grid = np.zeros((len(flagella_ids), len(time_vec)))
-    total_CW = np.zeros((len(time_vec)))
-    for time_index, flagella_state in enumerate(flagella_activity):
-        for flagella_id, rotation_states in flagella_state.items():
-
-            # get this flagella's index
-            flagella_index = flagella_ids.index(flagella_id)
-
-            modified_rotation_state = 0
-            CW_rotation_state = 0
-            if rotation_states == -1:
-                modified_rotation_state = 1
-            elif rotation_states == 1:
-                modified_rotation_state = 2
-                CW_rotation_state = 1
-
-            activity_grid[flagella_index, time_index] = modified_rotation_state
-            total_CW += np.array(CW_rotation_state)
-
-    # grid for cell state
-    motile_state_grid = np.zeros((1, len(time_vec)))
-    motile_state_grid[0, :] = motile_state_vec
-
-    # set up colormaps
-    # cell motile state
-    cmap1 = colors.ListedColormap(['steelblue', 'lightgray', 'darkorange'])
-    bounds1 = [-1, -1/3, 1/3, 1]
-    norm1 = colors.BoundaryNorm(bounds1, cmap1.N)
-    motile_legend_elements = [
-        Patch(facecolor='steelblue', edgecolor='k', label='Run'),
-        Patch(facecolor='darkorange', edgecolor='k', label='Tumble'),
-        Patch(facecolor='lightgray', edgecolor='k', label='N/A')]
-
-    # rotational state
-    cmap2 = colors.ListedColormap(['lightgray', 'steelblue', 'darkorange'])
-    bounds2 = [0, 0.5, 1.5, 2]
-    norm2 = colors.BoundaryNorm(bounds2, cmap2.N)
-    rotational_legend_elements = [
-        Patch(facecolor='steelblue', edgecolor='k', label='CCW'),
-        Patch(facecolor='darkorange', edgecolor='k', label='CW'),
-        Patch(facecolor='lightgray', edgecolor='k', label='N/A')]
-
-    # plot results
-    cols = 1
-    rows = 5
-    plt.figure(figsize=(4 * cols, 1.5 * rows))
-
-    # define subplots
-    ax1 = plt.subplot(rows, cols, 1)
-    ax2 = plt.subplot(rows, cols, 2)
-    ax3 = plt.subplot(rows, cols, 3)
-    ax4 = plt.subplot(rows, cols, 4)
-    ax5 = plt.subplot(rows, cols, 5)
-
-    # plot Che-P state
-    ax1.plot(time_vec, CheY_vec, label='CheY')
-    ax1.plot(time_vec, CheY_P_vec, label='CheY_P')
-    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    ax1.set_xticks([])
-    ax1.set_xlim(time_vec[0], time_vec[-1])
-    ax1.set_ylabel('concentration \n (uM)')
-
-    # plot CW bias
-    ax2.plot(time_vec, cw_bias_vec)
-    ax2.set_xticks([])
-    ax2.set_xlim(time_vec[0], time_vec[-1])
-    ax2.set_ylabel('CW bias')
-
-    # plot flagella states in a grid
-    if len(activity_grid) > 0:
-        ax3.imshow(activity_grid,
-                   interpolation='nearest',
-                   aspect='auto',
-                   cmap=cmap2,
-                   norm=norm2,
-                   # extent=[-1,1,-1,1]
-                   extent=[time_vec[0], time_vec[-1], len(flagella_ids)+0.5, 0.5]
-                   )
-        plt.locator_params(axis='y', nbins=len(flagella_ids))
-        ax3.set_yticks(list(range(1, len(flagella_ids) + 1)))
-        ax3.set_xticks([])
-        ax3.set_ylabel('flagella #')
-
-        # legend
-        ax3.legend(
-            handles=rotational_legend_elements,
-            loc='center left',
-            bbox_to_anchor=(1, 0.5))
-    else:
-        # no flagella
-        ax3.set_axis_off()
-
-    # plot cell motile state
-    ax4.imshow(motile_state_grid,
-               interpolation='nearest',
-               aspect='auto',
-               cmap=cmap1,
-               norm=norm1,
-               extent=[time_vec[0], time_vec[-1], 0, 1])
-    ax4.set_yticks([])
-    ax4.set_xticks([])
-    ax4.set_ylabel('cell motile state')
-
-    # legend
-    ax4.legend(
-        handles=motile_legend_elements,
-        loc='center left',
-        bbox_to_anchor=(1, 0.5))
-
-    # plot motor thrust
-    ax5.plot(time_vec, motile_force_vec)
-    ax5.set_xlim(time_vec[0], time_vec[-1])
-    ax5.set_ylabel('total motor thrust (pN)')
-    ax5.set_xlabel('time (sec)')
-
-
-    # save figure
-    fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.7, hspace=0.3)
-    plt.savefig(fig_path + '.png', bbox_inches='tight')
-
-def plot_motor_PMF(output, out_dir='out', figname='motor_PMF'):
-    motile_state = output['motile_state']
-    motile_force = output['motile_force']
-    motile_torque = output['motile_torque']
-    PMF = output['PMF']
-
-    # plot results
-    cols = 1
-    rows = 1
-    plt.figure(figsize=(10 * cols, 2 * rows))
-
-    # define subplots
-    ax1 = plt.subplot(rows, cols, 1)
-
-    # plot motile_state
-    ax1.plot(PMF, motile_force)
-    ax1.set_xlabel('PMF (mV)')
-    ax1.set_ylabel('force')
-
-    # save figure
-    fig_path = os.path.join(out_dir, figname)
-    plt.subplots_adjust(wspace=0.7, hspace=0.3)
-    plt.savefig(fig_path + '.png', bbox_inches='tight')
 
 def run_variable_flagella(out_dir):
     # variable flagella
@@ -517,27 +365,27 @@ def run_variable_flagella(out_dir):
     plot_activity(output3, out_dir, 'variable_flagella')
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'Mears2014_flagella_activity')
+    out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='flagella expression')
     parser.add_argument('--variable', '-v', action='store_true', default=False,)
+    parser.add_argument('--zero', '-z', action='store_true', default=False, )
     args = parser.parse_args()
+    no_args = (len(sys.argv) == 1)
 
     if args.variable:
         run_variable_flagella(out_dir)
-    else:
+    elif args.zero:
         zero_flagella = {'flagella': 0}
         timeline = [(10, {})]
         output1 = test_activity(zero_flagella, timeline)
         plot_activity(output1, out_dir, 'motor_control_zero_flagella')
-
+    else:
         five_flagella = {'flagella': 5}
         timeline = [(60, {})]
         output2 = test_activity(five_flagella, timeline)
         plot_activity(output2, out_dir, 'motor_control')
-
-        run_variable_flagella(out_dir)
 
 
