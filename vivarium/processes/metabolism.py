@@ -113,17 +113,18 @@ class Metabolism(Process):
         'default_upper_bound': 0.0,
         'regulation': {},
         'initial_state': {},
-        'exchange_threshold': 1e-6, # external concs lower than exchange_threshold are considered depleted
+        'exchange_threshold': 1e-6, # concentrations lower than exchange_threshold are considered depleted
         'initial_mass': 1339,  # fg
         'global_deriver_key': 'global_deriver',
         'mass_deriver_key': 'mass_deriver',
-        'time_step': 2,
+        'time_step': 1,
     }
 
     def __init__(self, initial_parameters={}):
         self.nAvogadro = AVOGADRO
 
-        time_step = initial_parameters.get('time_step', self.defaults['time_step'])
+        time_step = self.or_default(
+            initial_parameters, 'time_step')
 
         # initialize FBA
         if 'model_path' not in initial_parameters and 'stoichiometry' not in initial_parameters:
@@ -133,19 +134,19 @@ class Metabolism(Process):
         self.exchange_threshold = self.defaults['exchange_threshold']
 
         # additional FBA options
-        self.constrained_reaction_ids = initial_parameters.get(
-            'constrained_reaction_ids', self.defaults['constrained_reaction_ids'])
-        self.default_upper_bound = initial_parameters.get(
-            'default_upper_bound', self.defaults['default_upper_bound'])
+        self.constrained_reaction_ids = self.or_default(
+            initial_parameters, 'constrained_reaction_ids')
+        self.default_upper_bound = self.or_default(
+            initial_parameters, 'default_upper_bound')
 
-        # get regulation functions
-        regulation_logic = initial_parameters.get(
-            'regulation', self.defaults['regulation'])
+        # make the regulation functions
+        regulation_logic = self.or_default(
+            initial_parameters, 'regulation')
         self.regulation = {
             reaction: build_rule(logic)
             for reaction, logic in regulation_logic.items()}
 
-        # get molecules from fba objective
+        # get internal molecules from fba objective
         self.objective_composition = {}
         for reaction_id, coeff1 in self.fba.objective.items():
             for mol_id, coeff2 in self.fba.stoichiometry[reaction_id].items():
@@ -155,7 +156,8 @@ class Metabolism(Process):
                     self.objective_composition[mol_id] = coeff1 * coeff2
 
         ## Get initial internal state from initial_mass
-        initial_metabolite_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
+        initial_metabolite_mass = self.or_default(
+            initial_parameters, 'initial_mass')
         mw = self.fba.molecular_weights
         composition = {
             mol_id: (-coeff if coeff < 0 else 0)
@@ -207,7 +209,7 @@ class Metabolism(Process):
             'internal': self.internal_state_ids,
             'external': self.fba.external_molecules,
             # 'exchange': self.fba.external_molecules,
-            # 'reactions': self.reaction_ids,
+            'reactions': self.reaction_ids,
             'flux_bounds': self.constrained_reaction_ids,
             'global': ['mass']}
         set_mass = {
@@ -466,7 +468,7 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
 def run_metabolism(metabolism, settings=None):
     if not settings:
         settings = {
-            'end_time': 10}
+            'total_time': 10}
     return simulate_process_in_experiment(metabolism, settings)
 
 # tests
@@ -506,18 +508,22 @@ def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
 
 reference_sim_settings = {
     'environment': {
-        'volume': 1e-5 * units.L},
+        'volume': 1e-5 * units.L,
+        'ports': {
+            'exchange': ('exchange',),
+            'external': ('external',),
+        }},
     'timestep': 1,
-    'end_time': 20}
+    'total_time': 10}
 
 def test_metabolism_similar_to_reference():
     config = get_iAF1260b_config()
     metabolism = Metabolism(config)
     timeseries = run_metabolism(metabolism, reference_sim_settings)
+
     reference = load_timeseries(
         os.path.join(REFERENCE_DATA_DIR, NAME + '.csv'))
     assert_timeseries_close(timeseries, reference)
-
 
 
 if __name__ == '__main__':
@@ -543,7 +549,7 @@ if __name__ == '__main__':
                     'external': ('external',),
                 }},
             # 'timestep': 1,
-            'total_time': 100,  # 2520 sec (42 min) is the expected doubling time in minimal media
+            'total_time': 20,  # 2520 sec (42 min) is the expected doubling time in minimal media
         }
 
         # run simulation

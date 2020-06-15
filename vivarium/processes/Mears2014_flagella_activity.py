@@ -337,8 +337,8 @@ def test_motor_PMF():
         update = motor.next_update(timestep, state)
 
         motile_state = update['internal']['motile_state']
-        thrust = update['internal']['thrust']
-        torque = update['internal']['torque']
+        thrust = update['boundary']['thrust']
+        torque = update['boundary']['torque']
 
         # save
         motor_state_vec.append(motile_state)

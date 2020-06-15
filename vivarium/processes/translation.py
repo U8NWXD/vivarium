@@ -251,9 +251,8 @@ class Translation(Process):
         ...     'monomer_ids': amino_acids.values(),
         ...     'concentration_keys': []
         ... }
-        >>> # We omit output using "..." below
+        >>> # make the translation process, and initialize the states
         >>> translation = Translation(configurations)  # doctest:+ELLIPSIS
-        translation parameters: ...
         >>> states = {
         ...     'ribosomes': {},
         ...     'molecules': {},

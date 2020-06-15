@@ -218,7 +218,7 @@ def run_chemotaxis_master(out_dir):
         gene_exp_plot_config,
         out_dir)
 
-def test_chemotaxis_master(total_time=10):
+def test_chemotaxis_master(total_time=5):
     compartment = ChemotaxisMaster({})
     settings = {
         'timestep': 1,
