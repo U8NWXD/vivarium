@@ -66,14 +66,14 @@ class FlagellaActivity(Process):
         'initial_internal_state': {
             'CheY': 2.59,
             'CheY_P': 2.59,  # (uM) mean concentration of CheY-P
-            'cw_bias': 0.5,  # (made up)
-            'motile_state': 0, # 1 for tumble, -1 for run, 0 for none
+            'cw_bias': 0.5,
+            'motile_state': 0,  # 1 for tumble, -1 for run, 0 for none
         },
 
         # motile force parameters
         'PMF': 170,  # PMF ~170mV at pH 7, ~140mV at pH 7.7 (Berg H, E. coli in motion, 2004, pg 113)
         'flagellum_thrust': 25,  # (pN) (Berg H, E. coli in motion, 2004, pg 113)
-        'tumble_jitter': 0.4,
+        'tumble_jitter': 120.0,
         'time_step': 0.01,  # 0.001
     }
 
@@ -81,9 +81,12 @@ class FlagellaActivity(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        self.n_flagella = initial_parameters.get('flagella', self.defaults['flagella'])
-        self.flagellum_thrust = initial_parameters.get('flagellum_thrust', self.defaults['flagellum_thrust'])
-        self.tumble_jitter = initial_parameters.get('tumble_jitter', self.defaults['tumble_jitter'])
+        self.n_flagella = self.or_default(
+            initial_parameters, 'flagella')
+        self.flagellum_thrust = self.or_default(
+            initial_parameters, 'flagellum_thrust')
+        self.tumble_jitter = self.or_default(
+            initial_parameters, 'tumble_jitter')
         self.tumble_scaling = 0.5/self.defaults['PMF']
         self.run_scaling = 1 / self.defaults['PMF']
 
