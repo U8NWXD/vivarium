@@ -110,7 +110,6 @@ def process_in_experiment(process, settings={}):
 
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
-    emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', {})
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
@@ -148,7 +147,7 @@ def compartment_in_experiment(compartment, settings={}):
     return Experiment({
         'processes': processes,
         'topology': topology,
-        'emitter': emitter,
+        'emitter': settings.get('emitter', {'type': 'timeseries'}),
         'initial_state': settings.get('initial_state', {})})
 
 
