@@ -57,7 +57,7 @@ class DeriveCounts(Deriver):
                 for molecule in self.concentration_keys},
             'concentrations': {
                 molecule: {
-                    '_updater': 'set'}
+                    '_default': 0.0}
                 for molecule in self.concentration_keys}}
 
     def next_update(self, timestep, states):
