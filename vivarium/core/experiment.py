@@ -932,7 +932,7 @@ class Store(object):
         target.apply_defaults()
 
 
-def inverse_topology(update, topology):
+def inverse_topology(outer, update, topology):
     '''
     Transform an update from the form its process produced into 
     one aligned to the given topology. 
@@ -945,33 +945,51 @@ def inverse_topology(update, topology):
 
     inverse = {}
     for key, path in topology.items():
+
         if key == '*':
+
             if isinstance(path, dict):
                 node = inverse
                 if '_path' in path:
-                    node = {}
-                    assoc_path(inverse, path['_path'], node)
+                    inner = normalize_path(outer + path['_path'])
+                    node = get_in(inverse, inner)
+                    if node is None:
+                        node = {}
+                        assoc_path(inverse, inner, node)
                     path = without(path, '_path')
+
                 for child, child_update in update.items():
                     node[child] = inverse_topology(
+                        tuple(),
                         update[child],
                         path)
+
             else:
                 for child, child_update in update.items():
-                    assoc_path(inverse, path + (child,), child_update)
+                    inner = normalize_path(outer + path + (child,))
+                    assoc_path(inverse, inner, child_update)
+
         elif key in update:
             value = update[key]
             if isinstance(path, dict):
                 node = inverse
                 if '_path' in path:
-                    node = {}
-                    assoc_path(inverse, path['_path'], node)
+                    inner = normalize_path(outer + path['_path'])
+                    node = get_in(inverse, inner)
+                    if node is None:
+                        node = {}
+                        assoc_path(inverse, inner, node)
                     path = without(path, '_path')
+
                 node.update(inverse_topology(
+                    tuple(),
                     value,
                     path))
+
             else:
-                assoc_path(inverse, path, value)
+                inner = normalize_path(outer + path)
+                assoc_path(inverse, inner, value)
+
     return inverse
 
 
@@ -1150,8 +1168,9 @@ class Experiment(object):
 
         # translate the values from the process update back into the
         # paths they have in the state tree
-        inverse = inverse_topology(update, process_topology)
-        absolute = assoc_in({}, path[:-1], inverse)
+        # inverse = inverse_topology(path[:-1], update, process_topology)
+        # absolute = assoc_in({}, path[:-1], inverse)
+        absolute = inverse_topology(path[:-1], update, process_topology)
 
         return absolute
 

@@ -97,9 +97,7 @@ class GrowthProtein(Process):
 
         divide = False
         if protein >= self.divide_protein:
-            import ipdb; ipdb.set_trace()
             divide = True
-
 
         return {
             'internal': {
