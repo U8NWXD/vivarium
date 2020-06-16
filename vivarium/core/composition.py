@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 
+from vivarium.core.emitter import (
+    make_path_dict,
+    path_timeseries_from_embedded_timeseries,
+    path_timeseries_from_data,
+)
 from vivarium.core.experiment import (
     Experiment,
     update_in,
@@ -19,16 +24,14 @@ from vivarium.library.dict_utils import (
     deep_merge,
     deep_merge_check,
     flatten_timeseries,
+    get_path_list_from_dict,
 )
 from vivarium.library.units import units
 
 # processes
 from vivarium.processes.derive_globals import AVOGADRO
-from vivarium.processes.timeline import (
-    TimelineCompartment,
-    TimelineProcess
-)
-from vivarium.processes.homogeneous_environment import HomogeneousEnvironment
+from vivarium.processes.timeline import TimelineProcess
+from vivarium.processes.one_dim_environment import OneDimEnvironment
 
 REFERENCE_DATA_DIR = os.path.join('vivarium', 'reference_data')
 TEST_OUT_DIR = os.path.join('out', 'tests')
@@ -71,18 +74,28 @@ def process_in_experiment(process, settings={}):
             port: (port,) for port in process.ports_schema().keys()}}
 
     if timeline:
-        timeline_process = TimelineProcess({'timeline': timeline})
+        '''
+        adding a timeline to a process requires only the timeline
+        '''
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
         processes.update({'timeline_process': timeline_process})
         topology.update({
             'timeline_process': {
                 port: (port,) for port in timeline_process.ports}})
 
     if environment:
-        environment_process = HomogeneousEnvironment(environment)
+        '''
+        environment requires ports for exchange and external
+        '''
+        ports = environment.get(
+            'ports',
+            {'external': ('external',), 'exchange': ('exchange',)})
+        environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port: (port,) for port in environment_process.ports}})
+                port_id: ports[port_id]
+                for port_id in environment_process.ports}})
 
     # add derivers
     derivers = generate_derivers(processes, topology)
@@ -97,7 +110,7 @@ def process_in_experiment(process, settings={}):
 
 def compartment_in_experiment(compartment, settings={}):
     compartment_config = settings.get('compartment', {})
-    emitter = settings.get('emitter', {'type': 'timeseries'})
+    timeline = settings.get('timeline', {})
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
 
@@ -105,38 +118,37 @@ def compartment_in_experiment(compartment, settings={}):
     processes = network['processes']
     topology = network['topology']
 
+    if timeline:
+        '''
+        environment requires ports for all states defined in the timeline
+        '''
+        ports = timeline['ports']
+        timeline_process = TimelineProcess({'timeline': timeline['timeline']})
+        processes.update({'timeline_process': timeline_process})
+        topology.update({
+            'timeline_process': {'global': ('global',)}
+        })
+        topology['timeline_process'].update({
+                port_id: ports[port_id]
+                for port_id in timeline_process.ports if port_id is not 'global'})
+
     if environment:
-        # TODO -- make a compartment_in_environment
-        environment_process = HomogeneousEnvironment(environment)
-
-        update_in(
-            processes,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': environment_process}))
-
-        update_in(
-            topology,
-            outer_path,
-            lambda existing: deep_merge(
-                existing,
-                {'environment_process': {
-                    port: (port,) for port in environment_process.ports}}))
+        '''
+        environment requires ports for exchange and external
+        '''
+        ports = environment['ports']
+        environment_process = OneDimEnvironment(environment)
+        processes.update({'environment_process': environment_process})
+        topology.update({
+            'environment_process': {
+                port_id: outer_path + ports[port_id]
+                for port_id in environment_process.ports}})
 
     return Experiment({
         'processes': processes,
         'topology': topology,
-        'emitter': emitter,
+        'emitter': settings.get('emitter', {'type': 'timeseries'}),
         'initial_state': settings.get('initial_state', {})})
-
-def add_timeline_to_compartment(compartment, settings={}):
-    timeline = settings['timeline']
-    path = settings['path']
-    return TimelineCompartment({
-        'timeline': timeline,
-        'compartment': compartment,
-        'path': path})
 
 
 # simulation functions
@@ -165,15 +177,18 @@ def simulate_experiment(experiment, settings={}):
     timestep = settings.get('timestep', 1)
     total_time = settings.get('total_time', 10)
     return_raw_data = settings.get('return_raw_data', False)
+    return_old_timeseries = settings.get('return_old_timeseries', False)
 
     if 'timeline' in settings:
-        total_time = settings['timeline'][-1][0]
+        total_time = settings['timeline']['timeline'][-1][0]
 
     # run simulation
     experiment.update_interval(total_time, timestep)
 
     if return_raw_data:
         return experiment.emitter.get_data()
+    elif return_old_timeseries:
+        return experiment.emitter.get_timeseries_old()
     else:
         return experiment.emitter.get_timeseries()
 
@@ -278,34 +293,13 @@ def set_axes(ax, show_xaxis=False):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(right=False, top=False)
+
+    # move offset axis text (typically scientific notation)
+    t = ax.yaxis.get_offset_text()
+    t.set_x(-0.4)
     if not show_xaxis:
         ax.spines['bottom'].set_visible(False)
         ax.tick_params(bottom=False, labelbottom=False)
-
-def get_plot_columns(ports, settings={}):
-    top_ports = settings.get('top_ports', [])
-    max_rows = settings.get('max_rows', 30)
-
-    n_data = [len(ports[key]) for key in ports if key not in top_ports]
-    if 0 in n_data:
-        n_data.remove(0)
-
-    # limit number of rows to max_rows by adding new columns
-    columns = []
-    for n_states in n_data:
-        if n_states == 0:
-            continue
-        new_cols = n_states / max_rows
-        if new_cols > 1:
-            for col in range(int(new_cols)):
-                columns.append(max_rows)
-            mod_states = n_states % max_rows
-            if mod_states > 0:
-                columns.append(mod_states)
-        else:
-            columns.append(n_states)
-
-    return columns
 
 def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename='simulation'):
     '''
@@ -319,12 +313,9 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'remove_zeros': (bool) if True, timeseries with all zeros get removed
             'remove_flat': (bool) if True, timeseries with all the same value get removed
             'skip_ports': (list) entire ports that won't be plotted
-            'overlay': (dict) with
-                {'bottom_port': 'top_port'}  ports plotted together by matching state_ids, with 'top_port' in red
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
             }
-    TODO -- some molecules have 'inf' concentrations for practical reasons. How should these be plotted?
     '''
 
     plot_fontsize = 8
@@ -334,51 +325,50 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     skip_keys = ['time']
 
     # get settings
-    timeseries = copy.deepcopy(timeseries_raw)
     max_rows = settings.get('max_rows', 25)
     remove_zeros = settings.get('remove_zeros', True)
     remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
-    overlay = settings.get('overlay', {})
-    top_ports = list(overlay.values())
-    bottom_ports = list(overlay.keys())
 
+    # make a flat 'path' timeseries, with keys being path
+    top_level = list(timeseries_raw.keys())
+    timeseries = path_timeseries_from_embedded_timeseries(timeseries_raw)
     time_vec = timeseries.pop('time')
 
-    ports = {}
-    for port_id, states in timeseries.items():
-        if port_id in skip_keys + skip_ports:
-            continue
-        if port_id not in ports and len(states) != 0:
-            ports[port_id] = []
-        for state_id in list(states.keys()):
-            if state_id not in ports[port_id]:
-                ports[port_id].append(state_id)
+    # remove select states from timeseries
+    removed_states = set()
+    for path, series in timeseries.items():
+        if path[0] in skip_ports:
+            removed_states.add(path)
+        elif remove_flat:
+            if series.count(series[0]) == len(series):
+                removed_states.add(path)
+        elif remove_zeros:
+            if all(v == 0 for v in series):
+                removed_states.add(path)
+    for path in removed_states:
+        del timeseries[path]
 
-    # remove selected states
-    removed_states = []
-    if remove_flat:
-        # find series with all the same value
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if series.count(series[0]) == len(series):
-                    removed_states.append((port, state_id))
-    elif remove_zeros:
-        # find series with all zeros
-        for port in ports:
-            for state_id, series in timeseries[port].items():
-                if all(v == 0 for v in series):
-                    removed_states.append((port, state_id))
-
-    # remove from timeseries
-    for (port, state_id) in removed_states:
-        del timeseries[port][state_id]
-
-    # limit number of rows to max_rows by adding new columns
-    column_settings = {
-        'top_ports': top_ports,
-        'max_rows': max_rows}
-    columns = get_plot_columns(timeseries, column_settings)
+    ## get figure columns
+    # get length of each top-level port
+    port_lengths = {}
+    for path in timeseries.keys():
+        if path[0] in top_level:
+            if path[0] not in port_lengths:
+                port_lengths[path[0]] = 0
+            port_lengths[path[0]] += 1
+    n_data = [length for port, length in port_lengths.items() if length > 0]
+    columns = []
+    for n_states in n_data:
+        new_cols = n_states / max_rows
+        if new_cols > 1:
+            for col in range(int(new_cols)):
+                columns.append(max_rows)
+            mod_states = n_states % max_rows
+            if mod_states > 0:
+                columns.append(mod_states)
+        else:
+            columns.append(n_states)
 
     # make figure and plot
     n_cols = len(columns)
@@ -387,22 +377,14 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     grid = plt.GridSpec(n_rows, n_cols)
     row_idx = 0
     col_idx = 0
-    for port in ports:
-        top_timeseries = {}
-
-        # set up overlay
-        if port in bottom_ports:
-            top_port = overlay[port]
-            top_timeseries = timeseries[top_port]
-        elif port in top_ports + skip_ports:
-            # don't give this row its own plot
-            continue
-
-        for state_id, series in sorted(timeseries[port].items()):
+    for port in port_lengths.keys():
+        # get this port's states
+        port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
+        for state_id, series in sorted(port_timeseries.items()):
             ax = fig.add_subplot(grid[row_idx, col_idx])  # grid is (row, column)
 
-            # check if series is a list of ints or floats
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
+                # check if series is a list of ints or floats
                 ax.title.set_text(str(port) + ': ' + str(state_id) + ' (non numeric)')
             else:
                 # plot line at zero if series crosses the zero line
@@ -410,11 +392,6 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
                 ax.plot(time_vec, series)
-
-                # overlay
-                if state_id in top_timeseries.keys():
-                    ax.plot(time_vec, top_timeseries[state_id], 'm', label=top_port)
-                    ax.legend()
                 ax.title.set_text(str(port) + ': ' + str(state_id))
 
             if row_idx == columns[col_idx]-1:
@@ -426,60 +403,106 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             else:
                 set_axes(ax)
                 row_idx += 1
+            ax.set_xlim([time_vec[0], time_vec[-1]])
 
     # save figure
     fig_path = os.path.join(out_dir, filename)
-    plt.subplots_adjust(wspace=0.8, hspace=0.8)
+    plt.subplots_adjust(wspace=0.8, hspace=1.0)
     plt.savefig(fig_path, bbox_inches='tight')
 
-def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
+
+
+def order_list_of_paths(path_list):
+    # make the lists equal in length:
+    length = max(map(len, path_list))
+    lol = np.array([list(path) + [None] * (length - len(path)) for path in path_list])
+
+    # sort by first two columns. TODO -- sort by all available columns
+    ind = np.lexsort((lol[:, 1], lol[:, 0]))
+    sorted_path_list = sorted(zip(ind, path_list))
+    forward_order = [idx_path[1] for idx_path in sorted_path_list]
+    forward_order.reverse()
+    return forward_order
+
+def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     '''
     Make a plot of all agent data
     TODO -- add agent color
     '''
-
-    agents_key = settings.get('agents_key', 'cells')
-
+    agents_key = settings.get('agents_key', 'agents')
+    max_rows = settings.get('max_rows', 25)
+    skip_paths = settings.get('skip_paths', [])
     time_vec = list(data.keys())
-    agents_timeseries = agent_timeseries_from_data(data, agents_key)
+    timeseries = path_timeseries_from_data(data)
 
+    # get the agents' port_schema in a list of paths
     # assume the initial agents have the same port schema as all subsequent agents
     initial_agents = data[time_vec[0]][agents_key]
-    ports = {}
-    for agent_id, state_data in initial_agents.items():
-        for port_id, states in state_data.items():
-            if port_id not in ports:
-                ports[port_id] = []
-            for state_id in states.keys():
-                if state_id not in ports[port_id]:
-                    ports[port_id].append(state_id)
+    initial_agent_ids = list(initial_agents.keys())
+    first_agent = initial_agents[initial_agent_ids[0]]
+    top_ports = list(first_agent.keys())
+    port_schema_paths = get_path_list_from_dict(first_agent)
+    # remove skipped paths
+    port_schema_paths = [path for path in port_schema_paths if path not in skip_paths]
 
-    # get the column sizes
-    columns = get_plot_columns(ports)
+    # get port columns, assign subplot locations
+    port_rows = {port_id: [] for port_id in top_ports}
+    for path in port_schema_paths:
+        top_port = path[0]
+        port_rows[top_port].append(path)
 
-    # make figure
-    n_rows = max(columns)
-    n_cols = len(columns)
-    fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
-    grid = plt.GridSpec(n_rows, n_cols, wspace=0.4, hspace=1.5)
+    highest_row = 0
+    row_idx = 0
+    col_idx = 0
+    ordered_paths = {port_id: {} for port_id in top_ports}
+    for port_id, path_list in port_rows.items():
+        if not path_list:
+            continue
+        # order target names and assign subplot location
+        ordered_targets = order_list_of_paths(path_list)
+        for target in ordered_targets:
+            ordered_paths[port_id][target] = [row_idx, col_idx]
 
-    # set up the axes
-    port_axes = {}
-    for port_idx, (port_id, states) in enumerate(ports.items()):
-        n_states = columns[port_idx]
-        for state_idx, state_id in enumerate(states):
-            ax = fig.add_subplot(grid[state_idx, port_idx])
-            ax.title.set_text(str(port_id) + ': ' + str(state_id))
-            ax.title.set_fontsize(16)
-            if state_idx is not n_states-1:
-                set_axes(ax)
+            # next column/row
+            if row_idx >= max_rows - 1:
+                row_idx = 0
+                col_idx += 1
             else:
-                # if last state in this port, add time ticks
+                row_idx += 1
+            if row_idx > highest_row:
+                highest_row = row_idx
+        # new column for next port
+        row_idx = 0
+        col_idx += 1
+
+    # initialize figure
+    n_rows = highest_row + 1
+    n_cols = col_idx + 1
+    fig = plt.figure(figsize=(4 * n_cols, 2 * n_rows))
+    grid = plt.GridSpec(ncols=n_cols, nrows=n_rows, wspace=0.4, hspace=1.5)
+
+    # make the subplot axes
+    port_axes = {}
+    for port_id, paths in ordered_paths.items():
+        for path_idx, (path, location) in enumerate(paths.items()):
+            row_idx = location[0]
+            col_idx = location[1]
+
+            # make the subplot axis
+            ax = fig.add_subplot(grid[row_idx, col_idx])
+            ax.title.set_text(path)
+            ax.title.set_fontsize(16)
+            ax.set_xlim([time_vec[0], time_vec[-1]])
+
+            # if last state in this port, add time ticks
+            if row_idx > max_rows or path_idx > len(ordered_paths[port_id]):
                 set_axes(ax, True)
                 ax.set_xlabel('time (s)')
-
+            else:
+                set_axes(ax)
+            ax.set_xlim([time_vec[0], time_vec[-1]])
             # save axis
-            port_axes[(port_id, state_id)] = ax
+            port_axes[path] = ax
 
     # plot the agents
     plotted_agents = []
@@ -488,15 +511,15 @@ def plot_agent_data(data, settings={}, out_dir='out', filename='agents'):
         for agent_id, agent_data in agents.items():
             if agent_id not in plotted_agents:
                 plotted_agents.append(agent_id)
-                agent_ts = agents_timeseries[agent_id]
-                for port_id, state_ts in agent_ts.items():
-                    for state_id, state in state_ts.items():
-                        if not isinstance(state[0], (float, int)):
-                            continue
-                        n_times = len(state)
-                        plot_times = time_vec[time_idx:time_idx+n_times]
-                        ax = port_axes[(port_id, state_id)]
-                        ax.plot(plot_times, state)
+                for port_schema_path in port_schema_paths:
+                    series = timeseries[(agents_key, agent_id) + port_schema_path]
+                    if not isinstance(series[0], (float, int)):
+                        continue
+                    n_times = len(series)
+                    plot_times = time_vec[time_idx:time_idx+n_times]
+
+                    ax = port_axes[port_schema_path]
+                    ax.plot(plot_times, series)
 
     # save figure
     fig_path = os.path.join(out_dir, filename)

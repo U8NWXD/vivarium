@@ -14,63 +14,51 @@ from vivarium.processes.multibody_physics import (
     agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots
-from vivarium.processes.diffusion_field import (
-    DiffusionField,
-    get_gaussian_config,
-)
+from vivarium.processes.static_field import StaticField
+
+NAME = 'static_lattice'
 
 
-NAME = 'lattice'
-
-
-class Lattice(Compartment):
-    """
-    Lattice:  A two-dimensional lattice environmental model with multibody physics and diffusing molecular fields.
-    """
+class StaticLattice(Compartment):
 
     defaults = {
-        'config': {
-            'multibody': {
-                'bounds': [10, 10],
-                'size': [10, 10],
-                'agents': {}
-            },
-            'diffusion': {
-                'molecules': ['glc'],
-                'n_bins': [10, 10],
-                'size': [10, 10],
-                'depth': 3000.0,
-                'diffusion': 1e-2,
-            }
+        'multibody': {
+            'bounds': [10, 10],
+            'agents': {}
+        },
+        'field': {
+            'molecules': ['glc'],
+            'n_bins': [10, 10],
+            'bounds': [10, 10],
         }
     }
 
-    def __init__(self, config=None):
-        if config is None or not bool(config):
-            config = self.defaults['config']
+    def __init__(self, config):
         self.config = config
 
-    def generate_processes(self, config):
-        return {
-            'multibody': Multibody(config['multibody']),
-            'diffusion': DiffusionField(config['diffusion'])}
+    def generate_processes(self, config=None):
+        multibody = Multibody(config['multibody'])
+        field = StaticField(config['field'])
 
-    def generate_topology(self, config):
+        return {
+            'multibody': multibody,
+            'field': field}
+
+    def generate_topology(self, config=None):
         return {
             'multibody': {
                 'agents': ('agents',)},
-            'diffusion': {
+            'field': {
                 'agents': ('agents',),
                 'fields': ('fields',)}}
 
 
-def get_lattice_config(config={}):
+def get_static_lattice_config(config={}):
     bounds = config.get('bounds', [25, 25])
     molecules = config.get('molecules', ['glc'])
     n_bins = config.get('n_bins', tuple(bounds))
     center = config.get('center', [0.5, 0.5])
     deviation = config.get('deviation', 5)
-    diffusion = config.get('diffusion', 1e0)
     n_agents = config.get('n_agents', 1)
     agent_ids = [str(agent_id) for agent_id in range(n_agents)]
 
@@ -84,24 +72,33 @@ def get_lattice_config(config={}):
         'agent_ids': agent_ids}
     mbp_config.update(agent_body_config(body_config))
 
-    # diffusion config
-    dff_config = get_gaussian_config({
+    # field config
+    field_config = {
         'molecules': molecules,
         'n_bins': n_bins,
         'bounds': bounds,
-        'diffusion': diffusion,
-        'center': center,
-        'deviation': deviation})
+        # 'agents': agents,
+        'gradient': {
+            'type': 'exponential',
+            'molecules': {
+                mol_id: {
+                    'center': [0.0, 0.0],
+                    'base': 1 + 1e-1}
+                for mol_id in molecules}},
+        # 'initial_state': {
+        #     mol_id: np.ones((n_bins[0], n_bins[1]))
+        #     for mol_id in molecules}
+    }
 
     return {
         'bounds': bounds,
         'multibody': mbp_config,
-        'diffusion': dff_config}
+        'field': field_config}
 
-def test_lattice(config=get_lattice_config(), end_time=10):
+def test_static_lattice(config=get_static_lattice_config(), end_time=10):
 
     # configure the compartment
-    compartment = Lattice(config)
+    compartment = StaticLattice(config)
 
     # configure experiment
     experiment_settings = {
@@ -125,8 +122,8 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    config = get_lattice_config()
-    data = test_lattice(config, 40)
+    config = get_static_lattice_config()
+    data = test_static_lattice(config, 40)
 
     # make snapshot plot
     agents = {time: time_data['agents'] for time, time_data in data.items()}

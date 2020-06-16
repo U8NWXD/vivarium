@@ -5,7 +5,6 @@ import random
 
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
-    add_timeline_to_compartment,
     simulate_compartment_in_experiment,
     plot_simulation_output,
     COMPARTMENT_OUT_DIR
@@ -56,12 +55,13 @@ class ChemotaxisMinimal(Compartment):
             'motor': motor}
 
     def generate_topology(self, config):
+        external_path = self.boundary_path + ('external',)
         return {
             'receptor': {
-                'boundary': self.boundary_path,
+                'external': external_path,
                 'internal': ('cell',)},
             'motor': {
-                'boundary': self.boundary_path,
+                'external': self.boundary_path,
                 'internal': ('cell',)}}
 
 
@@ -94,9 +94,6 @@ if __name__ == '__main__':
         'initial_conc': initial_conc,
         'base': 1+4e-4,
         'speed': 14}
-    timeline_config = {
-        'timeline': get_exponential_random_timeline(exponential_random_config),
-        'path': {'external': ('external',)}}
 
     # make the compartment
     config = {
@@ -105,12 +102,12 @@ if __name__ == '__main__':
         'external_path': environment_port}
     compartment = ChemotaxisMinimal(get_chemotaxis_config(config))
 
-    # add the timeline
-    compartment = add_timeline_to_compartment(compartment, timeline_config)
-
     # run experiment
     experiment_settings = {
-        'timestep': 1,
+        'timeline': {
+            'timeline': get_exponential_random_timeline(exponential_random_config),
+            'ports': {'external': ('boundary', 'external')}},
+        'timestep': 0.01,
         'total_time': 100}
     timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
 

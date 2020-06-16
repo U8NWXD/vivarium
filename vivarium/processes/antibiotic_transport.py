@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
+from vivarium.library.units import units
 from vivarium.core.composition import (
     simulate_process_in_experiment,
     plot_simulation_output,
@@ -132,11 +133,11 @@ def run_antibiotic_transport():
     settings = {
         'total_time': 4000,
         'environment': {
-            'volume': 1e-15,
-            'states': ['antibiotic'],
-            'environment_port': 'external',
-            'exchange_port': 'exchange'},
-    }
+            'volume': 1e-15 * units.L,
+            'ports': {
+                'external': ('external',),
+                'exchange': ('exchange',)
+            }}}
     return simulate_process_in_experiment(process, settings)
 
 

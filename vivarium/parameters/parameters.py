@@ -8,8 +8,12 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+from vivarium.library.units import units
 from vivarium.core.composition import simulate_compartment_in_experiment
-from vivarium.compartments.master import Master
+from vivarium.core.experiment import Compartment
+
+# processes for testing
+from vivarium.processes.convenience_kinetics import ConvenienceKinetics, get_glc_lct_config
 
 
 def get_nested(dict, keys):
@@ -42,12 +46,13 @@ def get_parameters_logspace(min, max, number):
     range = np.logspace(np.log10(min), np.log10(max), number, endpoint=True)
     return list(range)
 
-def run_sim_get_output(new_compartment, condition, metrics, settings):
+def run_compartment_get_output(compartment, parameters, condition, metrics, settings):
     settings['initial_state'] = condition
     settings['return_raw_data'] = True
+    settings['compartment'] = parameters
 
     # run the simulation and get the last state
-    sim_out = simulate_compartment_in_experiment(new_compartment, settings)
+    sim_out = simulate_compartment_in_experiment(compartment, settings)
     time_vec = list(sim_out.keys())
     last_state = sim_out[time_vec[-1]]
 
@@ -56,6 +61,18 @@ def run_sim_get_output(new_compartment, condition, metrics, settings):
     for output_value in metrics:
         output.append(get_nested(last_state, output_value))
     return output
+
+
+def check_path_exists(path, dict):
+    if len(path) > 0:
+        key = path[0]
+        if key in dict:
+            sub_path = path[1:]
+            sub_dict = dict[key]
+            check_path_exists(sub_path, sub_dict)
+        else:
+            raise Exception('parameter path does not exist: {}'.format(path))
+
 
 def parameter_scan(config):
     '''
@@ -74,7 +91,9 @@ def parameter_scan(config):
     scan_params = config['scan_parameters']
     metrics = config['metrics']
     settings = config.get('settings', {})
-    conditions = config.get('conditions', [{}])
+    conditions = config.get('conditions')
+    if not conditions:
+        conditions = [{}]
     n_conditions = len(conditions)
 
     ## Set up the parameters
@@ -84,8 +103,11 @@ def parameter_scan(config):
     print('parameter scan size: {}'.format(n_combinations))
 
     # get default parameters from baseline compartment object
-    default_compartment = compartment({})
-    default_params = default_compartment.get_parameters()
+    default_params = compartment.get_parameters()
+
+    # check that scan parameters are in default parameters
+    for path in scan_params.keys():
+        check_path_exists(path, default_params)
 
     # get parameter sets for scan
     param_keys = list(scan_params.keys())
@@ -97,7 +119,8 @@ def parameter_scan(config):
     results = []
     for params_index, param_set in enumerate(param_sets):
         # set up the parameters
-        parameters = copy.deepcopy(default_params)
+        # parameters = copy.deepcopy(default_params)
+        parameters = {}
         for param_key, param_value in param_set.items():
             parameters = set_nested(parameters, param_key, param_value)
 
@@ -109,25 +132,18 @@ def parameter_scan(config):
                 condition_index+1,
                 n_conditions))
 
-            # make compartment with new parameters
-            new_compartment = compartment(parameters)
+            output = run_compartment_get_output(
+                compartment,
+                parameters,
+                condition_state,
+                metrics,
+                settings)
 
-            # run a sim with the new_compartment and condition
-            try:
-                output = run_sim_get_output(
-                    new_compartment,
-                    condition_state,
-                    metrics,
-                    settings)
-
-                result = {
-                    'parameter_index': params_index,
-                    'condition_index': condition_index,
-                    'output': output}
-                results.append(result)
-
-            except:
-                print('failed simulation: parameter set {}, condition {}'.format(params_index, condition_index))
+            result = {
+                'parameter_index': params_index,
+                'condition_index': condition_index,
+                'output': output}
+            results.append(result)
 
     # organize data by metric
     output_data = {
@@ -137,6 +153,7 @@ def parameter_scan(config):
         'conditions': {idx: condition for idx, condition in enumerate(conditions)}}
 
     return organize_param_scan_results(output_data)
+
 
 def organize_param_scan_results(data):
     results = data['results']
@@ -167,6 +184,7 @@ def organize_param_scan_results(data):
         'parameter_sets': parameter_sets,
         'conditions': conditions}
 
+
 def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     metric_data = results['metric_data']
     parameter_sets = results['parameter_sets']
@@ -193,6 +211,7 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
             ax.scatter(parameter_indices, param_data, label=condition)
 
         ax.legend(title='condition', bbox_to_anchor=(1.2, 1.0))
+        ax.set_yscale('log')
         ax.set_ylabel(metric)
         ax.set_xticks(parameter_indices)
         ax.set_xlabel('parameter set #')
@@ -228,44 +247,125 @@ def plot_scan_results(results, out_dir='out', filename='parameter_scan'):
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.savefig(fig_path, bbox_inches='tight')
 
-def scan_master():
-    compartment = Master
 
-    # define scanned parameters, which replace defaults
+# testing
+class TestConvienceKinetics(Compartment):
+    defaults = {
+        'boundary_path': ('boundary',),
+        'config':  {
+            'process': {
+                'reactions': {
+                    # reaction1 is the reaction ID
+                    'reaction1': {
+                        'stoichiometry': {
+                            # 1 mol A is consumed per mol reaction
+                            ('internal', 'A'): -1,
+                            ('internal', 'B'): -1,
+                            # 2 mol C are produced per mol reaction
+                            ('internal', 'C'): 2,
+                        },
+                        'is reversible': False,
+                        'catalyzed by': [
+                            ('internal', 'E'),
+                        ],
+                    }
+                },
+                'kinetic_parameters': {
+                    'reaction1': {
+                        ('internal', 'E'): {
+                            'kcat_f': 1e1,  # kcat for forward reaction
+                            ('internal', 'A'): 1e-1,  # km for A
+                            ('internal', 'B'): 1e-1,  # km for B
+                        },
+                    },
+                },
+                'initial_state': {
+                    'internal': {
+                        'A': 1e2,
+                        'B': 1e2,
+                        'C': 1e2,
+                        'E': 1e2,
+                    },
+                    'fluxes': {
+                        'reaction1': 0.0,
+                    }
+                },
+                'ports': {
+                    'internal': ['A', 'B', 'C', 'E'],
+                    'external': [],
+                },
+            }
+        }
+    }
+
+    def __init__(self, config=None):
+        self.config = self.defaults['config']
+        self.boundary_path = self.or_default(config, 'boundary_path')
+
+    def generate_processes(self, config):
+        process = ConvenienceKinetics(config['process'])
+        return {'process': process}
+
+    def generate_topology(self, config):
+        external_path = self.boundary_path + ('external',)
+        return {
+            'process': {
+                'internal': ('internal',),
+                'external': external_path,
+                'exchange': ('exchange',),
+                'fluxes': ('fluxes',),
+                'global': self.boundary_path,
+            }
+        }
+
+
+def scan_test():
+    # initialize the compartment
+    compartment = TestConvienceKinetics({})
+
+    # parameters to be scanned, and their values
     scan_params = {
-        ('transport',
+        ('process',
          'kinetic_parameters',
-         'EX_glc__D_e',
-         ('internal', 'EIIglc'),
+         'reaction1',
+         ('internal', 'E'),
          'kcat_f'):
-            get_parameters_logspace(1e-3, 1e0, 6)}
+            get_parameters_logspace(1e0, 1e5, 6),
+    }
 
-    # metrics to collect from scan output
-    metrics = [
-        ('reactions', 'EX_glc__D_e'),
-        ('reactions', 'GLCptspp'),
-        ('global', 'volume')]
+    # metrics are the outputs of a scan
+    metrics = [('fluxes', 'reaction1')]
 
-    # set up simulation settings and scan options
-    timeline = [(30, {})]
-    settings = {
-        # 'environment_volume': 1e-6,  # L
-        'timeline': timeline}
+    # define conditions
+    conditions = [
+        {'internal': {'E': 1e0}},
+        {'internal': {'E': 1e1}},
+        {'internal': {'E': 1e2}},
+    ]
 
+    # set up scan options
+    timeline = [(5, {})]
+    sim_settings = {
+        'timeline': {
+            'timeline': timeline,
+            'ports': {
+                'external': ('boundary', 'external')}}}
+
+    # run scan
     scan_config = {
         'compartment': compartment,
         'scan_parameters': scan_params,
+        'conditions': conditions,
         'metrics': metrics,
-        'settings': settings}
+        'settings': sim_settings}
     results = parameter_scan(scan_config)
-
     return results
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'parameters', 'master')
+    out_dir = os.path.join('out', 'parameters', 'scan')
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    results = scan_master()
-    plot_scan_results(results, out_dir)
+    results = scan_test()
+    plot_scan_results(results, out_dir, 'test_scan')

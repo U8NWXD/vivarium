@@ -76,17 +76,18 @@ class MembranePotential(Process):
             }
     }
 
-
-    def __init__(self, config={}):
+    def __init__(self, initial_parameters=None):
+        if not initial_parameters:
+            initial_parameters = {}
 
         # set states
-        self.initial_states = config.get('states', self.defaults['states'])
-        self.permeability = config.get('permeability', self.defaults['permeability'])
-        self.charge = config.get('charge', self.defaults['charge'])
+        self.initial_states = initial_parameters.get('states', self.defaults['states'])
+        self.permeability = initial_parameters.get('permeability', self.defaults['permeability'])
+        self.charge = initial_parameters.get('charge', self.defaults['charge'])
 
         # set parameters
         parameters = self.defaults['constants']
-        parameters.update(config.get('parameters', self.defaults['parameters']))
+        parameters.update(initial_parameters.get('parameters', self.defaults['parameters']))
 
         # get list of internal and external states
         internal_states = list(self.initial_states['internal'].keys())
@@ -187,7 +188,7 @@ def test_mem_potential():
         (100, {('external', 'Na'): 2}),
         (500, {})]
 
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(mp, settings)
 
 

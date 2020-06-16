@@ -16,7 +16,7 @@ def pp(x):
     pretty.pprint(x)
 
 def pf(x):
-    pretty.pformat(x)
+    return pretty.pformat(x)
 
 from vivarium.library.units import Quantity
 from vivarium.library.dict_utils import merge_dicts, deep_merge, deep_merge_check
@@ -25,7 +25,9 @@ from vivarium.core.process import Process
 from vivarium.core.repository import (
     divider_library,
     updater_library,
-    deriver_library)
+    deriver_library,
+    serializer_library,
+)
 
 
 INFINITY = float('inf')
@@ -116,6 +118,7 @@ class Store(object):
         '_value',
         '_properties',
         '_emit',
+        '_serializer',
         # '_units',
     ])
 
@@ -131,6 +134,8 @@ class Store(object):
         self.divider = None
         self.emit = False
         self.sources = {}
+        self.deleted = False
+        self.serializer = None
 
         self.apply_config(config, source)
 
@@ -170,10 +175,18 @@ class Store(object):
 
         if self.schema_keys & config.keys():
             # self.units = config.get('_units', self.units)
+            if '_serializer' in config:
+                self.serializer = config['_serializer']
+                if isinstance(self.serializer, str):
+                    self.serializer = serializer_library[self.serializer]
+
             if '_default' in config:
                 self.default = self.check_default(config.get('_default'))
                 if isinstance(self.default, Quantity):
                     self.units = self.default.units
+                if isinstance(self.default, np.ndarray):
+                    self.serializer = self.serializer or serializer_library['numpy']
+
             if '_value' in config:
                 self.value = self.check_value(config.get('_value'))
                 if isinstance(self.value, Quantity):
@@ -331,13 +344,21 @@ class Store(object):
             return data
         else:
             if self.emit:
-                if isinstance(self.value, Process):
+                if self.serializer:
+                    return self.serializer.serialize(self.value)
+                elif isinstance(self.value, Process):
                     return self.value.pull_data()
                 else:
                     if self.units:
                         return self.value.to(self.units).magnitude
                     else:
                         return self.value
+
+    def mark_deleted(self):
+        self.deleted = True
+        if self.inner:
+            for child in self.inner.values():
+                child.mark_deleted()
 
     def delete_path(self, path):
         if not path:
@@ -350,6 +371,7 @@ class Store(object):
             if remove in target.inner:
                 lost = target.inner[remove]
                 del target.inner[remove]
+                lost.mark_deleted()
                 return lost
 
     def divide_value(self):
@@ -446,14 +468,14 @@ class Store(object):
                 mother = divide['mother']
                 daughters = divide['daughters']
                 initial_state = self.inner[mother].get_value(
-                    condition=lambda child: not(isinstance(child.value, Process)),
+                    condition=lambda child: not (isinstance(child.value, Process)),
                     f=lambda child: copy.deepcopy(child))
                 states = self.inner[mother].divide_value()
 
                 for daughter, state in zip(daughters, states):
                     daughter_id = daughter['daughter']
 
-                    # use initial state as default, merge in divided values
+                    # use initiapl state as default, merge in divided values
                     initial_state = deep_merge(
                         initial_state,
                         state)
@@ -643,7 +665,6 @@ class Store(object):
         target.apply_defaults()
 
 
-# Compartment
 def generate_derivers(processes, topology):
     deriver_processes = {}
     deriver_topology = {}
@@ -686,8 +707,18 @@ class Compartment(object):
         return {}
 
     def generate(self, config=None, path=tuple()):
+        '''
+        Generate processes and topology for the compartment
+        :param config: (dict) updates values in the configuration declared in the constructor
+        :param path: (tuple) with ('path', 'to', 'level') associates the processes and topology at this level
+        :return: (dict) with entries for 'processes' and 'topology'
+        '''
+
+        # merge config with self.config
         if config is None:
             config = {}
+        default = copy.deepcopy(self.config)
+        config = deep_merge(default, config)
 
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
@@ -701,17 +732,21 @@ class Compartment(object):
             'processes': assoc_in({}, path, processes),
             'topology': assoc_in({}, path, topology)}
 
+    def or_default(self, parameters, key):
+        return parameters.get(key, self.defaults[key])
+
     def get_parameters(self):
-        processes = self.generate_processes({})
+        network = self.generate({})
+        processes = network['processes']
         return {
             process_id: process.parameters
             for process_id, process in processes.items()}
 
 
-# Experiment
 def generate_state(processes, topology, initial_state):
     state = Store({})
     state.generate_paths(processes, topology, initial_state)
+    state.apply_subschemas()
     state.set_value(initial_state)
     state.apply_defaults()
     return state
@@ -738,7 +773,7 @@ def timestamp(dt=None):
 class Experiment(object):
     def __init__(self, config):
         self.config = config
-        self.experiment_id = config.get('experiment_id', uuid.uuid1())
+        self.experiment_id = config.get('experiment_id', str(uuid.uuid1()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
@@ -758,7 +793,7 @@ class Experiment(object):
         # run the derivers
         self.send_updates([])
 
-        # run emitter
+        # run the emitter
         self.emit_configuration()
         self.emit_data()
 
@@ -774,16 +809,18 @@ class Experiment(object):
         log.info(pf(self.state.get_value()))
 
         log.info('\nCONFIG:')
-        log.info(pf(self.state.get_config()))
+        log.info(pf(self.state.get_config(True)))
 
     def emit_configuration(self):
         data = {
             'time_created': timestamp(),
             'experiment_id': self.experiment_id,
             'description': self.description,
-            'processes': self.processes,
-            'topology': self.topology,
-            'state': self.state.get_config()}
+            # TODO -- serialize processes, topology, state
+            # 'processes': self.processes,
+            # 'topology': self.topology,
+            # 'state': self.state.get_config()
+        }
         emit_config = {
             'table': 'configuration',
             'data': data}
@@ -816,8 +853,9 @@ class Experiment(object):
     def run_derivers(self, derivers):
         for path, deriver in derivers.items():
             # timestep shouldn't influence derivers
-            update = self.process_update(path, deriver, 0)
-            self.apply_update(update)
+            if not deriver.deleted:
+                update = self.process_update(path, deriver, 0)
+                self.apply_update(update)
 
     # def emit_paths(self, paths):
     #     emit_config = {

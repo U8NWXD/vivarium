@@ -15,8 +15,7 @@ from vivarium.core.composition import (
     PROCESS_OUT_DIR
 )
 
-from vivarium.processes.multibody_physics import plot_snapshots
-
+from vivarium.plots.multibody_physics import plot_snapshots
 
 NAME = 'diffusion_field'
 
@@ -24,8 +23,6 @@ NAME = 'diffusion_field'
 LAPLACIAN_2D = np.array([[0.0, 1.0, 0.0], [1.0, -4.0, 1.0], [0.0, 1.0, 0.0]])
 AVOGADRO = constants.N_A
 
-AGENT_KEYS = ['location', 'exchange', 'local_environment']
-BOUNDARY_PORT = 'boundary'
 
 def gaussian(deviation, distance):
     return np.exp(-np.power(distance, 2.) / (2 * np.power(deviation, 2.)))
@@ -40,7 +37,8 @@ def make_gradient(gradient, n_bins, size):
     if gradient.get('type') == 'gaussian':
         """
         gaussian gradient multiplies the base concentration of the given molecule
-        by a gaussian function of distance from center and deviation
+        by a gaussian function of distance from center and deviation. Distance is 
+        scaled by 1/1000 from microns to millimeters.
 
         'gradient': {
             'type': 'gaussian',
@@ -66,81 +64,87 @@ def make_gradient(gradient, n_bins, size):
                     dx = (x_bin + 0.5) * length_x / bins_x - center[0]
                     dy = (y_bin + 0.5) * length_y / bins_y - center[1]
                     distance = np.sqrt(dx ** 2 + dy ** 2)
-                    scale = gaussian(deviation, distance)
+                    scale = gaussian(deviation, (distance/1000))
                     # multiply gradient by scale
                     field[x_bin][y_bin] *= scale
             fields[molecule_id] = field
 
     elif gradient.get('type') == 'linear':
         """
-        linear gradient adds to the base concentration of the given molecule
-        as a function of distance from center and slope.
+        linear gradient sets a site's concentration (c) of the given molecule
+        as a function of distance (d) from center and slope (b), and base 
+        concentration (a). Distance is scaled by 1/1000 from microns to 
+        millimeters.
+        
+        c = a + b * d
 
         'gradient': {
             'type': 'linear',
             'molecules': {
                 'mol_id1':{
                     'center': [0.0, 0.0],
+                    'base': 0.1,
                     'slope': -10},
                 'mol_id2': {
                     'center': [1.0, 1.0],
+                    'base': 0.1,
                     'slope': -5}
             }},
         """
 
         for molecule_id, specs in gradient['molecules'].items():
-            field = np.ones((bins_x, bins_y), dtype=np.float64)
+            field = np.zeros((bins_x, bins_y), dtype=np.float64)
             center = [specs['center'][0] * length_x,
                       specs['center'][1] * length_y]
+            base = specs('base', 0.0)
             slope = specs['slope']
 
             for x_bin in range(bins_x):
                 for y_bin in range(bins_y):
-                    # distance from middle of bin to center coordinates
                     dx = (x_bin + 0.5) * length_x / bins_x - center[0]
                     dy = (y_bin + 0.5) * length_y / bins_y - center[1]
                     distance = np.sqrt(dx ** 2 + dy ** 2)
-                    added = distance * slope
-                    # add gradient to basal concentration
-                    field[x_bin][y_bin] += added
+                    field[x_bin][y_bin] += base + slope * (distance/1000)
             fields[molecule_id] = field
 
     elif gradient.get('type') == 'exponential':
         """
-        exponential gradient adds a delta (d) to the base concentration (c)
-        of the given molecule as a function of distance  (x) from center and base (b),
-        with d=c+x^d.
+        exponential gradient sets a site's concentration (c) of the given 
+        molecule as a function of distance (d) from center, with parameters 
+        base (b) and scale (a). Distance is scaled by 1/1000 from microns to 
+        millimeters. Note: base > 1 makes concentrations increase from the center.
+        
+        c=a*b^d.
 
         'gradient': {
             'type': 'exponential',
             'molecules': {
                 'mol_id1':{
                     'center': [0.0, 0.0],
-                    'base': 1+2e-4},
+                    'base': 1+2e-4,
+                    'scale': 1.0},
                 'mol_id2': {
                     'center': [1.0, 1.0],
-                    'base': 1+2e-4}
+                    'base': 1+2e-4,
+                    'scale' : 0.1}
             }},
         """
 
         for molecule_id, specs in gradient['molecules'].items():
-            field = np.ones((bins_x, bins_y), dtype=np.float64)
+            field = np.zeros((bins_x, bins_y), dtype=np.float64)
             center = [specs['center'][0] * length_x,
                       specs['center'][1] * length_y]
             base = specs['base']
+            scale = specs.get('scale', 1)
 
             for x_bin in range(bins_x):
                 for y_bin in range(bins_y):
                     dx = (x_bin + 0.5) * length_x / bins_x - center[0]
                     dy = (y_bin + 0.5) * length_y / bins_y - center[1]
                     distance = np.sqrt(dx ** 2 + dy ** 2)
-                    added = base ** distance - 1
-
-                    # add to base concentration
-                    field[x_bin][y_bin] += added
+                    field[x_bin][y_bin] = scale * base ** (distance/1000)
             fields[molecule_id] = field
     return fields
-
 
 
 class DiffusionField(Process):
@@ -158,15 +162,19 @@ class DiffusionField(Process):
         'molecules': ['glc'],
         'initial_state': {},
         'n_bins': [10, 10],
-        'size': [10, 10],
+        'bounds': [10, 10],
         'depth': 3000.0,  # um
         'diffusion': 5e-1,
         'gradient': {},
         'agents': {},
-        'boundary_port': BOUNDARY_PORT,
+        'boundary_port': 'boundary',
+        'exchange_port': 'exchange',
+        'external_port': 'external',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         # initial state
         self.molecule_ids = initial_parameters.get('molecules', self.defaults['molecules'])
@@ -174,16 +182,18 @@ class DiffusionField(Process):
 
         # parameters
         self.n_bins = initial_parameters.get('n_bins', self.defaults['n_bins'])
-        self.size = initial_parameters.get('size', self.defaults['size'])
+        self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
         depth = initial_parameters.get('depth', self.defaults['depth'])
         self.boundary_port = initial_parameters.get('boundary_port', self.defaults['boundary_port'])
+        self.exchange_port = initial_parameters.get('exchange_port', self.defaults['exchange_port'])
+        self.external_port = initial_parameters.get('external_port', self.defaults['external_port'])
 
         # diffusion
         diffusion = initial_parameters.get('diffusion', self.defaults['diffusion'])
         bins_x = self.n_bins[0]
         bins_y = self.n_bins[1]
-        length_x = self.size[0]
-        length_y = self.size[1]
+        length_x = self.bounds[0]
+        length_y = self.bounds[1]
         dx = length_x / bins_x
         dy = length_y / bins_y
         dx2 = dx * dy
@@ -198,7 +208,7 @@ class DiffusionField(Process):
         # initialize gradient fields
         gradient = initial_parameters.get('gradient', self.defaults['gradient'])
         if gradient:
-            gradient_fields = make_gradient(gradient, self.n_bins, self.size)
+            gradient_fields = make_gradient(gradient, self.n_bins, self.bounds)
             self.initial_state.update(gradient_fields)
 
         # agents
@@ -233,25 +243,21 @@ class DiffusionField(Process):
                         mol_id: {
                             '_value': value}
                         for mol_id, value in exchange.items()}}}
-            schema['agents'][agent_id][self.boundary_port].update(local_concentration_schema)
-
         glob_schema = {
             '*': {
                 self.boundary_port: {
                     'location': {
                         '_default': [0.5, 0.5],
                         '_updater': 'set'},
-                    'exchange': {
-                        molecule: {'_default': 0.0}
-                        for molecule in self.molecule_ids},
-                    }}}
-        glob_schema['*'][self.boundary_port].update(local_concentration_schema)
+                    'exchange': local_concentration_schema,
+                    'external': local_concentration_schema}}}
         schema['agents'].update(glob_schema)
 
+        # fields
         fields_schema = {
              'fields': {
                  field: {
-                     '_value': self.initial_state.get(field, self.empty_field()),
+                     '_default': self.initial_state.get(field, self.ones_field()),
                      '_updater': 'accumulate',
                      '_emit': True}
                  for field in self.molecule_ids}}
@@ -284,8 +290,8 @@ class DiffusionField(Process):
 
     def get_bin_site(self, location):
         bin = np.array([
-            location[0] * self.n_bins[0] / self.size[0],
-            location[1] * self.n_bins[1] / self.size[1]])
+            location[0] * self.n_bins[0] / self.bounds[0],
+            location[1] * self.n_bins[1] / self.bounds[1]])
         bin_site = tuple(np.floor(bin).astype(int) % self.n_bins)
         return bin_site
 
@@ -300,20 +306,24 @@ class DiffusionField(Process):
         local_environments = {}
         if agents:
             for agent_id, specs in agents.items():
-                local_environments[agent_id] = {}
-                local_environments[agent_id][self.boundary_port] = self.get_single_local_environments(specs[self.boundary_port], fields)
+                local_environments[agent_id] = {self.boundary_port: {}}
+                local_environments[agent_id][self.boundary_port][self.external_port] = \
+                    self.get_single_local_environments(specs[self.boundary_port], fields)
         return local_environments
 
     def apply_single_exchange(self, delta_fields, specs):
         exchange = specs.get('exchange', {})
         bin_site = self.get_bin_site(specs['location'])
-
         for mol_id, count in exchange.items():
-            concentration = self.count_to_concentration(count)
-            delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
+            if count != 0:
+                concentration = self.count_to_concentration(count)
+                delta_fields[mol_id][bin_site[0], bin_site[1]] += concentration
 
     def empty_field(self):
         return np.zeros((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
+
+    def ones_field(self):
+        return np.ones((self.n_bins[0], self.n_bins[1]), dtype=np.float64)
 
     def apply_exchanges(self, agents):
         # initialize delta_fields with zero array
@@ -356,18 +366,18 @@ class DiffusionField(Process):
 
 # testing
 def get_random_field_config(config={}):
-    size = config.get('size', (20, 20))
+    bounds = config.get('bounds', (20, 20))
     n_bins = config.get('n_bins', (10, 10))
     return {
         'molecules': ['glc'],
         'initial_state': {
             'glc': np.random.rand(n_bins[0], n_bins[1])},
         'n_bins': n_bins,
-        'size': size}
+        'bounds': bounds}
 
 def get_gaussian_config(config={}):
     molecules = config.get('molecules', ['glc'])
-    size = config.get('size', (50, 50))
+    bounds = config.get('bounds', (50, 50))
     n_bins = config.get('n_bins', (20, 20))
     center = config.get('center', [0.5, 0.5])
     deviation = config.get('deviation', 5)
@@ -376,7 +386,7 @@ def get_gaussian_config(config={}):
     return {
         'molecules': molecules,
         'n_bins': n_bins,
-        'size': size,
+        'bounds': bounds,
         'diffusion': diffusion,
         'gradient': {
             'type': 'gaussian',
@@ -385,9 +395,31 @@ def get_gaussian_config(config={}):
                     'center': center,
                     'deviation': deviation}}}}
 
+def get_exponential_config(config={}):
+    molecules = config.get('molecules', ['glc'])
+    bounds = config.get('bounds', (40, 40))
+    n_bins = config.get('n_bins', (20, 20))
+    center = config.get('center', [1.0, 1.0])
+    base = config.get('base', 1 + 2e-4)
+    scale = config.get('scale', 0.1)
+    diffusion = config.get('diffusion', 1e1)
+
+    return {
+        'molecules': molecules,
+        'n_bins': n_bins,
+        'bounds': bounds,
+        'diffusion': diffusion,
+        'gradient': {
+            'type': 'exponential',
+            'molecules': {
+                'glc': {
+                    'center': center,
+                    'base': base,
+                    'scale': scale}}}}
+
 def get_secretion_agent_config(config={}):
     molecules = config.get('molecules', ['glc'])
-    size = config.get('size', (20, 20))
+    bounds = config.get('bounds', (20, 20))
     n_bins = config.get('n_bins', (10, 10))
     depth = config.get('depth', 30)
     n_agents = config.get('n_agents', 3)
@@ -396,54 +428,41 @@ def get_secretion_agent_config(config={}):
     for agent in range(n_agents):
         agent_id = str(agent)
         agents[agent_id] = {
-            BOUNDARY_PORT: {
+            'boundary': {
                 'location': [
-                        np.random.uniform(0, size[0]),
-                        np.random.uniform(0, size[1])],
+                        np.random.uniform(0, bounds[0]),
+                        np.random.uniform(0, bounds[1])],
                 'exchange': {
                     mol_id: 1e3 for mol_id in molecules},
-                'local_environment': {
-                        mol_id: 0 for mol_id in molecules}}}
-    config = {
-        'molecules': molecules,
-        'n_bins': n_bins,
-        'size': size,
-        'depth': depth,
-        'agents': agents}
-
-    return exchange_agent_config(config)
-
-def exchange_agent_config(config):
-    molecules = config['molecules']
-    size = config['size']
-    n_bins = config['n_bins']
-    agents = config['agents']
+                'external': {
+                    mol_id: 0 for mol_id in molecules}}}
     return {
         'molecules': molecules,
+        'n_bins': n_bins,
+        'bounds': bounds,
+        'depth': depth,
+        'agents': agents,
         'initial_state': {
             mol_id: np.ones((n_bins[0], n_bins[1]))
-            for mol_id in molecules},
-        'n_bins': n_bins,
-        'size': size,
-        'agents': agents}
+            for mol_id in molecules}}
 
 def test_diffusion_field(config=get_gaussian_config(), time=10):
     diffusion = DiffusionField(config)
     settings = {
         'return_raw_data': True,
-        'total_time': 10,
+        'total_time': time,
         'timestep': 1}
     return simulate_process(diffusion, settings)
 
 def plot_fields(data, config, out_dir='out', filename='fields'):
     fields = {time: time_data['fields'] for time, time_data in data.items()}
-    data = {
+    snapshots_data = {
         'fields': fields,
         'config': config}
     plot_config = {
         'out_dir': out_dir,
         'filename': filename}
-    plot_snapshots(data, plot_config)
+    plot_snapshots(snapshots_data, plot_config)
 
 
 if __name__ == '__main__':
@@ -454,6 +473,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='diffusion_field')
     parser.add_argument('--random', '-r', action='store_true', default=False)
     parser.add_argument('--gaussian', '-g', action='store_true', default=False)
+    parser.add_argument('--exponential', '-e', action='store_true', default=False)
     parser.add_argument('--secretion', '-s', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
@@ -467,6 +487,11 @@ if __name__ == '__main__':
         config = get_gaussian_config()
         data = test_diffusion_field(config, 10)
         plot_fields(data, config, out_dir, 'gaussian_field')
+
+    if args.exponential or no_args:
+        config = get_exponential_config()
+        data = test_diffusion_field(config, 20)
+        plot_fields(data, config, out_dir, 'exponential_field')
 
     if args.secretion or no_args:
         config = get_secretion_agent_config()

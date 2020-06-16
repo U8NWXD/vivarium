@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import random
 
 from vivarium.core.process import Process
 from vivarium.library.dict_utils import deep_merge, tuplify_port_dicts
@@ -24,159 +25,166 @@ from vivarium.processes.derive_globals import AVOGADRO
 NAME = 'ode_expression'
 
 class ODE_expression(Process):
+    '''Models gene expression using ordinary differential equations
+
+     This :term:`process class` models the rates of transcription,
+     translation, and degradation using ordinary differential
+     equations (ODEs). These ODEs are as follows:
+
+     * Transcription: :math:`\\frac{dM}{dt} = k_M - d_M M`
+
+         * :math:`M`: Concentration of mRNA
+         * :math:`k_M`: Trancription rate
+         * :math:`d_M`: Degradation rate
+
+     * Translation: :math:`\\frac{dP}{dt} = k_P m_P - d_P P`
+
+         * :math:`P`: Concentration of protein
+         * :math:`m_P`: Concentration of transcript
+         * :math:`k_P`: Translation rate
+         * :math:`d_P`: Degradation rate
+
+     The transcription rate abstracts over factors that include gene
+     copy number, RNA polymerase abundance, promoter strengths, and
+     nucleotide availability. The translation rate similarly
+     abstracts over factors that include ribosome availability, the
+     binding strength of the mRNA to the ribosome, the availability
+     of tRNAs, and the availability of free amino acids.
+
+     This process class also models genetic regulation with boolean
+     logic statements. This restricts us to modeling binary
+     regulation: reactions can be completely suppressed, but they
+     cannot be only slowed. For example, we can model a statement
+     like:
+
+         If :math:`[glucose] > 0.1`, completely inhibit LacY
+         expression.
+
+     But we cannot model a statement like this:
+
+         If :math:`[glucose] > 0.1`, reduce LacY expression by 50%.
+
+     .. note::
+         This model does **not** include:
+
+             * Kinetic regulation
+             * Cooperativity
+             * Autoinhibition
+             * Autoactivation
+
+     :term:`Ports`:
+
+     * **internal**: Expects a :term:`store` with all of the
+       transcripts and proteins being modeled. This store should also
+       include any internal regulators.
+     * **external**: Expects a store with all external regulators.
+       These variables are not updated; they are only read.
+
+     Arguments:
+         initial_parameters: A dictionary of configuration options.
+             The following configuration options may be provided:
+
+             * **transcription_rates** (:py:class:`dict`): Maps
+               transcript names (the keys of the dict) to
+               transcription rates (values of the dict).
+             * **translation_rates** (:py:class:`dict`): Maps protein
+               names (the keys of the dict) to translation rates (the
+               values of the dict).
+             * **degradation_rates** (:py:class:`dict`): Maps from
+               names of substrates (transcripts or proteins) to
+               degrade to their degradation rates.
+             * **protein_map** (:py:class:`dict`): Maps from protein
+               name to transcript name for each transcript-protein
+               pair.
+             * **initial_state** (:py:class:`dict`): Maps from
+               :term:`port` names to the initial state of that port.
+               Each initial state is specified as a dictionary with
+               :term:`variable` names as keys and variable values as
+               values.
+             * **regulators** (:py:class:`list`): List of the
+               molecules that regulate any of the modeled
+               transcription or translation reactions. Each molecule
+               is a tuple of the port and the molecule's variable
+               name.
+             * **regulation** (:py:class:`dict`): Maps from reaction
+               product (transcript or protein) name to a boolean
+               regulation statement. For example, to only transcribe
+               ``lacy_RNA`` if external ``glc__D_e`` concentration is
+               at most 0.1, we would pass:
+
+               .. code-block:: python
+
+                 {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
+
+     Example instantiation of a :term:`process` modeling LacY
+     expression:
+
+     >>> initial_state = {
+     ...     'internal': {
+     ...         'lacy_RNA': 0.0,
+     ...         'LacY': 0.0,
+     ...     },
+     ...     'external': {
+     ...         'glc__D_e': 2.0,
+     ...     }
+     ... }
+     >>> config = {
+     ...     'transcription_rates': {
+     ...         'lacy_RNA': 3.0,
+     ...     },
+     ...     'translation_rates': {
+     ...         'LacY': 4.0,
+     ...     },
+     ...     'degradation_rates': {
+     ...         'lacy_RNA': 1.0,
+     ...         'LacY': 0.0,
+     ...     },
+     ...     'protein_map': {
+     ...         'LacY': 'lacy_RNA',
+     ...     },
+     ...     'initial_state': initial_state,
+     ...     'regulators': [('external', 'glc__D_e')],
+     ...     'regulation': {
+     ...         'lacy_RNA': 'if not (external, glc__D_e) > 1.0',
+     ...     },
+     ... }
+     >>> expression_process = ODE_expression(config)
+     >>> state = expression_process.default_state()
+     >>> state == initial_state
+     True
+     >>> # When external glc__D_e present, no transcription
+     >>> expression_process.next_update(1, state)
+     {'internal': {'lacy_RNA': 0.0, 'LacY': 0.0}}
+     >>> # But translation and degradation still occur
+     >>> state['internal']['lacy_RNA'] = 1.0
+     >>> expression_process.next_update(1, state)
+     {'internal': {'lacy_RNA': -1.0, 'LacY': 4.0}}
+     >>> # When external glc__D_e low, LacY transcribed
+     >>> state['external']['glc__D_e'] = 0.5
+     >>> expression_process.next_update(1, state)
+     {'internal': {'lacy_RNA': 2.0, 'LacY': 4.0}}
+
+     '''
 
     defaults = {
         'transcription_rates': {},
         'translation_rates': {},
         'degradation_rates': {},
         'protein_map': {},
+        'transcription_leak': {
+            'sigma': 0.0,
+            'magnitude': 0.0},
+
         'regulation': {},
         'regulators': [],
         'initial_state': {},
         'counts_deriver_key': 'expression_counts',
     }
 
-    def __init__(self, initial_parameters={}):
-        '''Models gene expression using ordinary differential equations
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
-        This :term:`process class` models the rates of transcription,
-        translation, and degradation using ordinary differential
-        equations (ODEs). These ODEs are as follows:
-
-        * Transcription: :math:`\\frac{dM}{dt} = k_M - d_M M`
-
-            * :math:`M`: Concentration of mRNA
-            * :math:`k_M`: Trancription rate
-            * :math:`d_M`: Degradation rate
-
-        * Translation: :math:`\\frac{dP}{dt} = k_P m_P - d_P P`
-
-            * :math:`P`: Concentration of protein
-            * :math:`m_P`: Concentration of transcript
-            * :math:`k_P`: Translation rate
-            * :math:`d_P`: Degradation rate
-
-        The transcription rate abstracts over factors that include gene
-        copy number, RNA polymerase abundance, promoter strengths, and
-        nucleotide availability. The translation rate similarly
-        abstracts over factors that include ribosome availability, the
-        binding strength of the mRNA to the ribosome, the availability
-        of tRNAs, and the availability of free amino acids.
-
-        This process class also models genetic regulation with boolean
-        logic statements. This restricts us to modeling binary
-        regulation: reactions can be completely suppressed, but they
-        cannot be only slowed. For example, we can model a statement
-        like:
-
-            If :math:`[glucose] > 0.1`, completely inhibit LacY
-            expression.
-
-        But we cannot model a statement like this:
-
-            If :math:`[glucose] > 0.1`, reduce LacY expression by 50%.
-
-        .. note::
-            This model does **not** include:
-
-                * Kinetic regulation
-                * Cooperativity
-                * Autoinhibition
-                * Autoactivation
-
-        :term:`Ports`:
-
-        * **internal**: Expects a :term:`store` with all of the
-          transcripts and proteins being modeled. This store should also
-          include any internal regulators.
-        * **external**: Expects a store with all external regulators.
-          These variables are not updated; they are only read.
-
-        Arguments:
-            initial_parameters: A dictionary of configuration options.
-                The following configuration options may be provided:
-
-                * **transcription_rates** (:py:class:`dict`): Maps
-                  transcript names (the keys of the dict) to
-                  transcription rates (values of the dict).
-                * **translation_rates** (:py:class:`dict`): Maps protein
-                  names (the keys of the dict) to translation rates (the
-                  values of the dict).
-                * **degradation_rates** (:py:class:`dict`): Maps from
-                  names of substrates (transcripts or proteins) to
-                  degrade to their degradation rates.
-                * **protein_map** (:py:class:`dict`): Maps from protein
-                  name to transcript name for each transcript-protein
-                  pair.
-                * **initial_state** (:py:class:`dict`): Maps from
-                  :term:`port` names to the initial state of that port.
-                  Each initial state is specified as a dictionary with
-                  :term:`variable` names as keys and variable values as
-                  values.
-                * **regulators** (:py:class:`list`): List of the
-                  molecules that regulate any of the modeled
-                  transcription or translation reactions. Each molecule
-                  is a tuple of the port and the molecule's variable
-                  name.
-                * **regulation** (:py:class:`dict`): Maps from reaction
-                  product (transcript or protein) name to a boolean
-                  regulation statement. For example, to only transcribe
-                  ``lacy_RNA`` if external ``glc__D_e`` concentration is
-                  at most 0.1, we would pass:
-
-                  .. code-block:: python
-
-                    {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
-
-        Example instantiation of a :term:`process` modeling LacY
-        expression:
-
-        >>> initial_state = {
-        ...     'internal': {
-        ...         'lacy_RNA': 0.0,
-        ...         'LacY': 0.0,
-        ...     },
-        ...     'external': {
-        ...         'glc__D_e': 2.0,
-        ...     }
-        ... }
-        >>> config = {
-        ...     'transcription_rates': {
-        ...         'lacy_RNA': 3.0,
-        ...     },
-        ...     'translation_rates': {
-        ...         'LacY': 4.0,
-        ...     },
-        ...     'degradation_rates': {
-        ...         'lacy_RNA': 1.0,
-        ...         'LacY': 0.0,
-        ...     },
-        ...     'protein_map': {
-        ...         'LacY': 'lacy_RNA',
-        ...     },
-        ...     'initial_state': initial_state,
-        ...     'regulators': [('external', 'glc__D_e')],
-        ...     'regulation': {
-        ...         'lacy_RNA': 'if not (external, glc__D_e) > 1.0',
-        ...     },
-        ... }
-        >>> expression_process = ODE_expression(config)
-        >>> state = expression_process.default_state()
-        >>> state == initial_state
-        True
-        >>> # When external glc__D_e present, no transcription
-        >>> expression_process.next_update(1, state)
-        {'internal': {'lacy_RNA': 0.0, 'LacY': 0.0}}
-        >>> # But translation and degradation still occur
-        >>> state['internal']['lacy_RNA'] = 1.0
-        >>> expression_process.next_update(1, state)
-        {'internal': {'lacy_RNA': -1.0, 'LacY': 4.0}}
-        >>> # When external glc__D_e low, LacY transcribed
-        >>> state['external']['glc__D_e'] = 0.5
-        >>> expression_process.next_update(1, state)
-        {'internal': {'lacy_RNA': 2.0, 'LacY': 4.0}}
-
-        '''
         # TODO -- kinetic regulation, cooperativity, autoinhibition, autactivation
 
         # ode gene expression
@@ -188,6 +196,10 @@ class ODE_expression(Process):
             'degradation_rates', self.defaults['degradation_rates'])
         self.protein_map = initial_parameters.get(
             'protein_map', self.defaults['protein_map'])
+        transcription_leak = initial_parameters.get(
+            'transcription_leak', self.defaults['transcription_leak'])
+        self.transcription_leak_sigma = transcription_leak['sigma']
+        self.transcription_leak_magnitude = transcription_leak['magnitude']
 
         # boolean regulation
         regulation_logic = initial_parameters.get(
@@ -267,7 +279,10 @@ class ODE_expression(Process):
             transcript_state = internal_state[transcript]
             # do not transcribe inhibited genes
             if transcript in regulation_state and not regulation_state[transcript]:
-                rate = 0
+                if random.uniform(0, 1) < abs(random.gauss(0, self.transcription_leak_sigma)):
+                    rate = self.transcription_leak_magnitude
+                else:
+                    rate = 0.0
 
             internal_update[transcript] = \
                 (rate - self.degradation.get(transcript, 0) * transcript_state) * timestep
@@ -312,6 +327,9 @@ def get_lacy_config():
     # define regulation
     regulators = [('external', 'glc__D_e')]
     regulation = {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
+    transcription_leak = {
+        'sigma': 2.0e-4,
+        'magnitude': 6e-6}
 
     # initial state
     initial_state = {
@@ -328,6 +346,7 @@ def get_lacy_config():
         'protein_map': protein_map,
         'regulators': regulators,
         'regulation': regulation,
+        'transcription_leak': transcription_leak,
         'initial_state': initial_state}
 
 def get_flagella_expression():
@@ -364,10 +383,8 @@ def get_flagella_expression():
     initial_state = {
         'counts': counts,
         'internal': concentrations}
-        # 'global': {
-        #     'volume': 1.2}}
 
-    return  {
+    return {
         'transcription_rates': transcription,
         'translation_rates': translation,
         'degradation_rates': degradation,
@@ -377,7 +394,7 @@ def get_flagella_expression():
 
 def test_expression(config=get_lacy_config(), timeline=[(100, {})]):
     expression = ODE_expression(config)
-    settings = {'timeline': timeline}
+    settings = {'timeline': {'timeline': timeline}}
     return simulate_process_in_experiment(expression, settings)
 
 

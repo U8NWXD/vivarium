@@ -23,7 +23,10 @@ class GrowthProtein(Process):
         'mass_deriver_key': 'mass_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
+
         ports = {
             'internal': [
                 'protein'],
@@ -39,7 +42,7 @@ class GrowthProtein(Process):
 
         # default state
         # 1000 proteins per fg
-        self.initial_protein = 2e9  # (wet mass in fg)
+        self.initial_protein = 5e7  # counts of protein
         self.divide_protein = self.initial_protein*2
 
         parameters = {
@@ -56,7 +59,7 @@ class GrowthProtein(Process):
                     '_divider': 'split',
                     '_emit': True,
                     '_properties': {
-                        'mw': 1e2 * units.g / units.mol}}},
+                        'mw': 2.09e4 * units.g / units.mol}}},  # the median E. coli protein is 209 amino acids long, and AAs ~ 100 Da
             'global': {
                 'volume': {
                     '_updater': 'set',

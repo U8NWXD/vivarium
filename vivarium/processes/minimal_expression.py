@@ -31,7 +31,9 @@ class MinimalExpression(Process):
         'concentrations_deriver_key': 'expression_concentrations_deriver',
     }
 
-    def __init__(self, initial_parameters={}):
+    def __init__(self, initial_parameters=None):
+        if initial_parameters is None:
+            initial_parameters = {}
 
         expression_rates = initial_parameters.get('expression_rates')
         self.internal_states = list(expression_rates.keys()) if expression_rates else []
