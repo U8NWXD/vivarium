@@ -93,6 +93,12 @@ def dissoc(d, removing):
         if key not in removing}
 
 
+def without(d, removing):
+    return {
+        key: value
+        for key, value in d.items()
+        if key != removing}
+
 def schema_for(port, keys, initial_state, default=0.0, updater='accumulate'):
     return {
         key: {
@@ -119,13 +125,13 @@ class Store(object):
         '_properties',
         '_emit',
         '_serializer',
-        # '_units',
     ])
 
     def __init__(self, config, outer=None, source=None):
         self.outer = outer
         self.inner = {}
         self.subschema = {}
+        self.subtopology = {}
         self.properties = {}
         self.default = None
         self.updater = None
@@ -135,6 +141,7 @@ class Store(object):
         self.emit = False
         self.sources = {}
         self.deleted = False
+        self.leaf = False
         self.serializer = None
 
         self.apply_config(config, source)
@@ -155,25 +162,64 @@ class Store(object):
             raise Exception('_value schema conflict: {} and {}'.format(new_value, self.value))
         return new_value
 
-    def apply_subschema_config(self, config, subschema_key):
+    def merge_subtopology(self, subtopology):
+        self.subtopology = deep_merge(self.subtopology, subtopology)
+
+    def apply_subschema_config(self, subschema):
         self.subschema = deep_merge(
             self.subschema,
-            config.get(subschema_key, {}))
-        return {
-            key: value
-            for key, value in config.items()
-            if key != subschema_key}
+            subschema)
 
     def apply_config(self, config, source=None):
+        '''
+        Expand the tree by applying additional config.
+
+        Special keys for the config are:
+        * _default - Default value for this node.
+        * _properties - An arbitrary map of keys to values. This can be used
+            for any properties which exist outside of the operation of the
+            tree (like mass or energy).
+        * _updater - Which updater to use. Default is 'accumulate' which
+            adds the new value to the existing value, but 'set' is common
+            as well. You can also provide your own function here instead of
+            a string key into the updater library.
+        * _emit - whether or not to emit the values under this point in the tree.
+        * _divider - What to do with this node when division happens.
+            Default behavior is to leave it alone, but you can also pass
+            'split' here, or a function of your choosing. If you need other
+            values from the state you need to supply a dictionary here
+            containing the updater and the topology for where the other
+            state values are coming from. This has two keys:
+            * divider - a function that takes the existing value and any
+                values supplied from the adjoining topology.
+            * topology - a mapping of keys to paths where the value for
+                those keys will be found. This will be passed in as the second
+                argument to the divider function.
+        * _subschema/* - If this node was declared to house an unbounded set
+            of related states, the schema for these states is held in this
+            nodes subschema and applied whenever new subkeys are added here.
+        * _subtopology - The subschema is informed by the subtopology to
+            map the process perspective to the actual tree structure.
+        '''
+
+
         if '*' in config:
-            config = self.apply_subschema_config(config, '*')
+            self.apply_subschema_config(config['*'])
+            config = without(config, '*')
 
         if '_subschema' in config:
             if source:
                 self.sources[source] = config['_subschema']
-            config = self.apply_subschema_config(config, '_subschema')
+            self.apply_subschema_config(config['_subschema'])
+            config = without(config, '_subschema')
+
+        if '_subtopology' in config:
+            self.merge_subtopology(config['_subtopology'])
+            config = without(config, '_subtopology')
 
         if self.schema_keys & config.keys():
+            self.leaf = True
+
             # self.units = config.get('_units', self.units)
             if '_serializer' in config:
                 self.serializer = config['_serializer']
@@ -228,11 +274,19 @@ class Store(object):
         return updater
 
     def get_config(self, sources=False):
+        '''
+        Assemble a dictionary representation of the config for this node.
+        A desired property is that the node can be exactly recreated by
+        applying the resulting config to an empty node again.
+        '''
+
         config = {}
         if self.properties:
             config['_properties'] = self.properties
         if self.subschema:
             config['_subschema'] = self.subschema
+        if self.subtopology:
+            config['_subtopology'] = self.subtopology
         if sources and self.sources:
             config['_sources'] = self.sources
 
@@ -257,12 +311,20 @@ class Store(object):
         return config
 
     def top(self):
+        '''
+        Find the top of this tree.
+        '''
+
         if self.outer:
             return self.outer.top()
         else:
             return self
 
     def path_for(self):
+        '''
+        Find the path to this node.
+        '''
+
         if self.outer:
             key = key_for_value(self.outer.inner, self)
             above = self.outer.path_for()
@@ -271,6 +333,10 @@ class Store(object):
             return tuple()
 
     def get_value(self, condition=None, f=None):
+        '''
+        Pull the values out of the tree in a structure symmetrical to the tree.
+        '''
+
         if self.inner:
             if condition is None:
                 condition = always_true
@@ -285,12 +351,14 @@ class Store(object):
         else:
             if self.subschema:
                 return {}
-            # elif self.units:
-            #     return self.value * self.units
             else:
                 return self.value
 
     def get_path(self, path):
+        '''
+        Get the node at the given path relative to this node.
+        '''
+
         if path:
             step = path[0]
             if step == '..':
@@ -355,12 +423,21 @@ class Store(object):
                         return self.value
 
     def mark_deleted(self):
+        '''
+        When nodes are removed from the tree, they are marked as deleted
+        in case something else has a reference to them.
+        '''
+
         self.deleted = True
         if self.inner:
             for child in self.inner.values():
                 child.mark_deleted()
 
     def delete_path(self, path):
+        '''
+        Delete the subtree at the given path.
+        '''
+
         if not path:
             self.inner = {}
             self.value = None
@@ -375,6 +452,11 @@ class Store(object):
                 return lost
 
     def divide_value(self):
+        '''
+        Apply the divider for each node to the value in that node to
+        assemble two parallel divided states of this subtree.
+        '''
+
         if self.divider:
             # divider is either a function or a dict with topology
             if isinstance(self.divider, dict):
@@ -394,6 +476,10 @@ class Store(object):
             return daughters
 
     def reduce(self, reducer, initial=None):
+        '''
+        Call the reducer on each node accumulating over the result.
+        '''
+
         value = initial
 
         for path, node in self.depth():
@@ -406,6 +492,11 @@ class Store(object):
         self.apply_update(update)
 
     def set_value(self, value):
+        '''
+        Set the value for the given tree elements directly instead of using
+        the updaters from their nodes.
+        '''
+
         if self.inner or self.subschema:
             for child, inner_value in value.items():
                 if child not in self.inner:
@@ -424,9 +515,10 @@ class Store(object):
             self.value = value
 
     def apply_defaults(self):
-        """
-        if value is None, set to default 
-        """
+        '''
+        If value is None, set to default.
+        '''
+
         if self.inner:
             for child in self.inner.values():
                 child.apply_defaults()
@@ -435,6 +527,41 @@ class Store(object):
                 self.value = self.default
 
     def apply_update(self, update):
+        '''
+        Given an arbitrary update, map all the values in that update
+        to their positions in the tree where they apply, and update
+        these values using each node's `_updater`.
+
+        There are five special update keys:
+
+        * `_updater` - Override the default updater with any updater you want.
+        * `_delete` - The value here is a list of paths to delete from
+            the tree.
+        * `_generate` - The value has four keys, which are essentially
+            the arguments to the `generate()` function:
+            * path - Path into the tree to generate this subtree.
+            * processes - Tree of processes to generate.
+            * topology - Connections of all the process's `ports_schema()`.
+            * initial_state - Initial state for this new subtree.
+        * `_divide` - Performs cell division by constructing two new
+            daugther cells and removing the mother. Takes a dict with two keys:
+            * mother - The id of the mother (for removal)
+            * daughters - List of two new daughter generate directives, of the
+                same form as the `_generate` value above.
+        * `_reduce` - This allows a reduction over the entire subtree from some
+            point downward. Its three keys are:
+            * from - What point to start the reduction.
+            * initial - The initial value of the reduction.
+            * reducer - A function of three arguments, which is called
+                on every node from the `from` point in the tree down:
+                * value - The current accumulated value of the reduction.
+                * path - The path to this point in the tree
+                * node - The actual node being visited.
+                This function returns the next `value` for the reduction.
+                The result of the reduction will be assigned to this
+                point in the tree.
+        '''
+
         if self.inner or self.subschema:
             topology_updates = {}
 
@@ -526,23 +653,82 @@ class Store(object):
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
 
-            # if self.units:
-            #     units_value = updater(self.value * self.units, update)
-            #     self.value = units_value.to(self.units).magnitude
-            # else:
             self.value = updater(self.value, update)
 
     def inner_value(self, key):
-        """
-        get the value of an inner state
-        """
+        '''
+        Get the value of an inner state
+        '''
+
         if key in self.inner:
             return self.inner[key].get_value()
 
+    def topology_state(self, topology):
+        '''
+        Fill in the structure of the given topology with the values at all
+        the paths the topology points at. Essentially, anywhere in the topology
+        that has a tuple path will be filled in with the value at that path.
+
+        This is the inverse function of the standalone `inverse_topology`.
+        '''
+
+        state = {}
+
+        for key, path in topology.items():
+            if key == '*':
+                if isinstance(path, dict):
+                    node, path = self.outer_path(path)
+                    for child, child_node in node.inner.items():
+                        state[child] = child_node.topology_state(path)
+                else:
+                    node = self.get_path(path)
+                    for child, child_node in node.inner.items():
+                        state[child] = child_node.get_value()
+            elif isinstance(path, dict):
+                node, path = self.outer_path(path)
+                state[key] = node.topology_state(path)
+            else:
+                state[key] = self.get_path(path).get_value()
+        return state
+
+    def schema_topology(self, schema, topology):
+        '''
+        Fill in the structure of the given schema with the values located according
+        to the given topology. 
+        '''
+
+        state = {}
+
+        if self.leaf:
+            state = self.get_value()
+        else:
+            for key, subschema in schema.items():
+                path = topology.get(key)
+                if key == '*':
+                    if isinstance(path, dict):
+                        node, path = self.outer_path(path)
+                        for child, child_node in node.inner.items():
+                            state[child] = child_node.schema_topology(subschema, path)
+                    else:
+                        node = self.get_path(path)
+                        for child, child_node in node.inner.items():
+                            state[child] = child_node.schema_topology(subschema, {})
+                elif isinstance(path, dict):
+                    node, path = self.outer_path(path)
+                    state[key] = node.schema_topology(subschema, path)
+                else:
+                    if path is None:
+                        path = (key,)
+                    node = self.get_path(path)
+                    state[key] = node.schema_topology(subschema, {})
+
+        return state
+
     def state_for(self, path, keys):
-        """
-        get the value of a state at a given path
-        """
+        '''
+        Get the value of a state at a given path
+        '''
+
         state = self.get_path(path)
         if state is None:
             return {}
@@ -554,6 +740,11 @@ class Store(object):
                 for key in keys}
 
     def depth(self, path=()):
+        '''
+        Create a mapping of every path in the tree to the node living at
+        that path in the tree.
+        '''
+
         base = [(path, self)]
         for key, child in self.inner.items():
             down = tuple(path + (key,))
@@ -566,48 +757,41 @@ class Store(object):
             for path, state in self.depth()
             if state.value and isinstance(state.value, Process)}
 
-    def establish_path(self, path, config, initial=None, source=None):
-        if len(path) > 0:
-            path_step = path[0]
-            remaining = path[1:]
+    def apply_subschema(self, subschema=None, subtopology=None, source=None):
+        '''
+        Apply a subschema to all inner nodes (either provided or from this
+        node's personal subschema) as governed by the given/personal
+        subtopology.
+        '''
 
-            if path_step == '..':
-                if not self.outer:
-                    raise Exception('outer does not exist for path: {}'.format(path))
-                return self.outer.establish_path(
-                    remaining, config,
-                    initial=initial.get('..') if initial and isinstance(
-                        initial, dict) else None,
-                    source=source)
-
-            else:
-                if path_step not in self.inner:
-                    self.inner[path_step] = Store({}, outer=self, source=source)
-                return self.inner[path_step].establish_path(
-                    remaining, config,
-                    initial=initial.get(path_step) if initial and isinstance(
-                        initial, dict) else None,
-                    source=source)
-
-        else:
-            self.apply_config(config, source=source)
-            if initial:
-                self.value = initial
-            return self
-
-    def apply_subschema(self, subschema=None):
         if subschema is None:
             subschema = self.subschema
-        for child_key, child in self.inner.items():
-            child.apply_config(subschema)
+        if subtopology is None:
+            subtopology = self.subtopology or {}
+            
+        inner = list(self.inner.items())
+
+        for child_key, child in inner:
+            child.topology_ports(
+                subschema,
+                subtopology,
+                source=self.path_for() + ('*',))
 
     def apply_subschemas(self):
+        '''
+        Apply all subschemas from all nodes at this point or lower in the tree.
+        '''
+
         if self.subschema:
             self.apply_subschema()
         for child in self.inner.values():
             child.apply_subschemas()
 
     def update_subschema(self, path, subschema):
+        '''
+        Merge a new subschema into an existing subschema at the given path.
+        '''
+
         target = self.get_path(path)
         if target.subschema is None:
             target.subschema = subschema
@@ -617,7 +801,102 @@ class Store(object):
                 subschema)
         return target
 
-    def generate_paths(self, processes, topology, initial_state):
+    def establish_path(self, path, config, source=None):
+        '''
+        Create a node at the given path if it does not exist, then
+        apply a config to it.
+
+        Paths can include '..' to go up a level (which raises an exception
+        if that level does not exist).
+        '''
+
+        if len(path) > 0:
+            path_step = path[0]
+            remaining = path[1:]
+
+            if path_step == '..':
+                if not self.outer:
+                    raise Exception('outer does not exist for path: {}'.format(path))
+
+                return self.outer.establish_path(
+                    remaining,
+                    config,
+                    source=source)
+            else:
+                if path_step not in self.inner:
+                    self.inner[path_step] = Store({}, outer=self, source=source)
+
+                return self.inner[path_step].establish_path(
+                    remaining,
+                    config,
+                    source=source)
+        else:
+            self.apply_config(config, source=source)
+            return self
+
+    def outer_path(self, path, source=None):
+        '''
+        Address a topology with the `_path` keyword if present,
+        establishing a path to this node and using it as the
+        starting point for future path operations.
+        '''
+
+        node = self
+        if '_path' in path:
+            node = self.establish_path(
+                path['_path'],
+                {},
+                source=source)
+            path = without(path, '_path')
+
+        return node, path
+
+    def topology_ports(self, schema, topology, source=None):
+        ''' 
+        Distribute a schema into the tree by mapping its ports
+        according to the given topology.
+        '''
+
+        source = source or self.path_for()
+
+        if schema.keys() & self.schema_keys:
+            self.get_path(topology).apply_config(schema)
+        else:
+            for port, subschema in schema.items():
+                path = topology.get(port, (port,))
+
+                if port == '*':
+                    subschema_config = {
+                        '_subschema': subschema}
+                    if isinstance(path, dict):
+                        node, path = self.outer_path(
+                            path, source=source)
+                        node.merge_subtopology(path)
+                        node.apply_config(subschema_config)
+                    else:
+                        node = self.establish_path(
+                            path,
+                            subschema_config,
+                            source=source)
+                    node.apply_subschema()
+                    node.apply_defaults()
+
+                elif isinstance(path, dict):
+                    node, path = self.outer_path(
+                        path, source=source)
+
+                    node.topology_ports(
+                        subschema,
+                        path,
+                        source=source)
+
+                else:
+                    self.establish_path(
+                        path,
+                        subschema,
+                        source=source)
+
+    def generate_paths(self, processes, topology):
         for key, subprocess in processes.items():
             subtopology = topology[key]
             if isinstance(subprocess, Process):
@@ -625,44 +904,93 @@ class Store(object):
                     '_value': subprocess,
                     '_updater': 'set'}, outer=self)
                 self.inner[key] = process_state
-                for port, targets in subprocess.ports_schema().items():
-                    if port not in subtopology:
-                        raise Exception('topology conflict: {} process does not have {} port'.format(key, port))
-                    path = subtopology[port]
-                    if path:
-                        initial = get_in(initial_state, path)
-                        for target, schema in targets.items():
-                            source = self.path_for() + (key,)
-                            if target == '*':
-                                glob = self.establish_path(
-                                    path, {
-                                        '_subschema': schema},
-                                    source=source)
-                                glob.apply_subschema()
-                                glob.apply_defaults()
-                            else:
-                                subpath = tuple(path) + (target,)
-                                self.establish_path(
-                                    subpath,
-                                    schema,
-                                    initial=initial.get(
-                                        target) if initial and isinstance(
-                                            initial, dict) else None,
-                                    source=source)
+
+                subprocess.schema = subprocess.ports_schema()
+                self.topology_ports(
+                    subprocess.schema,
+                    subtopology,
+                    source=self.path_for() + (key,))
             else:
                 if key not in self.inner:
                     self.inner[key] = Store({}, outer=self)
-                substate = initial_state.get(key, {})
                 self.inner[key].generate_paths(
                     subprocess,
-                    subtopology,
-                    substate)
+                    subtopology)
 
     def generate(self, path, processes, topology, initial_state):
+        '''
+        Generate a subtree of this store at the given path. 
+        The processes will be mapped into locations in the tree by the 
+        topology, and once everything is constructed the initial_state
+        will be applied.
+        '''
+
         target = self.establish_path(path, {})
-        target.generate_paths(processes, topology, initial_state)
+        target.generate_paths(processes, topology)
         target.set_value(initial_state)
+        target.apply_subschemas()
         target.apply_defaults()
+
+
+def inverse_topology(outer, update, topology):
+    '''
+    Transform an update from the form its process produced into 
+    one aligned to the given topology. 
+
+    The inverse of this function (using a topology to construct a view for
+    the perspective of a Process ports_schema()) lives in `Store`, called
+    `topology_state`. This one stands alone as it does not require a store
+    to calculate.
+    '''
+
+    inverse = {}
+    for key, path in topology.items():
+
+        if key == '*':
+
+            if isinstance(path, dict):
+                node = inverse
+                if '_path' in path:
+                    inner = normalize_path(outer + path['_path'])
+                    node = get_in(inverse, inner)
+                    if node is None:
+                        node = {}
+                        assoc_path(inverse, inner, node)
+                    path = without(path, '_path')
+
+                for child, child_update in update.items():
+                    node[child] = inverse_topology(
+                        tuple(),
+                        update[child],
+                        path)
+
+            else:
+                for child, child_update in update.items():
+                    inner = normalize_path(outer + path + (child,))
+                    assoc_path(inverse, inner, child_update)
+
+        elif key in update:
+            value = update[key]
+            if isinstance(path, dict):
+                node = inverse
+                if '_path' in path:
+                    inner = normalize_path(outer + path['_path'])
+                    node = get_in(inverse, inner)
+                    if node is None:
+                        node = {}
+                        assoc_path(inverse, inner, node)
+                    path = without(path, '_path')
+
+                node.update(inverse_topology(
+                    tuple(),
+                    value,
+                    path))
+
+            else:
+                inner = normalize_path(outer + path)
+                assoc_path(inverse, inner, value)
+
+    return inverse
 
 
 def generate_derivers(processes, topology):
@@ -745,10 +1073,11 @@ class Compartment(object):
 
 def generate_state(processes, topology, initial_state):
     state = Store({})
-    state.generate_paths(processes, topology, initial_state)
+    state.generate_paths(processes, topology)
     state.apply_subschemas()
     state.set_value(initial_state)
     state.apply_defaults()
+
     return state
 
 
@@ -826,28 +1155,28 @@ class Experiment(object):
             'data': data}
         self.emitter.emit(emit_config)
 
-    def absolute_update(self, path, new_update):
-        absolute = {}
-        for port, update in new_update.items():
-            topology = get_in(self.topology, path + (port,))
-            if topology is not None:
-                state_path = path[:-1] + topology
-                normal_path = normalize_path(state_path)
-                absolute = assoc_in(absolute, normal_path, update)
-        return absolute
-
     def process_update(self, path, state, interval):
         process = state.value
         process_topology = get_in(self.topology, path)
-        ports = process.find_states(state.outer, process_topology)
+
+        # translate the values from the tree structure into the form
+        # that this process expects, based on its declared topology
+        ports = state.outer.schema_topology(process.schema, process_topology)
+
+        # perform the process update with the current states
         update = process.next_update(interval, ports)
-        absolute = self.absolute_update(path, update)
+
+        # translate the values from the process update back into the
+        # paths they have in the state tree
+        # inverse = inverse_topology(path[:-1], update, process_topology)
+        # absolute = assoc_in({}, path[:-1], inverse)
+        absolute = inverse_topology(path[:-1], update, process_topology)
+
         return absolute
 
     def apply_update(self, update):
         topology_updates = self.state.apply_update(update)
         if topology_updates:
-            # print('topology updates for update {}: {}'.format(update, topology_updates))
             self.topology = deep_merge(self.topology, topology_updates)
 
     def run_derivers(self, derivers):
@@ -902,6 +1231,7 @@ class Experiment(object):
                 for state_id in self.states:
                     print('{}: {}'.format(time, self.states[state_id].to_dict()))
 
+            # find all existing processes and derivers in the tree
             processes = {}
             derivers = {}
             for path, state in self.state.depth():
@@ -911,11 +1241,14 @@ class Experiment(object):
                     else:
                         processes[path] = state
 
+            # setup a way to track how far each process has simulated in time
             front = {
                 path: process
                 for path, process in front.items()
                 if path in processes}
 
+            # go through each process and find those that are able to update
+            # based on their current time being less than the global time.
             for path, state in processes.items():
                 if not path in front:
                     front[path] = empty_front(time)
@@ -925,8 +1258,11 @@ class Experiment(object):
                     process = state.value
                     future = min(process_time + process.local_timestep(), timestep)
                     interval = future - process_time
+
+                    # calculate the update for this process
                     update = self.process_update(path, state, interval)
 
+                    # store the update to apply at its projected time
                     if interval < full_step:
                         full_step = interval
                     front[path]['time'] = future
@@ -1060,6 +1396,156 @@ def test_in():
     update_in(blank, path, lambda x: x + 6)
     print(blank)
 
+def test_topology_ports():
+    quark_colors = ['green', 'red', 'blue']
+    quark_spins = ['up', 'down']
+    electron_spins = ['-1/2', '1/2']
+    electron_orbitals = [
+        str(orbit) + 's'
+        for orbit in range(1, 8)]
+
+    class Proton(Process):
+        defaults = {
+            'time_step': 1.0,
+            'radius': 0.0}
+
+        def __init__(self, parameters=None):
+            if not parameters:
+                parameters = {}
+            self.radius = self.or_default(parameters, 'radius')
+            self.parameters = parameters
+            self.time_step = self.or_default(parameters, 'time_step')
+
+        def ports_schema(self):
+            return {
+                'radius': {
+                    '_updater': 'set',
+                    '_default': self.radius},
+                'quarks': {
+                    '*': {
+                        'color': {
+                            '_updater': 'set',
+                            '_default': quark_colors[0]},
+                        'spin': {
+                            '_updater': 'set',
+                            '_default': quark_spins[0]}}},
+                'electrons': {
+                    '*': {
+                        'orbital': {
+                            '_updater': 'set',
+                            '_default': electron_orbitals[0]},
+                        'spin': {
+                            '_default': electron_spins[0]}}}}
+
+        def next_update(self, timestep, states):
+            update = {}
+
+            collapse = np.random.random()
+            if collapse < states['radius'] * timestep:
+                update['radius'] = collapse
+                update['quarks'] = {}
+
+                for name, quark in states['quarks'].items():
+                    update['quarks'][name] = {
+                        'color': np.random.choice(quark_colors),
+                        'spin': np.random.choice(quark_spins)}
+
+                update['electrons'] = {}
+                orbitals = electron_orbitals.copy()
+                for name, electron in states['electrons'].items():
+                    np.random.shuffle(orbitals)
+                    update['electrons'][name] = {
+                        'orbital': orbitals.pop()}
+
+            return update
+
+    class Electron(Process):
+        defaults = {
+            'time_step': 1.0,
+            'spin': electron_spins[0]}
+
+        def __init__(self, parameters=None):
+            self.parameters = parameters or {}
+            self.spin = self.or_default(self.parameters, 'spin')
+            self.time_step = self.or_default(self.parameters, 'time_step')
+
+        def ports_schema(self):
+            return {
+                'spin': {
+                    '_updater': 'set',
+                    '_default': self.spin},
+                'proton': {
+                    'radius': {
+                        '_default': 0.0}}}
+
+        def next_update(self, timestep, states):
+            update = {}
+
+            if np.random.random() < states['proton']['radius']:
+                update['spin'] = np.random.choice(electron_spins)
+
+            return update
+
+    processes = {
+        'proton': Proton(),
+        'electrons': {
+            'a': {
+                'electron': Electron()},
+            'b': {
+                'electron': Electron()}}}
+
+    spin_path = ('internal', 'spin')
+    radius_path = ('structure', 'radius')
+
+    topology = {
+        'proton': {
+            'radius': radius_path,
+            'quarks': ('internal', 'quarks'),
+            'electrons': {
+                '_path': ('electrons',),
+                '*': {
+                    'orbital': ('shell', 'orbital'),
+                    'spin': spin_path}}},
+        'electrons': {
+            'a': {
+                'electron': {
+                    'spin': spin_path,
+                    'proton': {
+                        '_path': ('..', '..'),
+                        'radius': radius_path}}},
+            'b': {
+                'electron': {
+                    'spin': spin_path,
+                    'proton': {
+                        '_path': ('..', '..'),
+                        'radius': radius_path}}}}}
+
+    initial_state = {
+        'structure': {
+            'radius': 0.7},
+        'internal': {
+            'quarks': {
+                'x': {
+                    'color': 'green',
+                    'spin': 'up'},
+                'y': {
+                    'color': 'red',
+                    'spin': 'up'},
+                'z': {
+                    'color': 'blue',
+                    'spin': 'down'}}}}
+
+    experiment = Experiment({
+        'processes': processes,
+        'topology': topology,
+        'initial_state': initial_state})
+
+    log.debug(pf(experiment.state.get_config(True)))
+
+    experiment.update_interval(10.0, 1.0)
+
+    log.debug(pf(experiment.state.get_config(True)))
+
 
 def test_timescales():
     class Slow(Process):
@@ -1133,6 +1619,7 @@ def test_timescales():
 
 
 if __name__ == '__main__':
-    test_recursive_store()
-    test_in()
-    test_timescales()
+    # test_recursive_store()
+    # test_in()
+    # test_timescales()
+    test_topology_ports()

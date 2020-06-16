@@ -5,14 +5,8 @@ import uuid
 from vivarium.core.process import Deriver
 
 
-def divide_condition(compartment):
-    division_port = compartment.division_port
-    division = compartment.states[division_port].state_for(['division'])
-    if division.get('division', 0) == 0:  # 0 means false
-        divide = False
-    else:
-        divide = True
-    return divide
+def get_uuid():
+    return str(uuid.uuid1())
 
 
 class CountForever(object):
@@ -25,8 +19,6 @@ class CountForever(object):
         self.index += self.by
         return value
 
-def get_uuid():
-    return str(uuid.uuid1())
 
 class MetaDivision(Deriver):
 

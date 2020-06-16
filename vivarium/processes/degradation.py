@@ -111,7 +111,9 @@ class RnaDegradation(Process):
                 for state_id in emit_keys[port]:
                     schema[port][state_id]['_emit'] = True
 
-        schema['global'] = {}
+        schema['global'] = {
+            'mmol_to_counts': {
+                '_default': 0.0}}
 
         return schema
 

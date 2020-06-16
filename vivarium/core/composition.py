@@ -67,11 +67,12 @@ def process_in_experiment(process, settings={}):
     emitter = settings.get('emitter', {'type': 'timeseries'})
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
+    paths = settings.get('topology', {})
 
     processes = {'process': process}
     topology = {
         'process': {
-            port: (port,) for port in process.ports_schema().keys()}}
+            port: paths.get(port, (port,)) for port in process.ports_schema().keys()}}
 
     if timeline:
         '''
@@ -381,6 +382,10 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
         # get this port's states
         port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
         for state_id, series in sorted(port_timeseries.items()):
+            # not enough data points -- this state likely did not exist throughout the entire simulation
+            if len(series) != len(time_vec):
+                continue
+
             ax = fig.add_subplot(grid[row_idx, col_idx])  # grid is (row, column)
 
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
@@ -391,6 +396,8 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                 if any(x == 0.0 for x in series) or (any(x < 0.0 for x in series) and any(x > 0.0 for x in series)):
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
+
+                # plot the series
                 ax.plot(time_vec, series)
                 ax.title.set_text(str(port) + ': ' + str(state_id))
 
@@ -750,10 +757,16 @@ class ToyLinearGrowthDeathProcess(Process):
                     '_default': 0.0,
                     '_emit': True}}}
 
-        schema['global'].update({
+        schema['targets'] = {
             target: {
                 '_default': None}
-            for target in self.targets})
+            for target in self.targets}
+
+        # schema['global'].update({
+        #     target: {
+        #         '_default': None}
+        #     for target in self.targets})
+
         return schema
 
 
@@ -775,7 +788,10 @@ class TestSimulateProcess:
     def test_process_deletion(self):
         '''Check that processes are successfully deleted'''
         process = ToyLinearGrowthDeathProcess({'targets': ['process']})
-        settings = {}
+        settings = {
+            'topology': {
+                'global': ('global',),
+                'targets': tuple()}}
 
         timeseries = simulate_process(process, settings)
         expected_masses = [
@@ -789,20 +805,20 @@ class TestSimulateProcess:
 # toy processes
 class ToyMetabolism(Process):
     def __init__(self, initial_parameters={}):
-        ports = {'pool': ['GLC', 'MASS']}
         parameters = {'mass_conversion_rate': 1}
         parameters.update(initial_parameters)
-
-        super(ToyMetabolism, self).__init__(ports, parameters)
+        super(ToyMetabolism, self).__init__({}, parameters)
 
     def ports_schema(self):
+        ports = {
+            'pool': ['GLC', 'MASS']}
         return {
             port_id: {
                 key: {
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -817,22 +833,21 @@ class ToyMetabolism(Process):
 
 class ToyTransport(Process):
     def __init__(self, initial_parameters={}):
+        parameters = {'intake_rate': 2}
+        parameters.update(initial_parameters)
+        super(ToyTransport, self).__init__({}, parameters)
+
+    def ports_schema(self):
         ports = {
             'external': ['GLC'],
             'internal': ['GLC']}
-        parameters = {'intake_rate': 2}
-        parameters.update(initial_parameters)
-
-        super(ToyTransport, self).__init__(ports, parameters)
-
-    def ports_schema(self):
         return {
             port_id: {
                 key: {
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -846,13 +861,12 @@ class ToyTransport(Process):
 
 class ToyDeriveVolume(Deriver):
     def __init__(self, initial_parameters={}):
-        ports = {
-            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
         parameters = {}
-
-        super(ToyDeriveVolume, self).__init__(ports, parameters)
+        super(ToyDeriveVolume, self).__init__({}, parameters)
 
     def ports_schema(self):
+        ports = {
+            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
         return {
             port_id: {
                 key: {
@@ -860,7 +874,7 @@ class ToyDeriveVolume(Deriver):
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
@@ -872,10 +886,7 @@ class ToyDeriveVolume(Deriver):
 class ToyDeath(Process):
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets', [])
-        ports = {
-            'compartment': ['VOLUME'],
-            'global': self.targets}
-        super(ToyDeath, self).__init__(ports, {})
+        super(ToyDeath, self).__init__({}, {})
 
     def ports_schema(self):
         return {
@@ -952,8 +963,10 @@ def test_compartment():
                 'GLC': 0,
                 'MASS': 3,
                 'DENSITY': 10}}}
-    data = simulate_compartment_in_experiment(toy_compartment, settings)
+    return simulate_compartment_in_experiment(toy_compartment, settings)
+
 
 if __name__ == '__main__':
+    TestSimulateProcess().test_process_deletion()
     timeseries = test_compartment()
     print(timeseries)

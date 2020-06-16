@@ -174,14 +174,15 @@ def run_mother_machine(time=5, out_dir='out'):
     multibody_config = mother_machine_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
-    data = {
+    snapshot_data = {
         'agents': agents,
         'fields': fields,
         'config': multibody_config}
     plot_config = {
         'out_dir': out_dir,
         'filename': 'snapshots'}
-    plot_snapshots(data, plot_config)
+
+    plot_snapshots(snapshot_data, plot_config)
 
 
 if __name__ == '__main__':

@@ -54,6 +54,10 @@ class DeriveCounts(Deriver):
                 molecule: {
                     '_divider': 'split',
                     '_updater': 'set'}
+                for molecule in self.concentration_keys},
+            'concentrations': {
+                molecule: {
+                    '_default': 0.0}
                 for molecule in self.concentration_keys}}
 
     def next_update(self, timestep, states):

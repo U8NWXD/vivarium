@@ -7,7 +7,6 @@ class Process(object):
 
         self.ports = ports
         self.parameters = parameters or {}
-        self.states = None
         self.time_step = parameters.get('time_step', 1.0)
 
     def local_timestep(self):
@@ -66,11 +65,6 @@ class Process(object):
         present = self.parameters_for(parameters, original_key)
         self.default_parameters[derived_key] = f(present)
         return self.default_parameters[derived_key]
-
-    def find_states(self, tree, topology):
-        return {
-            port: tree.state_for(topology[port], keys)
-            for port, keys in self.ports.items()}
 
     def next_update(self, timestep, states):
         '''

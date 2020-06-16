@@ -84,61 +84,36 @@ class MotorActivity(Process):
         if initial_parameters is None:
             initial_parameters = {}
 
-        ports = {
-            'internal': [
-                'chemoreceptor_activity',
-                'CheA',
-                'CheZ',
-                'CheY_tot',
-                'CheY_P',
-                'ccw_motor_bias',
-                'ccw_to_cw',
-                'motor_state'],
-            'external': [
-                'thrust',
-                'torque'],
-        }
-
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
 
-        super(MotorActivity, self).__init__(ports, parameters)
+        super(MotorActivity, self).__init__({}, parameters)
 
     def ports_schema(self):
-        default_state = self.defaults['initial_state']
-        set_states = {
-            'internal': [
-                'ccw_motor_bias',
-                'ccw_to_cw',
-                'motor_state',
-                'CheA',
-                'CheY_P'],
-            'external': [
-                'thrust',
-                'torque']}
-        emitter_states = {
-            'internal': [
-                'ccw_motor_bias',
-                'ccw_to_cw',
-                'motor_state',
-                'CheA',
-                'CheY_P'],
-            'external': [
-                'thrust',
-                'torque']}
+        ports = ['internal', 'external']
+        schema = {port: {} for port in ports}
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {state: {} for state in states}
-            if port in set_states:
-                for state_id in set_states[port]:
-                    schema[port][state_id]['_updater'] = 'set'
-            if port in emitter_states:
-                for state_id in emitter_states[port]:
-                    schema[port][state_id]['_emit'] = True
-            if port in default_state:
-                for state_id, value in default_state[port].items():
-                    schema[port][state_id]['_default'] = value
+        # external
+        for state, default in self.defaults['initial_state']['external'].items():
+            schema['external'][state] = {
+                '_default': default,
+                '_emit': True,
+                '_updater': 'set'}
+
+        # internal
+        set_and_emit = [
+                'ccw_motor_bias',
+                'ccw_to_cw',
+                'motor_state',
+                'CheA',
+                'CheY_P']
+        for state, default in self.defaults['initial_state']['internal'].items():
+            schema['internal'][state] = {'_default': default}
+            if state in set_and_emit:
+                schema['internal'][state].update({
+                    '_emit': True,
+                    '_updater': 'set'})
+
         return schema
 
     def next_update(self, timestep, states):

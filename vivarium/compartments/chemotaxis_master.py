@@ -72,7 +72,7 @@ class ChemotaxisMaster(Compartment):
 
     def generate_processes(self, config):
         # Transport
-        transport = ConvenienceKinetics(config['transport'])
+        transport = ConvenienceKinetics(config.get('transport'))
 
         # Metabolism
         # add target fluxes from transport

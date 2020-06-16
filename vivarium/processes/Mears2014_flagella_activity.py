@@ -92,91 +92,58 @@ class FlagellaActivity(Process):
 
         self.flagella_ids = [str(uuid.uuid1()) for flagella in range(self.n_flagella)]
 
-        ports = {
-            'internal': [
-                'chemoreceptor_activity',
-                'CheY',
-                'CheY_P',
-                'cw_bias',
-                'motile_state'],
-            'boundary': [
-                'thrust',
-                'torque'],
-            'flagella_counts': [
-                'flagella'],
-            'membrane': [
-                'PMF',
-                'protons_flux_accumulated'],
-            'flagella_activity': [
-                'flagella'],
-            'external': []}
-
         parameters = self.defaults['parameters']
         parameters.update({'time_step': self.defaults['time_step']})
         parameters.update(initial_parameters)
 
-        super(FlagellaActivity, self).__init__(ports, parameters)
+        super(FlagellaActivity, self).__init__({}, parameters)
 
     def ports_schema(self):
-        # default updaters
-        set_update = {
-            'internal': [
-                'CheY',
-                'CheY_P',
-                'cw_bias',
-                'motile_state'],
-            'boundary': [
-                'thrust',
-                'torque'],
-            'flagella_activity': ['flagella']}
+        ports = [
+            'internal',
+            'boundary',
+            'flagella_counts',
+            'membrane',
+            'flagella_activity']
+        schema = {port: {} for port in ports}
 
-        split_dict_divider = {'flagella_activity': ['flagella']}
+        # boundary
+        for state in ['thrust', 'torque']:
+            schema['boundary'][state] = {
+                '_default': 0.0,
+                '_emit': True,
+                '_updater': 'set'}
 
-        set_emit = {
-            'internal': ['motile_state', 'CheY', 'CheY_P', 'cw_bias'],
-            'boundary': ['thrust', 'torque'],
-            'flagella_counts': ['flagella'],
-            'flagella_activity': ['flagella']}
+        # membrane
+        for state in ['PMF', 'protons_flux_accumulated']:
+            schema['membrane'][state] = {'_default': self.defaults.get(state, 0.0)}
 
-        # default state
-        # flagella motor state: -1 for CCW, 1 for CW
-        # motile state: -1 for run, 1 for tumble, 0 for no state
-        default_state = {
-            'external': {},
-            'membrane': {
-                'PMF': self.defaults['PMF'],
-                'protons': 0},
-            'flagella_counts': {
-                'flagella': self.n_flagella},
-            'flagella_activity': {
-                'flagella': {
-                    flagella_id: random.choice([-1, 1]) for flagella_id in self.flagella_ids}},
-            'internal': self.defaults['initial_internal_state'],
-            'boundary': {
-                'thrust': 0.0,
-                'torque': 0.0}}
+        # internal
+        schema['internal']['chemoreceptor_activity'] = {}
+        for state in ['motile_state', 'CheY', 'CheY_P', 'cw_bias']:
+            schema['internal'][state] = {
+                '_default': self.defaults['initial_internal_state'].get(state, 0.0),
+                '_emit': True,
+                '_updater': 'set'}
 
-        # schema
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state in states:
-                schema[port][state] = {}
+        # flagella_counts
+        schema['flagella_counts']['flagella'] = {
+            '_default': self.n_flagella,
+            '_emit': True}
 
-                if port in set_update:
-                    if state in set_update[port]:
-                        schema[port][state]['_updater'] = 'set'
+        # flagella_activity
+        # schema['flagella_activity']['*'] = {
+        #     '_default': 1,
+        #     '_updater': 'set',
+        #     '_emit': True}
+        # schema['flagella_activity']['_divider'] = 'split_dict'
+        schema['flagella_activity']['flagella'] = {
+            '_default': {
+                    flagella_id: random.choice([-1, 1]) for flagella_id in self.flagella_ids},
+            '_updater': 'set',
+            '_emit': True,
+            '_divider': 'split_dict'}
 
-                if port in split_dict_divider:
-                    if state in split_dict_divider[port]:
-                        schema[port][state]['_divider'] = 'split_dict'
-
-                if port in set_emit:
-                    if state in set_emit[port]:
-                        schema[port][state]['_emit'] = True
-                if port in default_state:
-                    if state in default_state[port]:
-                        schema[port][state]['_default'] = default_state[port][state]
         return schema
 
     def next_update(self, timestep, states):
@@ -364,6 +331,7 @@ def run_variable_flagella(out_dir):
     output3 = test_activity(init_params, timeline)
     plot_activity(output3, out_dir, 'variable_flagella')
 
+
 if __name__ == '__main__':
     out_dir = os.path.join(PROCESS_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
@@ -387,5 +355,3 @@ if __name__ == '__main__':
         timeline = [(60, {})]
         output2 = test_activity(five_flagella, timeline)
         plot_activity(output2, out_dir, 'motor_control')
-
-
