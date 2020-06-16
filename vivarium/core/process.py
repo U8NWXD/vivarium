@@ -17,6 +17,20 @@ class Process(object):
         return self.time_step
 
     def default_state(self):
+        '''
+        ports_schema returns a dictionary that declares which states are expected by the processes,
+        and how each state will behave.
+
+        state keys can be assigned properties through schema_keys declared in Store:
+            '_default'
+            '_updater'
+            '_divider'
+            '_value'
+            '_properties'
+            '_emit'
+            '_serializer'
+        '''
+
         schema = self.ports_schema()
         state = {}
         for port, states in schema.items():
