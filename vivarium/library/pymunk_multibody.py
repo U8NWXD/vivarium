@@ -194,18 +194,36 @@ class MultiBody(object):
     def add_barriers(self, bounds, barriers):
         """ Create static barriers """
         thickness = 2.0
+        offset = thickness
         x_bound = bounds[0]
         y_bound = bounds[1]
 
         static_body = self.space.static_body
         static_lines = [
-            pymunk.Segment(static_body, (0.0, 0.0), (x_bound, 0.0), thickness),
-            pymunk.Segment(static_body, (x_bound, 0.0), (x_bound, y_bound), thickness),
-            pymunk.Segment(static_body, (x_bound, y_bound), (0.0, y_bound), thickness),
-            pymunk.Segment(static_body, (0.0, y_bound), (0.0, 0.0), thickness),
+            pymunk.Segment(
+                static_body,
+                (0.0-offset, 0.0-offset),
+                (x_bound+offset, 0.0-offset),
+                thickness),
+            pymunk.Segment(
+                static_body,
+                (x_bound+offset, 0.0-offset),
+                (x_bound+offset, y_bound+offset),
+                thickness),
+            pymunk.Segment(
+                static_body,
+                (x_bound+offset, y_bound+offset),
+                (0.0-offset, y_bound+offset),
+                thickness),
+            pymunk.Segment(
+                static_body,
+                (0.0-offset, y_bound+offset),
+                (0.0-offset, 0.0-offset),
+                thickness),
         ]
 
         if barriers:
+            spacer_thickness = barriers.get('spacer_thickness', 0.1)
             channel_height = barriers.get('channel_height')
             channel_space = barriers.get('channel_space')
             n_lines = math.floor(x_bound/channel_space)
@@ -214,7 +232,7 @@ class MultiBody(object):
                 pymunk.Segment(
                     static_body,
                     (channel_space * line, 0),
-                    (channel_space * line, channel_height), thickness)
+                    (channel_space * line, channel_height), spacer_thickness)
                 for line in range(n_lines)]
             static_lines += machine_lines
 

@@ -112,8 +112,8 @@ def plot_snapshots(data, plot_config):
         field_ids = list(fields[time_vec[0]].keys())
         field_range = {}
         for field_id in field_ids:
-            field_min = min([field_data[field_id].min() for t, field_data in fields.items()])
-            field_max = max([field_data[field_id].max() for t, field_data in fields.items()])
+            field_min = min([min(min(field_data[field_id])) for t, field_data in fields.items()])
+            field_max = max([max(max(field_data[field_id])) for t, field_data in fields.items()])
             field_range[field_id] = [field_min, field_max]
 
     # get agent ids
@@ -154,7 +154,6 @@ def plot_snapshots(data, plot_config):
                                 vmin=vmin,
                                 vmax=vmax,
                                 cmap='BuPu')
-
                 if agents:
                     agents_now = agents[time]
                     plot_agents(ax, agents_now, agent_colors)

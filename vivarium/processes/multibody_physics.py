@@ -266,42 +266,6 @@ def agent_body_config(config):
         for agent_id in agent_ids}
     return {'agents': agent_config}
 
-def mother_machine_body_config(config):
-    # cell dimensions
-    width = 1
-    length = 2
-    volume = volume_from_length(length, width)
-
-    agent_ids = config['agent_ids']
-    bounds = config.get('bounds', DEFAULT_BOUNDS)
-    channel_space = config.get('channel_space', 1)
-    n_agents = len(agent_ids)
-
-    # possible locations, shuffled for index-in
-    n_spaces = math.floor(bounds[0]/channel_space)
-    assert n_agents < n_spaces, 'more agents than mother machine spaces'
-
-    possible_locations = [
-        [x*channel_space - channel_space/2, 0.01]
-        for x in range(1, n_spaces)]
-    random.shuffle(possible_locations)
-
-    agent_config = {
-        agent_id: {
-            'boundary': {
-                'location': possible_locations[index],
-                'angle': PI/2,
-                'volume': volume,
-                'length': length,
-                'width': width,
-                'mass': 1 * units.fg,
-                'forces': [0, 0]}}
-        for index, agent_id in enumerate(agent_ids)}
-
-    return {
-        'agents': agent_config,
-        'bounds': bounds}
-
 def get_baseline_config(config={}):
     animate = config.get('animate', False)
     bounds = config.get('bounds', [500, 500])
