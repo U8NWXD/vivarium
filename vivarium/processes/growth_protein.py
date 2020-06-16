@@ -18,6 +18,7 @@ NAME = 'growth_protein'
 class GrowthProtein(Process):
  
     defaults = {
+        'initial_protein': 5e7,
         'growth_rate': 0.006,
         'global_deriver_key': 'global_deriver',
         'mass_deriver_key': 'mass_deriver',
@@ -42,8 +43,9 @@ class GrowthProtein(Process):
 
         # default state
         # 1000 proteins per fg
-        self.initial_protein = 5e7  # counts of protein
-        self.divide_protein = self.initial_protein*2
+        self.initial_protein = self.or_default(
+            initial_parameters, 'initial_protein')  # counts of protein
+        self.divide_protein = self.initial_protein * 2
 
         parameters = {
             'growth_rate': self.growth_rate}
@@ -89,12 +91,15 @@ class GrowthProtein(Process):
         extra = total_protein - int(total_protein)
 
         # simulate remainder
-        if np.random.random() < extra:
+        where = np.random.random()
+        if where < extra:
             new_protein += 1
 
         divide = False
         if protein >= self.divide_protein:
+            import ipdb; ipdb.set_trace()
             divide = True
+
 
         return {
             'internal': {
