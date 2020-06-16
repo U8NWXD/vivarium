@@ -805,20 +805,20 @@ class TestSimulateProcess:
 # toy processes
 class ToyMetabolism(Process):
     def __init__(self, initial_parameters={}):
-        ports = {'pool': ['GLC', 'MASS']}
         parameters = {'mass_conversion_rate': 1}
         parameters.update(initial_parameters)
-
-        super(ToyMetabolism, self).__init__(ports, parameters)
+        super(ToyMetabolism, self).__init__({}, parameters)
 
     def ports_schema(self):
+        ports = {
+            'pool': ['GLC', 'MASS']}
         return {
             port_id: {
                 key: {
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -833,22 +833,21 @@ class ToyMetabolism(Process):
 
 class ToyTransport(Process):
     def __init__(self, initial_parameters={}):
+        parameters = {'intake_rate': 2}
+        parameters.update(initial_parameters)
+        super(ToyTransport, self).__init__({}, parameters)
+
+    def ports_schema(self):
         ports = {
             'external': ['GLC'],
             'internal': ['GLC']}
-        parameters = {'intake_rate': 2}
-        parameters.update(initial_parameters)
-
-        super(ToyTransport, self).__init__(ports, parameters)
-
-    def ports_schema(self):
         return {
             port_id: {
                 key: {
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         update = {}
@@ -862,13 +861,12 @@ class ToyTransport(Process):
 
 class ToyDeriveVolume(Deriver):
     def __init__(self, initial_parameters={}):
-        ports = {
-            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
         parameters = {}
-
-        super(ToyDeriveVolume, self).__init__(ports, parameters)
+        super(ToyDeriveVolume, self).__init__({}, parameters)
 
     def ports_schema(self):
+        ports = {
+            'compartment': ['MASS', 'DENSITY', 'VOLUME']}
         return {
             port_id: {
                 key: {
@@ -876,7 +874,7 @@ class ToyDeriveVolume(Deriver):
                     '_default': 0.0,
                     '_emit': True}
                 for key in keys}
-            for port_id, keys in self.ports.items()}
+            for port_id, keys in ports.items()}
 
     def next_update(self, timestep, states):
         volume = states['compartment']['MASS'] / states['compartment']['DENSITY']
@@ -888,10 +886,7 @@ class ToyDeriveVolume(Deriver):
 class ToyDeath(Process):
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets', [])
-        ports = {
-            'compartment': ['VOLUME'],
-            'global': self.targets}
-        super(ToyDeath, self).__init__(ports, {})
+        super(ToyDeath, self).__init__({}, {})
 
     def ports_schema(self):
         return {
@@ -968,7 +963,8 @@ def test_compartment():
                 'GLC': 0,
                 'MASS': 3,
                 'DENSITY': 10}}}
-    data = simulate_compartment_in_experiment(toy_compartment, settings)
+    return simulate_compartment_in_experiment(toy_compartment, settings)
+
 
 if __name__ == '__main__':
     TestSimulateProcess().test_process_deletion()
