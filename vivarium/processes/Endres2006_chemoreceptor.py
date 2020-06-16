@@ -88,39 +88,33 @@ class ReceptorCluster(Process):
             'internal': initial_internal_state,
             'external': {self.ligand_id: self.initial_ligand}}
 
-        ports = {
-            'internal': ['n_methyl', 'chemoreceptor_activity', 'CheR', 'CheB'],
-            'external': [self.ligand_id]}
-
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
 
-        super(ReceptorCluster, self).__init__(ports, parameters)
+        super(ReceptorCluster, self).__init__({}, parameters)
 
         # initialize the state by running until steady
         run_to_steady_state(self, self.initial_state, 1.0)
 
     def ports_schema(self):
-        set_keys = {'internal': ['chemoreceptor_activity', 'n_methyl']}
-        default_states = self.initial_state
-        set_emit = {
-            'internal': list(self.initial_state['internal'].keys()),
-            'external':  [self.ligand_id]}
+        ports = ['internal', 'external']
+        schema = {port: {} for port in ports}
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state in states:
-                schema[port][state] = {}
-                if port in set_keys:
-                    if state in set_keys[port]:
-                        schema[port][state]['_updater'] = 'set'
-                if port in set_emit:
-                    if state in set_emit[port]:
-                        schema[port][state]['_emit'] = True
-                if port in default_states:
-                    if state in default_states[port]:
-                        schema[port][state]['_default'] = default_states[port][state]
+        # external
+        for state in list(self.initial_state['external'].keys()):
+            schema['external'][state] = {
+                '_default': self.initial_state['external'][state],
+                '_emit': True}
+
+        # internal
+        for state in list(self.initial_state['internal'].keys()):
+            schema['internal'][state] = {
+                '_default': self.initial_state['internal'][state],
+                '_emit': True}
+            # set updater
+            if state in ['chemoreceptor_activity', 'n_methyl']:
+                schema['internal'][state]['_updater'] = 'set'
+
         return schema
 
     def next_update(self, timestep, states):
