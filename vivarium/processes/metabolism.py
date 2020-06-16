@@ -46,7 +46,6 @@ from vivarium.processes.derive_globals import AVOGADRO
 
 
 NAME = 'metabolism'
-GLOBALS = ['volume', 'mass', 'mmol_to_counts']
 
 
 
@@ -177,23 +176,13 @@ class Metabolism(Process):
         self.initial_state = {
             'external': external_state,
             'internal': internal_state,
-            'reactions': {state_id: 0 for state_id in self.reaction_ids},
-            'exchange': {state_id: 0 for state_id in self.fba.external_molecules},
             'flux_bounds': {state_id: self.default_upper_bound
                             for state_id in self.constrained_reaction_ids},
         }
 
-        ## assign ports
-        self.internal_state_ids = list(self.objective_composition.keys())
-        ports = {
-            'external': self.fba.external_molecules,
-            'internal': self.internal_state_ids,
-            'reactions': self.reaction_ids,
-            'exchange': self.fba.external_molecules,
-            'flux_bounds': self.constrained_reaction_ids,
-            'global': GLOBALS}
+        ports = {}  # TODO -- remove
 
-        ## parameters
+        # parameters
         parameters = {'time_step': time_step}
         parameters.update(initial_parameters)
 
@@ -205,38 +194,65 @@ class Metabolism(Process):
         super(Metabolism, self).__init__(ports, parameters)
 
     def ports_schema(self):
-        emit = {
-            'internal': self.internal_state_ids,
-            'external': self.fba.external_molecules,
-            # 'exchange': self.fba.external_molecules,
-            'reactions': self.reaction_ids,
-            'flux_bounds': self.constrained_reaction_ids,
-            'global': ['mass']}
-        set_mass = {
-            'internal': {
-                mol_id: self.fba.molecular_weights[mol_id]
-                for mol_id in self.internal_state_ids}}
-        set_updater = {
-            'reactions': self.reaction_ids}
+        ports = [
+            'internal',
+            'external',
+            'exchange',
+            'reactions',
+            'flux_bounds',
+            'global',
+        ]
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state_id in states:
-                schema[port][state_id] = {}
-                if port in set_updater:
-                    if state_id in set_updater[port]:
-                        schema[port][state_id]['_updater'] = 'set'
-                if port in emit:
-                    if state_id in emit[port]:
-                        schema[port][state_id]['_emit'] = True
-                if port in self.initial_state:
-                    if state_id in self.initial_state[port]:
-                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
-                if port in set_mass:
-                    if state_id in set_mass[port]:
-                        schema[port][state_id]['_properties'] = {
-                            'mw': set_mass[port][state_id] * units.g / units.mol}
+        schema = {port: {} for port in ports}
+
+        # internal
+        for state in list(self.objective_composition.keys()):
+            schema['internal'][state] = {
+                '_default': self.initial_state['internal'].get(state, 0),
+                '_emit': True,
+                '_properties': {
+                    'mw': self.fba.molecular_weights[state] * units.g / units.mol},
+            }
+
+        # external
+        for state in self.fba.external_molecules:
+            schema['external'][state] = {
+                '_default': self.initial_state['external'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        # exchange
+        for state in self.fba.external_molecules:
+            schema['exchange'][state] = {
+                '_default': 0.0,
+            }
+
+        # reactions
+        for state in self.reaction_ids:
+            schema['reactions'][state] = {
+                '_default': 0.0,
+                '_emit': True,
+                '_updater': 'set',
+            }
+
+        # flux_bounds
+        for state in self.constrained_reaction_ids:
+            schema['flux_bounds'][state] = {
+                '_default': self.initial_state['flux_bounds'].get('state', 1000.0),
+                '_emit': True,
+            }
+
+        # globals
+        schema['global']['volume'] = {
+            '_default': 0.0 * units.fL,
+            '_emit': True}
+        schema['global']['mass'] = {
+            '_default': 0.0 * units.fg,
+            '_emit': True}
+        schema['global']['mmol_to_counts'] = {
+            '_default': 0.0 * units.L / units.mmol,
+            '_emit': True}
+
         return schema
 
     def derivers(self):
