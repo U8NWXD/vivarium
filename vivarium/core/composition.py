@@ -382,6 +382,10 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
         # get this port's states
         port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
         for state_id, series in sorted(port_timeseries.items()):
+            # not enough data points -- this state likely did not exist throughout the entire simulation
+            if len(series) != len(time_vec):
+                continue
+
             ax = fig.add_subplot(grid[row_idx, col_idx])  # grid is (row, column)
 
             if not all(isinstance(state, (int, float, np.int64, np.int32)) for state in series):
@@ -392,6 +396,8 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
                 if any(x == 0.0 for x in series) or (any(x < 0.0 for x in series) and any(x > 0.0 for x in series)):
                     zero_line = [0 for t in time_vec]
                     ax.plot(time_vec, zero_line, 'k--')
+
+                # plot the series
                 ax.plot(time_vec, series)
                 ax.title.set_text(str(port) + ': ' + str(state_id))
 
