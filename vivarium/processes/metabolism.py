@@ -243,9 +243,6 @@ class Metabolism(Process):
             }
 
         # globals
-        schema['global']['volume'] = {
-            '_default': 0.0 * units.fL,
-            '_emit': True}
         schema['global']['mass'] = {
             '_default': 0.0 * units.fg,
             '_emit': True}
