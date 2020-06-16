@@ -20,9 +20,11 @@ from vivarium.compartments.lattice import Lattice
 from vivarium.compartments.growth_division_minimal import GrowthDivisionMinimal
 
 # processes
+from vivarium.library.units import units
+from vivarium.processes.derive_globals import volume_from_length
 from vivarium.processes.multibody_physics import (
-    mother_machine_body_config,
-    volume_from_length)
+    volume_from_length, DEFAULT_BOUNDS, PI
+)
 from vivarium.plots.multibody_physics import plot_snapshots
 
 
@@ -43,6 +45,12 @@ def mother_machine_experiment(config):
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
 
+
+    # import ipdb;
+    # ipdb.set_trace()
+    # get location initialize?
+
+
     return Experiment({
         'processes': processes,
         'topology': topology,
@@ -53,6 +61,41 @@ def mother_machine_experiment(config):
 
 
 # configurations
+def mother_machine_body_config(config):
+    '''
+    Gets initial agent body locations given the mother machine set up
+    '''
+    # cell dimensions
+    width = 1
+    length = 2
+    volume = volume_from_length(length, width)
+
+    agent_ids = config['agent_ids']
+    bounds = config.get('bounds', DEFAULT_BOUNDS)
+    channel_space = config.get('channel_space', 1)
+    n_agents = len(agent_ids)
+
+    # possible locations, shuffled for index-in
+    n_spaces = math.floor(bounds[0]/channel_space)
+    assert n_agents < n_spaces, 'more agents than mother machine spaces'
+
+    possible_locations = [
+        [x*channel_space - channel_space/2, 0.01]
+        for x in range(1, n_spaces)]
+    random.shuffle(possible_locations)
+
+    initial_agents = {
+        agent_id: {
+            'boundary': {
+                'location': possible_locations[index],
+                'angle': PI/2,
+                'volume': volume,
+                'length': length,
+                'width': width}}
+        for index, agent_id in enumerate(agent_ids)}
+    return initial_agents
+
+
 def get_mother_machine_config():
     bounds = [20, 20]
     n_bins = [10, 10]
@@ -85,7 +128,7 @@ def get_mother_machine_config():
         'channel_height': channel_height,
         'channel_space': channel_space,
         'agent_ids': agent_ids}
-    multibody_config.update(mother_machine_body_config(body_config))
+    initial_agents = mother_machine_body_config(body_config)
 
     # diffusion
     diffusion_config = {
@@ -102,15 +145,18 @@ def get_mother_machine_config():
         'size': bounds}
 
     return {
+        'initial_state': {
+            'agents': initial_agents},
         'agent_ids': agent_ids,
         'growth_division': growth_division_config,
         'environment': {
             'multibody': multibody_config,
             'diffusion': diffusion_config}}
 
+
 def run_mother_machine(time=5, out_dir='out'):
-    mm_config = get_mother_machine_config()
-    experiment = mother_machine_experiment(mm_config)
+    mother_machine_config = get_mother_machine_config()
+    experiment = mother_machine_experiment(mother_machine_config)
 
     # simulate
     settings = {
@@ -125,7 +171,7 @@ def run_mother_machine(time=5, out_dir='out'):
     plot_agents_multigen(data, plot_settings, out_dir)
 
     # snapshot plot
-    multibody_config = mm_config['environment']['multibody']
+    multibody_config = mother_machine_config['environment']['multibody']
     agents = {time: time_data['agents'] for time, time_data in data.items()}
     fields = {time: time_data['fields'] for time, time_data in data.items()}
     data = {
@@ -143,4 +189,4 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    run_mother_machine(500, out_dir)
+    run_mother_machine(200, out_dir)
