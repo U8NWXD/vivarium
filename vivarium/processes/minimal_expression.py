@@ -41,38 +41,31 @@ class MinimalExpression(Process):
         self.regulation = {
             gene_id: build_rule(logic) for gene_id, logic in regulation_logic.items()}
         regulators = initial_parameters.get('regulators', [])
-        internal_regulators = [state_id for port_id, state_id in regulators if port_id == 'internal']
-        external_regulators = [state_id for port_id, state_id in regulators if port_id == 'external']
-
-        self.concentration_keys = self.internal_states + internal_regulators
-
-        ports = {
-            'internal': self.internal_states + internal_regulators,
-            'external': external_regulators,
-            'concentrations': [],
-            'global': []}
+        self.internal_regulators = [state_id for port_id, state_id in regulators if port_id == 'internal']
+        self.external_regulators = [state_id for port_id, state_id in regulators if port_id == 'external']
 
         parameters = {
             'expression_rates': expression_rates,
             'step_size': initial_parameters.get('step_size', self.defaults['step_size'])}
-
         parameters.update(initial_parameters)
 
         self.concentrations_deriver_key = self.or_default(initial_parameters, 'concentrations_deriver_key')
 
-        super(MinimalExpression, self).__init__(ports, parameters)
+        super(MinimalExpression, self).__init__({}, parameters)
 
     def ports_schema(self):
         return {
             'global': {},
             'concentrations': {},
-            'external': {},
+            'external': {
+                state: {
+                    '_default': 0.0}
+                for state in self.external_regulators},
             'internal': {
-                state : {
-                    '_updater': 'accumulate',
+                state: {
                     '_default': 0.0,
                     '_emit': True}
-                for state in self.ports['internal']}}
+                for state in self.internal_states + self.internal_regulators}}
 
     def derivers(self):
         return {
@@ -83,7 +76,7 @@ class MinimalExpression(Process):
                     'counts': 'internal',
                     'concentrations': 'concentrations'},
                 'config': {
-                    'concentration_keys': self.concentration_keys}}}
+                    'concentration_keys': self.internal_states + self.internal_regulators}}}
 
     def next_update(self, timestep, states):
         internal = states['internal']
