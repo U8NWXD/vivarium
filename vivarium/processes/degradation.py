@@ -74,46 +74,38 @@ class RnaDegradation(Process):
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
 
-        self.ports = {
-            'transcripts': self.transcript_order,
-            'proteins': self.protein_order,
-            'molecules': self.molecule_order,
-            'global': ['mmol_to_counts']}
-
-        super(RnaDegradation, self).__init__(self.ports, self.parameters)
+        super(RnaDegradation, self).__init__({}, self.parameters)
 
 
     def ports_schema(self):
-        default_state = {
-            'transcripts': {
-                transcript: 0
-                for transcript in self.transcript_order},
-            'proteins': {
-                protein: 0
-                for protein in self.protein_order},
-            'molecules': {
-                nucleotide: 0
-                for nucleotide in self.molecule_order}}
 
-        emit_keys = {
-            'transcripts': self.transcript_order,
-            'proteins': self.protein_order,
-            'molecules': self.molecule_order,
-            'global': []}
+        ports = [
+            'transcripts',
+            'proteins',
+            'molecules',
+            'global']
+        schema = {port: {} for port in ports}
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {state: {} for state in states}
-            if port in default_state:
-                for state_id, value in default_state[port].items():
-                    schema[port][state_id]['_default'] = value
-            if port in emit_keys:
-                for state_id in emit_keys[port]:
-                    schema[port][state_id]['_emit'] = True
+        # transcripts
+        for state in self.transcript_order:
+            schema['transcripts'][state] = {
+                '_default': 0,
+                '_emit': True}
 
-        schema['global'] = {
-            'mmol_to_counts': {
-                '_default': 0.0}}
+        # proteins
+        for state in self.protein_order:
+            schema['proteins'][state] = {
+                '_default': 0,
+                '_emit': True}
+
+        # molecules
+        for state in self.molecule_order:
+            schema['molecules'][state] = {
+                '_default': 0,
+                '_emit': True}
+
+        # global
+        schema['global']['mmol_to_counts'] = {'_default': 0.0}
 
         return schema
 
