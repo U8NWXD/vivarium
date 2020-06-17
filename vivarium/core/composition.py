@@ -313,6 +313,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'max_rows': (int) ports with more states than this number of states get wrapped into a new column
             'remove_zeros': (bool) if True, timeseries with all zeros get removed
             'remove_flat': (bool) if True, timeseries with all the same value get removed
+            'remove_first_timestep': (bool) if True, skips the first timestep
             'skip_ports': (list) entire ports that won't be plotted
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
@@ -330,11 +331,14 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     remove_zeros = settings.get('remove_zeros', True)
     remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
+    remove_first_timestep = settings.get('remove_first_timestep', False)
 
     # make a flat 'path' timeseries, with keys being path
     top_level = list(timeseries_raw.keys())
     timeseries = path_timeseries_from_embedded_timeseries(timeseries_raw)
     time_vec = timeseries.pop('time')
+    if remove_first_timestep:
+        time_vec = time_vec[1:]
 
     # remove select states from timeseries
     removed_states = set()
@@ -382,6 +386,8 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
         # get this port's states
         port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
         for state_id, series in sorted(port_timeseries.items()):
+            if remove_first_timestep:
+                series = series[1:]
             # not enough data points -- this state likely did not exist throughout the entire simulation
             if len(series) != len(time_vec):
                 continue

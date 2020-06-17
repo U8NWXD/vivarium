@@ -35,7 +35,6 @@ DEFAULT_STATE = {
         'T': 310.15}
     }
 
-# TODO -- get references on these
 DEFAULT_PARAMETERS = {
     'p_K': 1,  # unitless, relative membrane permeability of K
     'p_Na': 0.05,  # unitless, relative membrane permeability of Na
@@ -65,14 +64,14 @@ class MembranePotential(Process):
     '''
 
     defaults = {
-        'states': DEFAULT_STATE,
+        'initial_state': DEFAULT_STATE,
         'parameters': DEFAULT_PARAMETERS,
         'permeability': PERMEABILITY_MAP,
         'charge': CHARGE_MAP,
         'constants': {
             'R': constants.gas_constant,  # (J * K^-1 * mol^-1) gas constant
-            'F': constants.physical_constants['Faraday constant'][0], # (C * mol^-1) Faraday constant
-            'k': constants.Boltzmann, # (J * K^-1) Boltzmann constant
+            'F': constants.physical_constants['Faraday constant'][0],  # (C * mol^-1) Faraday constant
+            'k': constants.Boltzmann,  # (J * K^-1) Boltzmann constant
             }
     }
 
@@ -80,44 +79,49 @@ class MembranePotential(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        # set states
-        self.initial_states = initial_parameters.get('states', self.defaults['states'])
-        self.permeability = initial_parameters.get('permeability', self.defaults['permeability'])
-        self.charge = initial_parameters.get('charge', self.defaults['charge'])
+        self.initial_state = self.or_default(
+            initial_parameters, 'initial_state')
+        self.permeability = self.or_default(
+            initial_parameters, 'permeability')
+        self.charge = self.or_default(
+            initial_parameters, 'charge')
+        self.parameters = self.or_default(
+            initial_parameters, 'parameters')
+        self.parameters.update(self.defaults['constants'])
 
-        # set parameters
-        parameters = self.defaults['constants']
-        parameters.update(initial_parameters.get('parameters', self.defaults['parameters']))
-
-        # get list of internal and external states
-        internal_states = list(self.initial_states['internal'].keys())
-        external_states = list(self.initial_states['external'].keys())
-
-        # set ports
-        ports = {
-            'internal': internal_states + ['c_in'],
-            'membrane': ['PMF', 'd_V', 'd_pH'],  # proton motive force (PMF), electrical difference (d_V), pH difference (d_pH)
-            'external': external_states + ['c_out', 'T'],
-        }
-
-        super(MembranePotential, self).__init__(ports, parameters)
+        super(MembranePotential, self).__init__({}, self.parameters)
 
     def ports_schema(self):
-        set_update = {'membrane': ['d_V', 'd_pH', 'PMF']}
-        default_state = self.initial_states
+        ports = [
+            'internal',
+            'membrane',
+            'external',
+        ]
+        schema = {port: {} for port in ports}
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {
-                state: {
-                    '_emit': True  # emit all states
-                } for state in states}
-            if port in set_update:
-                for state_id in set_update[port]:
-                    schema[port][state_id]['_updater'] = 'set'
-            if port in default_state:
-                for state_id, value in default_state[port].items():
-                    schema[port][state_id]['_default'] = value
+        ## internal
+        # internal ions and charge (c_in)
+        for state in list(self.initial_state['internal'].keys()):
+            schema['internal'][state] = {
+                '_default': self.initial_state['internal'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        ## external
+        # external ions, charge (c_out) and temperature (T)
+        for state in list(self.initial_state['external'].keys()) + ['T']:
+            schema['external'][state] = {
+                '_default': self.initial_state['external'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        ## membrane
+        # proton motive force (PMF), electrical difference (d_V), pH difference (d_pH)
+        for state in ['PMF', 'd_V', 'd_pH']:
+            schema['membrane'][state] = {
+                '_updater': 'set',
+                '_emit': True,
+            }
 
         return schema
 
@@ -175,7 +179,7 @@ class MembranePotential(Process):
 
 def test_mem_potential():
     initial_parameters = {
-        'states': DEFAULT_STATE,
+        'initial_state': DEFAULT_STATE,
         'parameters': DEFAULT_PARAMETERS,
         'permeability': PERMEABILITY_MAP,
         'charge': CHARGE_MAP,
@@ -198,4 +202,7 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     timeseries = test_mem_potential()
-    plot_simulation_output(timeseries, {}, out_dir)
+    settings = {
+        'remove_first_timestep': True
+    }
+    plot_simulation_output(timeseries, settings, out_dir)
