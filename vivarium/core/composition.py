@@ -154,7 +154,7 @@ def compartment_in_experiment(compartment, settings={}):
 
 # simulation functions
 def simulate_process(process, settings={}):
-    experiment = process_in_experiment(process)
+    experiment = process_in_experiment(process, settings)
     return simulate_experiment(experiment, settings)
 
 def simulate_process_in_experiment(process, settings={}):
