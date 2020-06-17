@@ -22,16 +22,10 @@ class DeriveConcentrations(Deriver):
         self.concentration_keys = self.or_default(
             initial_parameters, 'concentration_keys')
 
-        ports = {
-            'global': [
-                'volume', 'mmol_to_counts'],
-            'counts': self.concentration_keys,
-            'concentrations': self.concentration_keys}
-
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveConcentrations, self).__init__(ports, parameters)
+        super(DeriveConcentrations, self).__init__({}, parameters)
 
     def ports_schema(self):
         volume = 1.2 * units.fL
