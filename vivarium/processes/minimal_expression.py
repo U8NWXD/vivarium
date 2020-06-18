@@ -51,7 +51,7 @@ class MinimalExpression(Process):
 
         self.concentrations_deriver_key = self.or_default(initial_parameters, 'concentrations_deriver_key')
 
-        super(MinimalExpression, self).__init__({}, parameters)
+        super(MinimalExpression, self).__init__(parameters)
 
     def ports_schema(self):
         return {

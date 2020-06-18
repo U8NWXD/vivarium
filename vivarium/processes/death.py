@@ -161,7 +161,7 @@ class DeathFreezeState(Process):
         # List of names of processes that will be removed upon death
         self.targets = initial_parameters.get('targets', [])
 
-        super(DeathFreezeState, self).__init__({}, initial_parameters)
+        super(DeathFreezeState, self).__init__(initial_parameters)
 
     def ports_schema(self):
 

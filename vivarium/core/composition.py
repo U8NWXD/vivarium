@@ -95,8 +95,8 @@ def process_in_experiment(process, settings={}):
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port_id: ports[port_id]
-                for port_id in environment_process.ports}})
+                'external': ports['external'],
+                'exchange': ports['exchange']}})
 
     # add derivers
     derivers = generate_derivers(processes, topology)
@@ -750,11 +750,7 @@ class ToyLinearGrowthDeathProcess(Process):
 
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets')
-        ports = {
-            'global': ['mass'],
-        }
-        super(ToyLinearGrowthDeathProcess, self).__init__(
-            ports, initial_parameters)
+        super(ToyLinearGrowthDeathProcess, self).__init__(initial_parameters)
 
     def ports_schema(self):
         schema = {
@@ -774,7 +770,6 @@ class ToyLinearGrowthDeathProcess(Process):
         #     for target in self.targets})
 
         return schema
-
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
@@ -813,7 +808,7 @@ class ToyMetabolism(Process):
     def __init__(self, initial_parameters={}):
         parameters = {'mass_conversion_rate': 1}
         parameters.update(initial_parameters)
-        super(ToyMetabolism, self).__init__({}, parameters)
+        super(ToyMetabolism, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -841,7 +836,7 @@ class ToyTransport(Process):
     def __init__(self, initial_parameters={}):
         parameters = {'intake_rate': 2}
         parameters.update(initial_parameters)
-        super(ToyTransport, self).__init__({}, parameters)
+        super(ToyTransport, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -868,7 +863,7 @@ class ToyTransport(Process):
 class ToyDeriveVolume(Deriver):
     def __init__(self, initial_parameters={}):
         parameters = {}
-        super(ToyDeriveVolume, self).__init__({}, parameters)
+        super(ToyDeriveVolume, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -892,7 +887,7 @@ class ToyDeriveVolume(Deriver):
 class ToyDeath(Process):
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets', [])
-        super(ToyDeath, self).__init__({}, {})
+        super(ToyDeath, self).__init__({})
 
     def ports_schema(self):
         return {

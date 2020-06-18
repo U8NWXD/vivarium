@@ -96,7 +96,7 @@ class FlagellaActivity(Process):
         parameters.update({'time_step': self.defaults['time_step']})
         parameters.update(initial_parameters)
 
-        super(FlagellaActivity, self).__init__({}, parameters)
+        super(FlagellaActivity, self).__init__(parameters)
 
     def ports_schema(self):
         ports = [

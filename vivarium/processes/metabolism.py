@@ -189,7 +189,7 @@ class Metabolism(Process):
         self.mass_deriver_key = self.or_default(
             initial_parameters, 'mass_deriver_key')
 
-        super(Metabolism, self).__init__({}, parameters)
+        super(Metabolism, self).__init__(parameters)
 
     def ports_schema(self):
         ports = [

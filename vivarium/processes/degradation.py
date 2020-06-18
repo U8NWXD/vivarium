@@ -52,7 +52,7 @@ class RnaDegradation(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        super(RnaDegradation, self).__init__({}, initial_parameters)
+        super(RnaDegradation, self).__init__(initial_parameters)
 
         self.derive_defaults('sequences', 'transcript_order', keys_list)
         self.derive_defaults('catalysis_rates', 'protein_order', keys_list)

@@ -250,7 +250,7 @@ class ConvenienceKinetics(Process):
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
 
-        super(ConvenienceKinetics, self).__init__({}, parameters)
+        super(ConvenienceKinetics, self).__init__(parameters)
 
     def ports_schema(self):
 

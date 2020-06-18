@@ -11,12 +11,17 @@ class Process(object):
 
     defaults = {}
 
-    def __init__(self, ports, parameters=None):
+    def __init__(self, parameters=None):
         if parameters is None:
              parameters = {}
         self.parameters = copy.deepcopy(self.defaults)
         deep_merge(self.parameters, parameters)
-        self.ports = ports  # list(self.ports_schema().keys())
+
+    def ports(self):
+        ports_schema = self.ports_schema()
+        return {
+            port: list(states.keys())
+            for port, states in ports_schema.items()}
 
     def local_timestep(self):
         '''

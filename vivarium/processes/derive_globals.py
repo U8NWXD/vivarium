@@ -71,7 +71,7 @@ class DeriveGlobals(Deriver):
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveGlobals, self).__init__({}, parameters)
+        super(DeriveGlobals, self).__init__(parameters)
 
     def ports_schema(self):
         set_states = ['volume', 'mmol_to_counts', 'length', 'surface_area']

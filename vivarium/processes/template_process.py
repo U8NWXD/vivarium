@@ -31,14 +31,8 @@ class Template(Process):
         parameter_1 = self.or_default(
             initial_parameters, 'parameter_1')
 
-        ports = {
-            'internal': ['A'],
-            'external': ['B'],
-        }
-
         parameters = {'parameter_1': parameter_1}
-
-        super(Template, self).__init__(ports, parameters)
+        super(Template, self).__init__(parameters)
 
     def ports_schema(self):
         '''

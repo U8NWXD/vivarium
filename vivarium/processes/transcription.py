@@ -195,7 +195,7 @@ class Transcription(Process):
 
         log.debug('inital transcription parameters: {}'.format(initial_parameters))
 
-        super(Transcription, self).__init__({}, initial_parameters)
+        super(Transcription, self).__init__(initial_parameters)
 
         self.derive_defaults('templates', 'promoter_order', keys_list)
         self.derive_defaults('templates', 'transcript_ids', template_products)

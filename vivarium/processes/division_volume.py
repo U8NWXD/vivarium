@@ -19,15 +19,10 @@ class DivisionVolume(Process):
         self.division = 0
         division_volume = initial_parameters.get('division_volume', self.defaults['division_volume'])
 
-        ports = {
-            'global': [
-                'volume',
-                'division']}
-
         parameters = {
             'division_volume': division_volume}  # TODO -- make division at 2X initial_volume?  Pass this in from initial_parameters
 
-        super(DivisionVolume, self).__init__(ports, parameters)
+        super(DivisionVolume, self).__init__(parameters)
 
     def ports_schema(self):
         return {

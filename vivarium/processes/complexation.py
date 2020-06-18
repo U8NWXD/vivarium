@@ -47,7 +47,7 @@ class Complexation(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        super(Complexation, self).__init__({}, initial_parameters)
+        super(Complexation, self).__init__(initial_parameters)
 
         self.derive_defaults('stoichiometry', 'reaction_ids', keys_list)
 
