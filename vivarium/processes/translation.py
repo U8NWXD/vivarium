@@ -326,12 +326,6 @@ class Translation(Process):
 
         self.protein_keys = self.concentration_keys + self.protein_ids
         self.all_protein_keys = self.protein_keys + [UNBOUND_RIBOSOME_KEY]
-        self.ports = {
-            'ribosomes': ['ribosomes'],
-            'molecules': self.molecule_ids,
-            'transcripts': list(self.operons.keys()),
-            'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys}
 
         self.mass_deriver_key = self.or_default(initial_parameters, 'mass_deriver_key')
         self.concentrations_deriver_key = self.or_default(
@@ -339,15 +333,9 @@ class Translation(Process):
 
         log.info('translation parameters: {}'.format(self.parameters))
 
-        super(Translation, self).__init__(self.ports, self.parameters)
+        super(Translation, self).__init__({}, self.parameters)
 
     def ports_schema(self):
-        self.ports = {
-            'ribosomes': {},
-            'molecules': self.molecule_ids,
-            'transcripts': list(self.operons.keys()),
-            'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys}
 
         def add_mass(schema, masses, key):
             if '_properties' not in schema:
