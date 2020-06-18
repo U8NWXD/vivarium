@@ -587,7 +587,7 @@ if __name__ == '__main__':
     no_args = (len(sys.argv) == 1)
 
     if args.motility or no_args:
-        run_motility({'animate': False}, out_dir)
+        run_motility({'animate': True}, out_dir)
     if args.growth or no_args:
         run_growth_division()
     if args.jitter:

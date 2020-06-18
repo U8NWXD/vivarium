@@ -2,21 +2,21 @@ from __future__ import absolute_import, division, print_function
 
 import os
 
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
-import pygame
-from pygame.locals import *
-from pygame.color import *
+# os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+# import pygame
+# from pygame.locals import *
+# from pygame.color import *
 
 # Python imports
 import random
 import math
-import numpy as np
+import numpy as nppython
 
 # pymunk imports
 import pymunkoptions
 pymunkoptions.options["debug"] = False
 import pymunk
-import pymunk.pygame_util
+# import pymunk.pygame_util
 
 
 PI = math.pi
@@ -86,7 +86,7 @@ class MultiBody(object):
         'jitter_force': 1e-3,  # pN
         'bounds': [20, 20],
         'barriers': False,
-        'debug': False,
+        # 'debug': False,
         'initial_agents': {},
     }
 
@@ -107,16 +107,16 @@ class MultiBody(object):
         # initialize pymunk space
         self.space = pymunk.Space()
 
-        # debug screen with pygame
-        self.pygame_viz = config.get('debug', self.defaults['debug'])
-        if self.pygame_viz:
-            pygame.init()
-            self._screen = pygame.display.set_mode((
-                int(self.bounds[0]),
-                int(self.bounds[1])),
-                RESIZABLE)
-            self._clock = pygame.time.Clock()
-            self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
+        # # debug screen with pygame
+        # self.pygame_viz = config.get('debug', self.defaults['debug'])
+        # if self.pygame_viz:
+        #     pygame.init()
+        #     self._screen = pygame.display.set_mode((
+        #         int(self.bounds[0]),
+        #         int(self.bounds[1])),
+        #         RESIZABLE)
+        #     self._clock = pygame.time.Clock()
+        #     self._draw_options = pymunk.pygame_util.DrawOptions(self._screen)
 
         # add static barriers
         self.add_barriers(self.bounds, barriers)
@@ -143,8 +143,8 @@ class MultiBody(object):
             # run for a physics timestep
             self.space.step(self.physics_dt)
 
-        if self.pygame_viz:
-            self._update_screen()
+        # if self.pygame_viz:
+        #     self._update_screen()
 
     def apply_motile_force(self, body):
         width, length = body.dimensions
@@ -353,30 +353,32 @@ class MultiBody(object):
                 'boundary': self.get_body_position(body_id)}
             for body_id in self.bodies.keys()}
 
-    ## pygame visualization (for debugging)
-    def _process_events(self):
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                self._running = False
-            elif event.type == KEYDOWN and event.key == K_ESCAPE:
-                self._running = False
+    # ## pygame visualization (for debugging)
+    # def _process_events(self):
+    #     for event in pygame.event.get():
+    #         if event.type == QUIT:
+    #             self._running = False
+    #         elif event.type == KEYDOWN and event.key == K_ESCAPE:
+    #             self._running = False
+    #
+    # def _clear_screen(self):
+    #     self._screen.fill(THECOLORS["white"])
+    #
+    # def _draw_objects(self):
+    #     self.space.debug_draw(self._draw_options)
+    #
+    # def _update_screen(self):
+    #     self._process_events()
+    #     self._clear_screen()
+    #     self._draw_objects()
+    #     pygame.display.flip()
+    #     # Delay fixed time between frames
+    #     self._clock.tick(2)
 
-    def _clear_screen(self):
-        self._screen.fill(THECOLORS["white"])
 
-    def _draw_objects(self):
-        self.space.debug_draw(self._draw_options)
-
-    def _update_screen(self):
-        self._process_events()
-        self._clear_screen()
-        self._draw_objects()
-        pygame.display.flip()
-        # Delay fixed time between frames
-        self._clock.tick(2)
-
-
-def test_multibody(total_time=2, debug=False):
+def test_multibody(
+        total_time=2,
+        debug=False):
     bounds = [500, 500]
     center_location = [0.5*loc for loc in bounds]
     agents = {
@@ -395,7 +397,8 @@ def test_multibody(total_time=2, debug=False):
         'bounds': bounds,
         'barriers': False,
         'initial_agents': agents,
-        'debug': debug}
+        # 'debug': debug
+    }
     multibody = MultiBody(config)
 
     # run simulation
