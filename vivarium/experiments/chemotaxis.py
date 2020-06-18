@@ -30,6 +30,12 @@ from vivarium.plots.multibody_physics import plot_trajectory, plot_motility
 from vivarium.processes.static_field import make_field
 
 
+DEFAULT_BOUNDS = [400, 2000]
+DEFAULT_AGENT_LOCATION = [0.5, 0.1]
+DEFAULT_LIGAND_ID = 'MeAsp'
+DEFAULT_INITIAL_LIGAND = 2.0
+DEFAULT_ENVIRONMENT_TYPE = StaticLattice
+
 
 def simulate_chemotaxis_experiment(
     agent_config={},
@@ -38,6 +44,19 @@ def simulate_chemotaxis_experiment(
     simulation_settings={},
     experiment_settings={}
     ):
+
+    total_time = simulation_settings['total_time']
+    timestep = simulation_settings['timestep']
+    n_agents = simulation_settings['n_agents']
+
+    # agents initial state
+    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
+    agent_config['agent_ids'] = agent_ids
+    initial_agent_body = agent_body_config({
+        'bounds': DEFAULT_BOUNDS,
+        'agent_ids': agent_ids,
+        'location': DEFAULT_AGENT_LOCATION})
+    initial_state.update(initial_agent_body)
 
     # make the experiment
     experiment = agent_environment_experiment(
@@ -48,16 +67,13 @@ def simulate_chemotaxis_experiment(
 
     # simulate
     settings = {
-        'total_time': simulation_settings['total_time'],
-        'timestep': simulation_settings['timestep'],
+        'total_time': total_time,
+        'timestep': timestep,
         'return_raw_data': True}
     return simulate_experiment(experiment, settings)
 
 
-def get_environment_config(config={}):
-    ligand_id = config.get('ligand_id', 'glc')
-    bounds = config.get('bounds', [400, 2000])
-
+def get_environment_config():
     # field parameters
     field_scale = 1.0
     exponential_base = 2e2
@@ -67,184 +83,127 @@ def get_environment_config(config={}):
     multibody_config = {
         'animate': False,
         'jitter_force': 0.0,
-        'bounds': bounds}
+        'bounds': DEFAULT_BOUNDS}
 
     # static field config
     field_config = {
-        'molecules': [ligand_id],
+        'molecules': [DEFAULT_LIGAND_ID],
         'gradient': {
             'type': 'exponential',
             'molecules': {
-                ligand_id: {
+                DEFAULT_LIGAND_ID: {
                     'center': field_center,
                     'scale': field_scale,
                     'base': exponential_base}}},
-        'bounds': bounds}
+        'bounds': DEFAULT_BOUNDS}
 
     return {
         'multibody': multibody_config,
         'field': field_config}
 
 
-def get_chemotaxis_config(config={}):
-    n_agents = config.get('n_agents', 1)
-    ligand_id = config.get('ligand_id', 'glc')
-    initial_ligand = config.get('initial_ligand', 2.0)
-    initial_location = config.get('initial_location', [0.5, 0.1])
-    bounds = config.get('bounds', [400, 2000])
 
-    # agents initial state
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
-    initial_agents_state = agent_body_config({
-        'bounds': bounds,
-        'agent_ids': agent_ids,
-        'location': initial_location})
+def plot_chemotaxis_experiment(data, field_config, filename):
+    ## plots
+    # multigen agents plot
+    plot_settings = {
+        'agents_key': 'agents',
+        'max_rows': 30,
+        'skip_paths': [
+            ('boundary', 'mass'),
+            ('boundary', 'length'),
+            ('boundary', 'width'),
+            ('boundary', 'location'),
+        ]}
+    plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
 
-    # compartment config
-    compartment_config = {
-        'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
+    # trajectory and motility
+    agents_timeseries = timeseries_from_data(data)
+    field = make_field(field_config)
+    trajectory_config = {
+        'bounds': field_config['bounds'],
+        'field': field}
 
-    return {
-        'initial_state': initial_agents_state,
-        'agent_ids': agent_ids,
-        'config': compartment_config}
+    plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
+
+    try:
+        plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
+    except:
+        print('plot_motility failed')
 
 
 def run_minimal():
     filename = 'minimal'
+    agent_type = ChemotaxisMinimal
     n_agents = 2
     total_time = 360
     timestep = 0.1
+    compartment_config = {
+        'ligand_id': DEFAULT_LIGAND_ID,
+        'initial_ligand': DEFAULT_INITIAL_LIGAND,
+        'external_path': ('global',),
+        'agents_path': ('..', '..', 'agents')}
 
-    ligand_id = 'glc'
-    initial_ligand = 2.0
-    initial_location = [0.5, 0.1]
-    bounds = [400, 2000]
-
-    # configure the experiment
-    chemotaxis_config = get_chemotaxis_config({
-        'n_agents': n_agents,
-        'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand,
-        'initial_location': initial_location,
-        'bounds': bounds})
-
-    initial_state = chemotaxis_config['initial_state']
-
+    # configure
     agent_config = {
-        'agent_ids': chemotaxis_config['agent_ids'],
-        'type': ChemotaxisMinimal,
-        'config': chemotaxis_config['config']}
-
+        'type': agent_type,
+        'config': compartment_config}
     environment_config = {
-        'type': StaticLattice,
+        'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
-
-    # run simulation
     simulation_settings = {
+        'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
+    # simulate
     data = simulate_chemotaxis_experiment(
         agent_config=agent_config,
         environment_config=environment_config,
-        initial_state=initial_state,
         simulation_settings=simulation_settings,
     )
 
-    ## plots
-    # multigen agents plot
-    plot_settings = {
-        'agents_key': 'agents',
-        'max_rows': 30,
-        'skip_paths': [
-            ('boundary', 'mass'),
-            ('boundary', 'length'),
-            ('boundary', 'width'),
-            ('boundary', 'location'),
-        ]}
-    plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
-
-    # trajectory and motility
-    agents_timeseries = timeseries_from_data(data)
+    # plot
     field_config = environment_config['config']['field']
-    field = make_field(field_config)
-    trajectory_config = {
-        'bounds': field_config['bounds'],
-        'field': field}
-
-    plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
-    plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
+    plot_chemotaxis_experiment(data, field_config, filename)
 
 
 def run_master():
+    # TODO -- master requires environment for metabolism external
+
     filename = 'master'
+    agent_type = ChemotaxisMaster
     n_agents = 1
     total_time = 30
     timestep = 0.1
+    compartment_config = {
+        'ligand_id': DEFAULT_LIGAND_ID,
+        'initial_ligand': DEFAULT_INITIAL_LIGAND,
+        'external_path': ('global',),
+        'agents_path': ('..', '..', 'agents')}
 
-    ligand_id = 'glc'
-    initial_ligand = 2.0
-    initial_location = [0.5, 0.1]
-    bounds = [400, 2000]
-
-    # configure the experiment
-    chemotaxis_config = get_chemotaxis_config({
-        'n_agents': n_agents,
-        'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand,
-        'initial_location': initial_location,
-        'bounds': bounds})
-
-    initial_state = chemotaxis_config['initial_state']
-
+    # configure
     agent_config = {
-        'agent_ids': chemotaxis_config['agent_ids'],
-        'type': ChemotaxisMaster,
-        'config': chemotaxis_config['config']}
-
+        'type': agent_type,
+        'config': compartment_config}
     environment_config = {
-        'type': StaticLattice,
+        'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
-
-    # run simulation
     simulation_settings = {
+        'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
+    # simulate
     data = simulate_chemotaxis_experiment(
         agent_config=agent_config,
         environment_config=environment_config,
-        initial_state=initial_state,
         simulation_settings=simulation_settings,
     )
 
-    ## plots
-    # multigen agents plot
-    plot_settings = {
-        'agents_key': 'agents',
-        'max_rows': 30,
-        'skip_paths': [
-            ('boundary', 'mass'),
-            ('boundary', 'length'),
-            ('boundary', 'width'),
-            ('boundary', 'location'),
-        ]}
-    plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
-
-    # trajectory
-    # trajectory and motility
-    agents_timeseries = timeseries_from_data(data)
+    # plot
     field_config = environment_config['config']['field']
-    field = make_field(field_config)
-    trajectory_config = {
-        'bounds': field_config['bounds'],
-        'field': field}
-
-    plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
+    plot_chemotaxis_experiment(data, field_config, filename)
 
 
 if __name__ == '__main__':
