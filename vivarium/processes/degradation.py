@@ -52,13 +52,10 @@ class RnaDegradation(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        self.default_parameters = self.defaults
+        super(RnaDegradation, self).__init__({}, initial_parameters)
 
-        self.derive_defaults(initial_parameters, 'sequences', 'transcript_order', keys_list)
-        self.derive_defaults(initial_parameters, 'catalysis_rates', 'protein_order', keys_list)
-
-        self.parameters = copy.deepcopy(self.default_parameters)
-        self.parameters.update(initial_parameters)
+        self.derive_defaults('sequences', 'transcript_order', keys_list)
+        self.derive_defaults('catalysis_rates', 'protein_order', keys_list)
 
         self.sequences = self.parameters['sequences']
         self.catalysis_rates = self.parameters['catalysis_rates']
@@ -73,8 +70,6 @@ class RnaDegradation(Process):
 
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
-
-        super(RnaDegradation, self).__init__({}, self.parameters)
 
 
     def ports_schema(self):

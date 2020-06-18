@@ -190,17 +190,15 @@ class Transcription(Process):
         {'rnaps': {2: <class 'vivarium.states.chromosome.Rnap'>: {'id': 2, 'template': 'pA', 'template_index': 0, 'terminator': 1, 'domain': 0, 'state': 'polymerizing', 'position': 7}, 3: <class 'vivarium.states.chromosome.Rnap'>: {'id': 3, 'template': 'pB', 'template_index': 1, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 3}, 4: <class 'vivarium.states.chromosome.Rnap'>: {'id': 4, 'template': 'pA', 'template_index': 0, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 0}, '_delete': []}, 'rnap_id': 4, 'domains': {0: <class 'vivarium.states.chromosome.Domain'>: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'root_domain': 0}
         '''
 
-        log.debug('inital_parameters: {}'.format(initial_parameters))
-
         if not initial_parameters:
             initial_parameters = {}
 
-        self.default_parameters = copy.deepcopy(self.defaults)
-        self.derive_defaults(initial_parameters, 'templates', 'promoter_order', keys_list)
-        self.derive_defaults(initial_parameters, 'templates', 'transcript_ids', template_products)
+        log.debug('inital transcription parameters: {}'.format(initial_parameters))
 
-        self.parameters = copy.deepcopy(self.default_parameters)
-        self.parameters.update(initial_parameters)
+        super(Transcription, self).__init__({}, initial_parameters)
+
+        self.derive_defaults('templates', 'promoter_order', keys_list)
+        self.derive_defaults('templates', 'transcript_ids', template_products)
 
         self.sequence = self.parameters['sequence']
         self.templates = self.parameters['templates']
@@ -231,22 +229,19 @@ class Transcription(Process):
 
         self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
 
-        self.initial_domains = self.parameters.get('initial_domains', self.defaults['initial_domains'])
+        self.initial_domains = self.parameters['initial_domains']
+        self.concentrations_deriver_key = self.parameters['concentrations_deriver_key']
 
-        self.concentrations_deriver_key = self.or_default(
-            initial_parameters, 'concentrations_deriver_key')
+        self.chromosome_ports = ['rnaps', 'rnap_id', 'domains', 'root_domain']
+        # self.ports = {
+        #     'chromosome': ,
+        #     'molecules': self.molecule_ids,
+        #     'factors': self.transcription_factors,
+        #     'transcripts': self.transcript_ids,
+        #     'proteins': self.protein_ids,
+        #     'global': []}
 
-        self.ports = {
-            'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
-            'molecules': self.molecule_ids,
-            'factors': self.transcription_factors,
-            'transcripts': self.transcript_ids,
-            'proteins': self.protein_ids,
-            'global': []}
-
-        log.debug('transcription parameters: {}'.format(self.parameters))
-
-        super(Transcription, self).__init__(self.ports, self.parameters)
+        log.debug('final transcription parameters: {}'.format(self.parameters))
 
     def build_affinity_vector(self, promoters, factors):
         vector = np.zeros(len(self.promoter_order), dtype=np.float64)
@@ -533,7 +528,7 @@ class Transcription(Process):
         update = {
             'chromosome': {
                 key: chromosome_dict[key]
-                for key in self.ports['chromosome']},
+                for key in self.chromosome_ports},
             'proteins': proteins,
             'molecules': molecules,
             'transcripts': elongation.complete_polymers}
