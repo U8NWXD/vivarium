@@ -14,11 +14,11 @@ from vivarium.core.emitter import (
 )
 from vivarium.core.experiment import (
     Experiment,
+    Compartment,
     update_in,
     generate_derivers,
 )
 from vivarium.core.process import Process, Deriver
-from vivarium.core.experiment import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
 from vivarium.library.dict_utils import (
     deep_merge,
@@ -42,7 +42,6 @@ EXPERIMENT_OUT_DIR = os.path.join('out', 'experiments')
 
 # loading functions
 def make_agents(agent_ids, compartment, config=None):
-
     if config is None:
         config = {}
 
@@ -73,10 +72,24 @@ def agent_environment_experiment(
     emitter = settings.get('emitter', {'type': 'timeseries'})
 
     # initialize the agents
-    agent_type = agents_config['type']
-    agent_ids = agents_config['agent_ids']
-    agent_compartment = agent_type(agents_config['config'])
-    agents = make_agents(agent_ids, agent_compartment, agents_config['config'])
+    if isinstance(agents_config, dict):
+        # dict with single agent config
+        agent_type = agents_config['type']
+        agent_ids = agents_config['agent_ids']
+        agent_compartment = agent_type(agents_config['config'])
+        agents = make_agents(agent_ids, agent_compartment, agents_config['config'])
+    elif isinstance(agents_config, list):
+        # list with multiple agent configurations
+        agents = {
+            'processes': {},
+            'topology': {}}
+        for agent_config in agents_config:
+            agent_type = agent_config['type']
+            agent_ids = agent_config['agent_ids']
+            agent_compartment = agent_type(agent_config['config'])
+            new_agents = make_agents(agent_ids, agent_compartment, agent_config['config'])
+
+            import ipdb; ipdb.set_trace()
 
     # initialize the environment
     environment_type = environment_config['type']
@@ -94,6 +107,20 @@ def agent_environment_experiment(
         'topology': topology,
         'emitter': emitter,
         'initial_state': initial_state})
+
+def process_in_compartment(process):
+    """ put a lone process in a compartment"""
+    class ProcessCompartment(Compartment):
+
+        def generate_processes(self, config):
+            return {'process': process}
+
+        def generate_topology(self, config):
+            return {
+                'process': {
+                    port: paths.get(port, (port,)) for port in process.ports_schema().keys()}}
+
+    return ProcessCompartment
 
 def process_in_experiment(process, settings={}):
     initial_state = settings.get('initial_state', {})
@@ -952,7 +979,7 @@ class ToyDeath(Process):
 
         return update
 
-class ToyCompartment(TreeCompartment):
+class ToyCompartment(Compartment):
     '''
     a toy compartment for testing
 

@@ -14,6 +14,7 @@ from vivarium.core.composition import (
     make_agents,
     simulate_experiment,
     plot_agents_multigen,
+    process_in_compartment,
     EXPERIMENT_OUT_DIR,
 )
 
@@ -23,6 +24,7 @@ from vivarium.compartments.chemotaxis_minimal import ChemotaxisMinimal
 from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
+from vivarium.processes.Vladimirov2008_motor import MotorActivity
 from vivarium.processes.multibody_physics import (
     agent_body_config,
 )
@@ -36,14 +38,15 @@ DEFAULT_LIGAND_ID = 'MeAsp'
 DEFAULT_INITIAL_LIGAND = 2.0
 DEFAULT_ENVIRONMENT_TYPE = StaticLattice
 
+MotorActivityAgent = process_in_compartment(MotorActivity)
+
 
 def simulate_chemotaxis_experiment(
-    agent_config={},
-    environment_config={},
-    initial_state={},
-    simulation_settings={},
-    experiment_settings={}
-    ):
+    agent_config=None,
+    environment_config=None,
+    initial_state=None,
+    simulation_settings=None,
+    experiment_settings=None):
 
     total_time = simulation_settings['total_time']
     timestep = simulation_settings['timestep']
@@ -132,6 +135,53 @@ def plot_chemotaxis_experiment(data, field_config, filename):
         print('plot_motility failed')
 
 
+def run_mixed():
+    filename = 'mixed'
+    n_agents = 2
+    total_time = 360
+    timestep = 0.1
+    compartment_config = {
+        'ligand_id': DEFAULT_LIGAND_ID,
+        'initial_ligand': DEFAULT_INITIAL_LIGAND,
+        'external_path': ('global',),
+        'agents_path': ('..', '..', 'agents')}
+
+    # configure
+    agent_config = [
+        {
+            'type': ChemotaxisMinimal,
+            'number': 1,
+            'config': compartment_config
+        },
+        {
+            'type': MotorActivityAgent,
+            'number': 1,
+            'config': compartment_config
+        }
+    ]
+
+
+
+    environment_config = {
+        'type': DEFAULT_ENVIRONMENT_TYPE,
+        'config': get_environment_config()}
+    simulation_settings = {
+        'n_agents': n_agents,
+        'total_time': total_time,
+        'timestep': timestep}
+
+    # simulate
+    data = simulate_chemotaxis_experiment(
+        agent_config=agent_config,
+        environment_config=environment_config,
+        simulation_settings=simulation_settings,
+    )
+
+    # plot
+    field_config = environment_config['config']['field']
+    plot_chemotaxis_experiment(data, field_config, filename)
+
+
 def run_minimal():
     filename = 'minimal'
     agent_type = ChemotaxisMinimal
@@ -212,12 +262,15 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--minimal', '-m', action='store_true', default=False)
-    parser.add_argument('--master', '-x', action='store_true', default=False)
+    parser.add_argument('--minimal', '-l', action='store_true', default=False)
+    parser.add_argument('--master', '-m', action='store_true', default=False)
+    parser.add_argument('--mixed', '-x', action='store_true', default=False)
     args = parser.parse_args()
     no_args = (len(sys.argv) == 1)
 
     if args.minimal or no_args:
         run_minimal()
-    if args.master:
+    elif args.master:
         run_master()
+    elif args.mixed:
+        run_mixed()
