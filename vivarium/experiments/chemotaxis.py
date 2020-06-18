@@ -10,6 +10,7 @@ from vivarium.core.experiment import (
     generate_state,
     Experiment)
 from vivarium.core.composition import (
+    agent_environment_experiment,
     make_agents,
     simulate_experiment,
     plot_agents_multigen,
@@ -29,37 +30,28 @@ from vivarium.plots.multibody_physics import plot_trajectory, plot_motility
 from vivarium.processes.static_field import make_field
 
 
-def make_chemotaxis_experiment(
-        agents_config={},
-        environment_config={},
-        initial_state={},
-        settings={}):
 
-    # experiment settings
-    emitter = settings.get('emitter', {'type': 'timeseries'})
+def simulate_chemotaxis_experiment(
+    agent_config={},
+    environment_config={},
+    initial_state={},
+    simulation_settings={},
+    experiment_settings={}
+    ):
 
-    # initialize the agents
-    agent_type = agents_config['agent_type']
-    agent_ids = agents_config['agent_ids']
-    chemotaxis_config = agents_config['chemotaxis_config']
-    chemotaxis_agent = agent_type(chemotaxis_config)
-    agents = make_agents(agent_ids, chemotaxis_agent, chemotaxis_config)
+    # make the experiment
+    experiment = agent_environment_experiment(
+        agent_config,
+        environment_config,
+        initial_state,
+        experiment_settings)
 
-    # initialize the environment
-    environment = StaticLattice(environment_config)
-
-    # combine processes and topologies
-    network = environment.generate({})
-    processes = network['processes']
-    topology = network['topology']
-    processes['agents'] = agents['processes']
-    topology['agents'] = agents['topology']
-
-    return Experiment({
-        'processes': processes,
-        'topology': topology,
-        'emitter': emitter,
-        'initial_state': initial_state})
+    # simulate
+    settings = {
+        'total_time': simulation_settings['total_time'],
+        'timestep': simulation_settings['timestep'],
+        'return_raw_data': True}
+    return simulate_experiment(experiment, settings)
 
 
 def get_environment_config(config={}):
@@ -95,9 +87,7 @@ def get_environment_config(config={}):
 
 
 def get_chemotaxis_config(config={}):
-    # agent parameters
     n_agents = config.get('n_agents', 1)
-    agent_type = config.get('agent_type', ChemotaxisMinimal)
     ligand_id = config.get('ligand_id', 'glc')
     initial_ligand = config.get('initial_ligand', 2.0)
     initial_location = config.get('initial_location', [0.5, 0.1])
@@ -110,8 +100,8 @@ def get_chemotaxis_config(config={}):
         'agent_ids': agent_ids,
         'location': initial_location})
 
-    # chemotaxis_minimal compartment config
-    chemotaxis_config = {
+    # compartment config
+    compartment_config = {
         'ligand_id': ligand_id,
         'initial_ligand': initial_ligand,
         'external_path': ('global',),
@@ -119,55 +109,51 @@ def get_chemotaxis_config(config={}):
 
     return {
         'initial_state': initial_agents_state,
-        'agent_type': agent_type,
         'agent_ids': agent_ids,
-        'chemotaxis_config': chemotaxis_config}
-
-
-def simulate_chemotaxis_experiment(config={}):
-    agent_config = config['agents']
-    environment_config = config['environment']
-    initial_state = config['initial_state']
-    simulation_settings = config['simulation']
-
-    # configure the experiment
-    experiment_settings = {}
-    experiment = make_chemotaxis_experiment(
-        agent_config,
-        environment_config,
-        initial_state,
-        experiment_settings)
-
-    # simulate
-    settings = {
-        'total_time': simulation_settings['total_time'],
-        'timestep': simulation_settings['timestep'],
-        'return_raw_data': True}
-    return simulate_experiment(experiment, settings)
+        'config': compartment_config}
 
 
 def run_minimal():
     filename = 'minimal'
-
     n_agents = 2
     total_time = 360
     timestep = 0.1
 
-    ## configure and run the experiment
-    agents_config = get_chemotaxis_config({
+    ligand_id = 'glc'
+    initial_ligand = 2.0
+    initial_location = [0.5, 0.1]
+    bounds = [400, 2000]
+
+    # configure the experiment
+    chemotaxis_config = get_chemotaxis_config({
         'n_agents': n_agents,
-        'agent_type': ChemotaxisMinimal,
-        'agent_config': {}})
-    environment_config = get_environment_config()
-    config = {
-        'agents': agents_config,
-        'environment': environment_config,
-        'initial_state': agents_config['initial_state'],
-        'simulation': {
-            'total_time': total_time,
-            'timestep': timestep}}
-    # run experiment and get the data
-    data = simulate_chemotaxis_experiment(config)
+        'ligand_id': ligand_id,
+        'initial_ligand': initial_ligand,
+        'initial_location': initial_location,
+        'bounds': bounds})
+
+    initial_state = chemotaxis_config['initial_state']
+
+    agent_config = {
+        'agent_ids': chemotaxis_config['agent_ids'],
+        'type': ChemotaxisMinimal,
+        'config': chemotaxis_config['config']}
+
+    environment_config = {
+        'type': StaticLattice,
+        'config': get_environment_config()}
+
+    # run simulation
+    simulation_settings = {
+        'total_time': total_time,
+        'timestep': timestep}
+
+    data = simulate_chemotaxis_experiment(
+        agent_config=agent_config,
+        environment_config=environment_config,
+        initial_state=initial_state,
+        simulation_settings=simulation_settings,
+    )
 
     ## plots
     # multigen agents plot
@@ -184,7 +170,7 @@ def run_minimal():
 
     # trajectory and motility
     agents_timeseries = timeseries_from_data(data)
-    field_config = config['environment']['field']
+    field_config = environment_config['config']['field']
     field = make_field(field_config)
     trajectory_config = {
         'bounds': field_config['bounds'],
@@ -200,20 +186,41 @@ def run_master():
     total_time = 30
     timestep = 0.1
 
-    # configure and run the experiment
-    agents_config = get_chemotaxis_config({
+    ligand_id = 'glc'
+    initial_ligand = 2.0
+    initial_location = [0.5, 0.1]
+    bounds = [400, 2000]
+
+    # configure the experiment
+    chemotaxis_config = get_chemotaxis_config({
         'n_agents': n_agents,
-        'agent_type': ChemotaxisMaster,
-        'agent_config': {}})
-    environment_config = get_environment_config()
-    config = {
-        'agents': agents_config,
-        'environment': environment_config,
-        'initial_state': agents_config['initial_state'],
-        'simulation': {
-            'total_time': total_time,
-            'timestep': timestep}}
-    data = simulate_chemotaxis_experiment(config)
+        'ligand_id': ligand_id,
+        'initial_ligand': initial_ligand,
+        'initial_location': initial_location,
+        'bounds': bounds})
+
+    initial_state = chemotaxis_config['initial_state']
+
+    agent_config = {
+        'agent_ids': chemotaxis_config['agent_ids'],
+        'type': ChemotaxisMaster,
+        'config': chemotaxis_config['config']}
+
+    environment_config = {
+        'type': StaticLattice,
+        'config': get_environment_config()}
+
+    # run simulation
+    simulation_settings = {
+        'total_time': total_time,
+        'timestep': timestep}
+
+    data = simulate_chemotaxis_experiment(
+        agent_config=agent_config,
+        environment_config=environment_config,
+        initial_state=initial_state,
+        simulation_settings=simulation_settings,
+    )
 
     ## plots
     # multigen agents plot
@@ -229,8 +236,9 @@ def run_master():
     plot_agents_multigen(data, plot_settings, out_dir, filename + '_agents')
 
     # trajectory
+    # trajectory and motility
     agents_timeseries = timeseries_from_data(data)
-    field_config = config['environment']['field']
+    field_config = environment_config['config']['field']
     field = make_field(field_config)
     trajectory_config = {
         'bounds': field_config['bounds'],

@@ -62,6 +62,39 @@ def make_agents(agent_ids, compartment, config=None):
         'processes': processes,
         'topology': topology}
 
+
+def agent_environment_experiment(
+        agents_config={},
+        environment_config={},
+        initial_state={},
+        settings={}):
+
+    # experiment settings
+    emitter = settings.get('emitter', {'type': 'timeseries'})
+
+    # initialize the agents
+    agent_type = agents_config['type']
+    agent_ids = agents_config['agent_ids']
+    agent_compartment = agent_type(agents_config['config'])
+    agents = make_agents(agent_ids, agent_compartment, agents_config['config'])
+
+    # initialize the environment
+    environment_type = environment_config['type']
+    environment_compartment = environment_type(environment_config['config'])
+
+    # combine processes and topologies
+    network = environment_compartment.generate({})
+    processes = network['processes']
+    topology = network['topology']
+    processes['agents'] = agents['processes']
+    topology['agents'] = agents['topology']
+
+    return Experiment({
+        'processes': processes,
+        'topology': topology,
+        'emitter': emitter,
+        'initial_state': initial_state})
+
 def process_in_experiment(process, settings={}):
     initial_state = settings.get('initial_state', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
