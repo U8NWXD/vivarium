@@ -32,15 +32,11 @@ monomer_ids = list(nucleotides.values())
 #: The default configuration parameters for :py:class:`Transcription`
 class Transcription(Process):
     defaults = {
-        'promoter_affinities': {
-            ('pA', None): 1.0,
-            ('pA', 'tfA'): 10.0,
-            ('pB', None): 1.0,
-            ('pB', 'tfB'): 10.0},
-        'transcription_factors': ['tfA', 'tfB'],
-        'sequence': toy_chromosome_config['sequence'],
-        'templates': toy_chromosome_config['promoters'],
-        'genes': toy_chromosome_config['genes'],
+        'promoter_affinities': {},
+        'transcription_factors': [],
+        'sequence': '',
+        'templates': {},
+        'genes': {},
         'elongation_rate': 1.0,
         'polymerase_occlusion': 5,
         'symbol_to_monomer': nucleotides,
@@ -233,13 +229,6 @@ class Transcription(Process):
         self.concentrations_deriver_key = self.parameters['concentrations_deriver_key']
 
         self.chromosome_ports = ['rnaps', 'rnap_id', 'domains', 'root_domain']
-        # self.ports = {
-        #     'chromosome': ,
-        #     'molecules': self.molecule_ids,
-        #     'factors': self.transcription_factors,
-        #     'transcripts': self.transcript_ids,
-        #     'proteins': self.protein_ids,
-        #     'global': []}
 
         log.debug('final transcription parameters: {}'.format(self.parameters))
 
@@ -540,6 +529,11 @@ class Transcription(Process):
 
 def test_transcription():
     parameters = {
+        'sequence': toy_chromosome_config['sequence'],
+        'templates': toy_chromosome_config['promoters'],
+        'genes': toy_chromosome_config['genes'],
+        'promoter_affinities': toy_chromosome_config['promoter_affinities'],
+        'transcription_factors': ['tfA', 'tfB'],
         'elongation_rate': 10.0}
 
     chromosome = Chromosome(toy_chromosome_config)
