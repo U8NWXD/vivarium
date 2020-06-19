@@ -19,6 +19,7 @@ from vivarium.processes.transcription import Transcription
 from vivarium.processes.translation import Translation
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
+from vivarium.states.chromosome import toy_chromosome_config
 
 
 NAME = 'master'
@@ -163,7 +164,14 @@ def test_master():
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',),
+        'transcription': {
+            'sequence': toy_chromosome_config['sequence'],
+            'templates': toy_chromosome_config['promoters'],
+            'genes': toy_chromosome_config['genes'],
+            'promoter_affinities': toy_chromosome_config['promoter_affinities'],
+            'transcription_factors': ['tfA', 'tfB'],
+            'elongation_rate': 10.0}}
     compartment = Master(compartment_config)
 
     # simulate
