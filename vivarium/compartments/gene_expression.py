@@ -24,7 +24,7 @@ from vivarium.processes.complexation import Complexation
 from vivarium.processes.division_volume import DivisionVolume
 from vivarium.data.amino_acids import amino_acids
 from vivarium.data.nucleotides import nucleotides
-
+from vivarium.states.chromosome import toy_chromosome_config
 
 
 NAME = 'gene_expression'
@@ -478,7 +478,14 @@ def test_gene_expression(total_time=10):
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',),
+        'transcription': {
+            'sequence': toy_chromosome_config['sequence'],
+            'templates': toy_chromosome_config['promoters'],
+            'genes': toy_chromosome_config['genes'],
+            'promoter_affinities': toy_chromosome_config['promoter_affinities'],
+            'transcription_factors': ['tfA', 'tfB'],
+            'elongation_rate': 10.0}}
     compartment = GeneExpression(compartment_config)
 
     molecules = {
@@ -495,8 +502,8 @@ def test_gene_expression(total_time=10):
                 UNBOUND_RIBOSOME_KEY]}
 
     proteins.update({
-        polymerase: 1000000
-        for polymerase in [
+        factor: 1
+        for factor in [
                 'tfA',
                 'tfB']})
 

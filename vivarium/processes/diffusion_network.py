@@ -137,17 +137,10 @@ class DiffusionNetwork(Process):
         for site, concs in concentrations.items():
             self.initial_concentrations[site] = deep_merge(self.initial_concentrations[site], concs)
 
-        # make ports from locations and membrane channels
-        ports = {
-            site: molecule_ids
-            for site in locations}
-        ports.update(
-            {'membrane_composition': list(channels.keys())})
-
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DiffusionNetwork, self).__init__(ports, parameters)
+        super(DiffusionNetwork, self).__init__(parameters)
 
     def ports_schema(self):
         initial_state = {

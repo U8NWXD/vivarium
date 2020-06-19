@@ -214,15 +214,10 @@ class DiffusionField(Process):
         # agents
         self.initial_agents = initial_parameters.get('agents', self.defaults['agents'])
 
-        # make ports
-        ports = {
-             'fields': self.molecule_ids,
-             'agents': ['*']}
-
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DiffusionField, self).__init__(ports, parameters)
+        super(DiffusionField, self).__init__(parameters)
 
     def ports_schema(self):
         local_concentration_schema = {

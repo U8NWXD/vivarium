@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-from vivarium.processes.derive_globals import AVOGADRO
+from vivarium.processes.derive_globals import get_default_global_state
 from vivarium.core.process import Deriver
 from vivarium.library.units import units
 
@@ -12,37 +12,31 @@ class DeriveConcentrations(Deriver):
     """
 
     defaults = {
-        'concentration_keys': []}
+        'concentration_keys': [],
+        'initial_state': get_default_global_state(),
+    }
 
     def __init__(self, initial_parameters=None):
         if initial_parameters is None:
             initial_parameters = {}
 
-        self.avogadro = AVOGADRO
+        self.initial_state = self.or_default(
+            initial_parameters, 'initial_state')
         self.concentration_keys = self.or_default(
             initial_parameters, 'concentration_keys')
-
-        ports = {
-            'global': [
-                'volume', 'mmol_to_counts'],
-            'counts': self.concentration_keys,
-            'concentrations': self.concentration_keys}
 
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveConcentrations, self).__init__(ports, parameters)
+        super(DeriveConcentrations, self).__init__(parameters)
 
     def ports_schema(self):
-        volume = 1.2 * units.fL
-        mmol_to_counts = (self.avogadro * volume).to('L/mmol')
-
         return {
             'global': {
                 'volume': {
-                    '_default': volume},
+                    '_default': self.initial_state['global']['volume'].to('fL')},
                 'mmol_to_counts': {
-                    '_default': mmol_to_counts}},
+                    '_default': self.initial_state['global']['mmol_to_counts'].to('L/mmol')}},
             'counts': {
                 concentration: {
                     '_divider': 'split'}

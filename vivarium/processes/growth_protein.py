@@ -28,13 +28,6 @@ class GrowthProtein(Process):
         if initial_parameters is None:
             initial_parameters = {}
 
-        ports = {
-            'internal': [
-                'protein'],
-            'global': [
-                'volume',
-                'divide']}
-
         self.growth_rate = self.or_default(initial_parameters, 'growth_rate')
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
@@ -51,7 +44,7 @@ class GrowthProtein(Process):
             'growth_rate': self.growth_rate}
         parameters.update(initial_parameters)
 
-        super(GrowthProtein, self).__init__(ports, parameters)
+        super(GrowthProtein, self).__init__(parameters)
 
     def ports_schema(self):
         return {

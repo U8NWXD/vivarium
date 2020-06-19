@@ -53,13 +53,9 @@ class StaticField(Deriver):
         self.gradient = self.or_default(
             initial_parameters, 'gradient')
 
-        # make ports
-        ports = {'agents': ['*']}
-
         parameters = {}
         parameters.update(initial_parameters)
-
-        super(StaticField, self).__init__(ports, parameters)
+        super(StaticField, self).__init__(parameters)
 
     def ports_schema(self):
         local_concentration_schema = {

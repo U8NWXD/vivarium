@@ -180,8 +180,6 @@ class Metabolism(Process):
                             for state_id in self.constrained_reaction_ids},
         }
 
-        ports = {}  # TODO -- remove
-
         # parameters
         parameters = {'time_step': time_step}
         parameters.update(initial_parameters)
@@ -191,7 +189,7 @@ class Metabolism(Process):
         self.mass_deriver_key = self.or_default(
             initial_parameters, 'mass_deriver_key')
 
-        super(Metabolism, self).__init__(ports, parameters)
+        super(Metabolism, self).__init__(parameters)
 
     def ports_schema(self):
         ports = [

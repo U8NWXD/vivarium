@@ -32,15 +32,11 @@ monomer_ids = list(nucleotides.values())
 #: The default configuration parameters for :py:class:`Transcription`
 class Transcription(Process):
     defaults = {
-        'promoter_affinities': {
-            ('pA', None): 1.0,
-            ('pA', 'tfA'): 10.0,
-            ('pB', None): 1.0,
-            ('pB', 'tfB'): 10.0},
-        'transcription_factors': ['tfA', 'tfB'],
-        'sequence': toy_chromosome_config['sequence'],
-        'templates': toy_chromosome_config['promoters'],
-        'genes': toy_chromosome_config['genes'],
+        'promoter_affinities': {},
+        'transcription_factors': [],
+        'sequence': '',
+        'templates': {},
+        'genes': {},
         'elongation_rate': 1.0,
         'polymerase_occlusion': 5,
         'symbol_to_monomer': nucleotides,
@@ -153,7 +149,7 @@ class Transcription(Process):
         >>> np.random.seed(0)
         >>> # We will use the toy chromosome from toy_chromosome_config
         >>> print(toy_chromosome_config)
-        {'sequence': 'ATACGGCACGTGACCGTCAACTTA', 'genes': {'oA': ['eA'], 'oAZ': ['eA', 'eZ'], 'oB': ['eB'], 'oBY': ['eB', 'eY']}, 'promoter_order': ['pA', 'pB'], 'promoters': {'pA': {'id': 'pA', 'position': 3, 'direction': 1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfA': <Quantity(0.3, 'millimolar')>}}], 'terminators': [{'position': 6, 'strength': 0.5, 'products': ['oA']}, {'position': 12, 'strength': 1.0, 'products': ['oAZ']}]}, 'pB': {'id': 'pB', 'position': -3, 'direction': -1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfB': <Quantity(0.5, 'millimolar')>}}], 'terminators': [{'position': -9, 'strength': 0.5, 'products': ['oB']}, {'position': -12, 'strength': 1.0, 'products': ['oBY']}]}}, 'domains': {0: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'rnaps': {}}
+        {'sequence': 'ATACGGCACGTGACCGTCAACTTA', 'genes': {'oA': ['eA'], 'oAZ': ['eA', 'eZ'], 'oB': ['eB'], 'oBY': ['eB', 'eY']}, 'promoter_order': ['pA', 'pB'], 'promoters': {'pA': {'id': 'pA', 'position': 3, 'direction': 1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfA': <Quantity(0.3, 'millimolar')>}}], 'terminators': [{'position': 6, 'strength': 0.5, 'products': ['oA']}, {'position': 12, 'strength': 1.0, 'products': ['oAZ']}]}, 'pB': {'id': 'pB', 'position': -3, 'direction': -1, 'sites': [{'position': 0, 'length': 3, 'thresholds': {'tfB': <Quantity(0.5, 'millimolar')>}}], 'terminators': [{'position': -9, 'strength': 0.5, 'products': ['oB']}, {'position': -12, 'strength': 1.0, 'products': ['oBY']}]}}, 'promoter_affinities': {('pA', None): 1.0, ('pA', 'tfA'): 10.0, ('pB', None): 1.0, ('pB', 'tfB'): 10.0}, 'domains': {0: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'rnaps': {}}
         >>> monomer_ids = list(nucleotides.values())
         >>> configuration = {
         ...     'promoter_affinities': {
@@ -190,17 +186,15 @@ class Transcription(Process):
         {'rnaps': {2: <class 'vivarium.states.chromosome.Rnap'>: {'id': 2, 'template': 'pA', 'template_index': 0, 'terminator': 1, 'domain': 0, 'state': 'polymerizing', 'position': 7}, 3: <class 'vivarium.states.chromosome.Rnap'>: {'id': 3, 'template': 'pB', 'template_index': 1, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 3}, 4: <class 'vivarium.states.chromosome.Rnap'>: {'id': 4, 'template': 'pA', 'template_index': 0, 'terminator': 0, 'domain': 0, 'state': 'occluding', 'position': 0}, '_delete': []}, 'rnap_id': 4, 'domains': {0: <class 'vivarium.states.chromosome.Domain'>: {'id': 0, 'lead': 0, 'lag': 0, 'children': []}}, 'root_domain': 0}
         '''
 
-        log.debug('inital_parameters: {}'.format(initial_parameters))
-
         if not initial_parameters:
             initial_parameters = {}
 
-        self.default_parameters = copy.deepcopy(self.defaults)
-        self.derive_defaults(initial_parameters, 'templates', 'promoter_order', keys_list)
-        self.derive_defaults(initial_parameters, 'templates', 'transcript_ids', template_products)
+        log.debug('inital transcription parameters: {}'.format(initial_parameters))
 
-        self.parameters = copy.deepcopy(self.default_parameters)
-        self.parameters.update(initial_parameters)
+        super(Transcription, self).__init__(initial_parameters)
+
+        self.derive_defaults('templates', 'promoter_order', keys_list)
+        self.derive_defaults('templates', 'transcript_ids', template_products)
 
         self.sequence = self.parameters['sequence']
         self.templates = self.parameters['templates']
@@ -231,22 +225,12 @@ class Transcription(Process):
 
         self.protein_ids = [UNBOUND_RNAP_KEY] + self.transcription_factors
 
-        self.initial_domains = self.parameters.get('initial_domains', self.defaults['initial_domains'])
+        self.initial_domains = self.parameters['initial_domains']
+        self.concentrations_deriver_key = self.parameters['concentrations_deriver_key']
 
-        self.concentrations_deriver_key = self.or_default(
-            initial_parameters, 'concentrations_deriver_key')
+        self.chromosome_ports = ['rnaps', 'rnap_id', 'domains', 'root_domain']
 
-        self.ports = {
-            'chromosome': ['rnaps', 'rnap_id', 'domains', 'root_domain'],
-            'molecules': self.molecule_ids,
-            'factors': self.transcription_factors,
-            'transcripts': self.transcript_ids,
-            'proteins': self.protein_ids,
-            'global': []}
-
-        log.debug('transcription parameters: {}'.format(self.parameters))
-
-        super(Transcription, self).__init__(self.ports, self.parameters)
+        log.debug('final transcription parameters: {}'.format(self.parameters))
 
     def build_affinity_vector(self, promoters, factors):
         vector = np.zeros(len(self.promoter_order), dtype=np.float64)
@@ -533,7 +517,7 @@ class Transcription(Process):
         update = {
             'chromosome': {
                 key: chromosome_dict[key]
-                for key in self.ports['chromosome']},
+                for key in self.chromosome_ports},
             'proteins': proteins,
             'molecules': molecules,
             'transcripts': elongation.complete_polymers}
@@ -545,6 +529,11 @@ class Transcription(Process):
 
 def test_transcription():
     parameters = {
+        'sequence': toy_chromosome_config['sequence'],
+        'templates': toy_chromosome_config['promoters'],
+        'genes': toy_chromosome_config['genes'],
+        'promoter_affinities': toy_chromosome_config['promoter_affinities'],
+        'transcription_factors': ['tfA', 'tfB'],
         'elongation_rate': 10.0}
 
     chromosome = Chromosome(toy_chromosome_config)

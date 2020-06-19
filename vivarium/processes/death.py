@@ -158,55 +158,35 @@ class DeathFreezeState(Process):
             for name, config_dict in initial_parameters.get(
                 'detectors', {}).items()
         ]
-        # List of names of processes that will remain after death
+        # List of names of processes that will be removed upon death
         self.targets = initial_parameters.get('targets', [])
 
-        ports = {
-            'internal': set(),
-            'global': ['dead']}
-
-        for detector in self.detectors:
-            needed_keys = detector.needed_state_keys
-            for port in needed_keys:
-                keys = ports.setdefault(port, set())
-                keys |= needed_keys[port]
-        for port, keys in ports.items():
-            ports[port] = list(keys)
-        super(DeathFreezeState, self).__init__(ports, initial_parameters)
+        super(DeathFreezeState, self).__init__(initial_parameters)
 
     def ports_schema(self):
-        emit_keys = {
-            'global': ['dead']}
-        set_update = {
-            'global': {'dead': 'set'}}
-        set_ports_zero = [
-            'internal',
-            'global']
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state_id in states:
-                schema[port][state_id] = {}
+        schema = {'global': {}}
 
-                if port in set_ports_zero:
-                    schema[port][state_id][
-                        '_default'] = 0
-
-                if port in set_update:
-                    if state_id in set_update[port]:
-                        schema[port][state_id][
-                            '_updater'] = set_update[port][state_id]
-
-                if port in emit_keys:
-                    if state_id in emit_keys[port]:
-                        schema[port][state_id][
-                            '_emit'] = True
-
+        # global
+        schema['global']['dead'] = {
+            '_default': 0,
+            '_emit': True,
+            '_updater': 'set'
+        }
         schema['global'].update({
             target: {
                 '_default': None}
             for target in self.targets})
+
+        # detector ports
+        for detector in self.detectors:
+            needed_keys = detector.needed_state_keys
+            for port, states in needed_keys.items():
+                if port not in schema:
+                    schema[port] = {}
+                for state in states:
+                    schema[port][state] = {'_default': 0}
+
         return schema
 
     def next_update(self, timestep, states):
@@ -237,8 +217,7 @@ class ToyAntibioticInjector(Process):
             'injection_rate', 1.0)
         self.antibiotic_name = initial_parameters.get(
             'antibiotic_name', 'antibiotic')
-        ports = {'internal': [self.antibiotic_name]}
-        super(ToyAntibioticInjector, self).__init__(ports, initial_parameters)
+        super(ToyAntibioticInjector, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {

@@ -88,15 +88,14 @@ def process_in_experiment(process, settings={}):
         '''
         environment requires ports for exchange and external
         '''
-        ports = environment.get(
-            'ports',
+        ports = environment.get('ports',
             {'external': ('external',), 'exchange': ('exchange',)})
         environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port_id: ports[port_id]
-                for port_id in environment_process.ports}})
+                'external': ports['external'],
+                'exchange': ports['exchange']}})
 
     # add derivers
     derivers = generate_derivers(processes, topology)
@@ -137,13 +136,14 @@ def compartment_in_experiment(compartment, settings={}):
         '''
         environment requires ports for exchange and external
         '''
-        ports = environment['ports']
+        ports = environment.get('ports',
+            {'external': ('external',), 'exchange': ('exchange',)})
         environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port_id: outer_path + ports[port_id]
-                for port_id in environment_process.ports}})
+                'external': ports['external'],
+                'exchange': ports['exchange']}})
 
     return Experiment({
         'processes': processes,
@@ -154,7 +154,7 @@ def compartment_in_experiment(compartment, settings={}):
 
 # simulation functions
 def simulate_process(process, settings={}):
-    experiment = process_in_experiment(process)
+    experiment = process_in_experiment(process, settings)
     return simulate_experiment(experiment, settings)
 
 def simulate_process_in_experiment(process, settings={}):
@@ -313,6 +313,7 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
             'max_rows': (int) ports with more states than this number of states get wrapped into a new column
             'remove_zeros': (bool) if True, timeseries with all zeros get removed
             'remove_flat': (bool) if True, timeseries with all the same value get removed
+            'remove_first_timestep': (bool) if True, skips the first timestep
             'skip_ports': (list) entire ports that won't be plotted
             'show_state': (list) with [('port_id', 'state_id')]
                 for all states that will be highlighted, even if they are otherwise to be removed
@@ -330,11 +331,14 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
     remove_zeros = settings.get('remove_zeros', True)
     remove_flat = settings.get('remove_flat', False)
     skip_ports = settings.get('skip_ports', [])
+    remove_first_timestep = settings.get('remove_first_timestep', False)
 
     # make a flat 'path' timeseries, with keys being path
     top_level = list(timeseries_raw.keys())
     timeseries = path_timeseries_from_embedded_timeseries(timeseries_raw)
     time_vec = timeseries.pop('time')
+    if remove_first_timestep:
+        time_vec = time_vec[1:]
 
     # remove select states from timeseries
     removed_states = set()
@@ -382,6 +386,8 @@ def plot_simulation_output(timeseries_raw, settings={}, out_dir='out', filename=
         # get this port's states
         port_timeseries = {path[1:]: ts for path, ts in timeseries.items() if path[0] is port}
         for state_id, series in sorted(port_timeseries.items()):
+            if remove_first_timestep:
+                series = series[1:]
             # not enough data points -- this state likely did not exist throughout the entire simulation
             if len(series) != len(time_vec):
                 continue
@@ -744,11 +750,7 @@ class ToyLinearGrowthDeathProcess(Process):
 
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets')
-        ports = {
-            'global': ['mass'],
-        }
-        super(ToyLinearGrowthDeathProcess, self).__init__(
-            ports, initial_parameters)
+        super(ToyLinearGrowthDeathProcess, self).__init__(initial_parameters)
 
     def ports_schema(self):
         schema = {
@@ -768,7 +770,6 @@ class ToyLinearGrowthDeathProcess(Process):
         #     for target in self.targets})
 
         return schema
-
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
@@ -807,7 +808,7 @@ class ToyMetabolism(Process):
     def __init__(self, initial_parameters={}):
         parameters = {'mass_conversion_rate': 1}
         parameters.update(initial_parameters)
-        super(ToyMetabolism, self).__init__({}, parameters)
+        super(ToyMetabolism, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -835,7 +836,7 @@ class ToyTransport(Process):
     def __init__(self, initial_parameters={}):
         parameters = {'intake_rate': 2}
         parameters.update(initial_parameters)
-        super(ToyTransport, self).__init__({}, parameters)
+        super(ToyTransport, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -862,7 +863,7 @@ class ToyTransport(Process):
 class ToyDeriveVolume(Deriver):
     def __init__(self, initial_parameters={}):
         parameters = {}
-        super(ToyDeriveVolume, self).__init__({}, parameters)
+        super(ToyDeriveVolume, self).__init__(parameters)
 
     def ports_schema(self):
         ports = {
@@ -886,7 +887,7 @@ class ToyDeriveVolume(Deriver):
 class ToyDeath(Process):
     def __init__(self, initial_parameters={}):
         self.targets = initial_parameters.get('targets', [])
-        super(ToyDeath, self).__init__({}, {})
+        super(ToyDeath, self).__init__({})
 
     def ports_schema(self):
         return {

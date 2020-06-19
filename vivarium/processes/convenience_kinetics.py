@@ -115,8 +115,7 @@ class ConvenienceKinetics(Process):
                initial quantities of the molecules and enzymes. The
                initial reaction flux must also be specified. For
                example, to start with :math:`[E] = 1.2 mM` and
-               :math:`[A] = [B] = [C] = 0 mM` with an initial
-               reaction flux of `0`, we would have:
+               :math:`[A] = [B] = [C] = 0 mM`, we would have:
 
                .. code-block:: python
 
@@ -127,9 +126,6 @@ class ConvenienceKinetics(Process):
                          'C': 0.0,
                          'E': 1.2,
                      },
-                     'fluxes': {
-                         'reaction1': 0.0,
-                     }
                  }
 
                .. note:: Unlike the previous configuration options,
@@ -218,9 +214,10 @@ class ConvenienceKinetics(Process):
             'internal': {},
             'external': {}},
         'kinetic_parameters': {},
-        'ports': {
-            'internal': [],
-            'external': []},
+        'port_ids': [
+            'internal',
+            'external'
+        ],
         'global_deriver_key': 'global_deriver'}
 
     def __init__(self, initial_parameters=None):
@@ -230,21 +227,21 @@ class ConvenienceKinetics(Process):
         self.nAvogadro = constants.N_A * 1 / units.mol
 
         # retrieve initial parameters
-        self.reactions = initial_parameters.get('reactions', self.defaults['reactions'])
-        self.initial_state = initial_parameters.get('initial_state', self.defaults['initial_state'])
-        kinetic_parameters = initial_parameters.get('kinetic_parameters', self.defaults['kinetic_parameters'])
-        ports = initial_parameters.get('ports', self.defaults['ports'])
+        self.reactions = self.or_default(
+            initial_parameters, 'reactions')
+        self.initial_state = self.or_default(
+            initial_parameters, 'initial_state')
+        kinetic_parameters = self.or_default(
+            initial_parameters, 'kinetic_parameters')
+        self.port_ids = self.or_default(
+            initial_parameters, 'port_ids') + [
+            'fluxes',
+            'exchange',
+            'global'
+        ]
 
         # make the kinetic model
         self.kinetic_rate_laws = KineticFluxModel(self.reactions, kinetic_parameters)
-
-        # ports
-        # fluxes port is used to pass constraints
-        # exchange is equivalent to external, for lattice_compartment
-        ports.update({
-            'fluxes': self.kinetic_rate_laws.reaction_ids,
-            'exchange': ports['external'],
-            'global': ['mmol_to_counts']})
 
         # parameters
         parameters = {}
@@ -253,29 +250,39 @@ class ConvenienceKinetics(Process):
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
 
-        super(ConvenienceKinetics, self).__init__(ports, parameters)
+        super(ConvenienceKinetics, self).__init__(parameters)
 
     def ports_schema(self):
-        set_ports = ['fluxes']
-        emit_ports = ['internal', 'external', 'fluxes']
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state_id in states:
-                schema[port][state_id] = {}
-                if port in self.initial_state:
-                    if state_id in self.initial_state[port]:
-                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
-                else:
-                    schema[port][state_id]['_default'] = 0.0
-            if port in set_ports:
-                for state_id in states:
-                    schema[port][state_id]['_updater'] = 'set'
+        schema = {port_id: {} for port_id in self.port_ids}
 
-            emitting = port in emit_ports
+        for port, states in self.initial_state.items():
             for state_id in states:
-                schema[port][state_id]['_emit'] = emitting
+                schema[port][state_id] = {
+                    '_default': self.initial_state[port][state_id],
+                    '_emit': True}
+
+        # exchange
+        # Note: exchange depends on a port called external
+        if 'external' in schema:
+            schema['exchange'] = {
+                state_id: {
+                    '_default': 0.0}
+                for state_id in schema['external'].keys()}
+
+        # fluxes
+        for state in self.kinetic_rate_laws.reaction_ids:
+            schema['fluxes'][state] = {
+                '_default': 0.0,
+                '_emit': False,
+                '_updater': 'set',
+            }
+
+        # global
+        schema['global']['mmol_to_counts'] = {
+            '_default': 0.0 * units.L / units.mmol,
+            '_emit': False,
+        }
 
         return schema
 
@@ -291,7 +298,7 @@ class ConvenienceKinetics(Process):
     def next_update(self, timestep, states):
 
         # get mmol_to_counts for converting flux to exchange counts
-        mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
+        mmol_to_counts = states['global']['mmol_to_counts']
 
         # kinetic rate law requires a flat dict with ('port', 'state') keys.
         flattened_states = tuplify_port_dicts(states)
@@ -301,14 +308,14 @@ class ConvenienceKinetics(Process):
 
         # make the update
         # add fluxes to update
-        update = {port: {} for port in self.ports.keys()}
+        update = {port: {} for port in self.port_ids}
         update.update({'fluxes': fluxes})
 
         # get exchange
         for reaction_id, flux in fluxes.items():
             stoichiometry = self.reactions[reaction_id]['stoichiometry']
             for port_state_id, coeff in stoichiometry.items():
-                for port_id, state_list in self.ports.items():
+                for port_id in self.port_ids:
                     # separate the state_id and port_id
                     if port_id in port_state_id:
                         state_id = port_state_id[1]
@@ -409,10 +416,6 @@ def get_glc_lct_transport():
             'glc__D_e': 10.0,
             'lcts_e': 10.0,
         },
-        'fluxes': {
-            'EX_glc__D_e': 0.0,
-            'EX_lcts_e': 0.0,
-        }
     }
 
     transport_ports = {
@@ -492,10 +495,6 @@ def get_glc_lct_config():
             'glc__D_e': 10.0,
             'lcts_e': 10.0,
         },
-        'fluxes': {
-            'EX_glc__D_e': 0.0,
-            'EX_lcts_e': 0.0,
-        }
     }
 
     transport_ports = {
@@ -550,9 +549,6 @@ def get_toy_config():
         'external': {
             'B': 10.0,
         },
-        'fluxes': {
-            'reaction1': 0.0,
-        }
     }
 
     return {

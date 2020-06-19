@@ -39,11 +39,7 @@ class MetaDivision(Deriver):
         self.agent_id = initial_parameters['agent_id']
         self.daughter_path = initial_parameters.get('daughter_path', self.defaults['daughter_path'])
 
-        ports = {
-            'global': ['divide'],
-            'cells': ['*']}
-
-        super(MetaDivision, self).__init__(ports, initial_parameters)
+        super(MetaDivision, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {

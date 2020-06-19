@@ -73,15 +73,9 @@ class TransportLookup(Process):
         # make look up object
         self.look_up = LookUp()
 
-        ports = {
-            'internal': self.internal_molecule_ids,
-            'external': self.external_molecule_ids,
-            'exchange': self.external_molecule_ids,
-            'global': ['volume']}
         parameters = {}
         parameters.update(initial_parameters)
-
-        super(TransportLookup, self).__init__(ports, parameters)
+        super(TransportLookup, self).__init__(parameters)
 
     def ports_schema(self):
         media_id = 'minimal_plus_amino_acids'

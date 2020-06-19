@@ -36,12 +36,7 @@ class TreeMass(Deriver):
         self.from_path = self.or_default(initial_parameters, 'from_path')
         self.initial_mass = self.or_default(initial_parameters, 'initial_mass')
 
-        ports = {
-            'global': [
-                'initial_mass',
-                'mass']}
-
-        super(TreeMass, self).__init__(ports, initial_parameters)
+        super(TreeMass, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {

@@ -16,22 +16,27 @@ class TimelineProcess(Process):
         self.timeline = copy.deepcopy(initial_parameters['timeline'])
 
         # get ports
-        ports = {'global': ['time']}
+        self.ports = {'global': ['time']}
         for event in self.timeline:
             for state in list(event[1].keys()):
                 port = {state[0]: [state[1]]}
-                ports = deep_merge(ports, port)
-        parameters = {
-            'timeline': self.timeline}
+                deep_merge(self.ports, port)
 
-        super(TimelineProcess, self).__init__(ports, parameters)
+        parameters = {'timeline': self.timeline}
+        super(TimelineProcess, self).__init__(parameters)
 
     def ports_schema(self):
-        return {
+
+        schema = {
+            port: {'_default': 0.0}
+            for port in list(self.ports.keys()) if port not in ['global']}
+
+        schema.update({
             'global': {
                 'time': {
                     '_default': 0,
-                    '_updater': 'accumulate'}}}
+                    '_updater': 'accumulate'}}})
+        return schema
 
     def next_update(self, timestep, states):
         time = states['global']['time']
