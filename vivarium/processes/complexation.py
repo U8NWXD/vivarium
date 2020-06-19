@@ -47,11 +47,9 @@ class Complexation(Process):
         if not initial_parameters:
             initial_parameters = {}
 
-        self.default_parameters = copy.deepcopy(self.defaults)
-        self.derive_defaults(initial_parameters, 'stoichiometry', 'reaction_ids', keys_list)
+        super(Complexation, self).__init__(initial_parameters)
 
-        self.parameters = self.default_parameters
-        self.parameters.update(initial_parameters)
+        self.derive_defaults('stoichiometry', 'reaction_ids', keys_list)
 
         self.monomer_ids = self.parameters['monomer_ids']
         self.complex_ids = self.parameters['complex_ids']
@@ -71,15 +69,6 @@ class Complexation(Process):
 
         self.mass_deriver_key = self.or_default(initial_parameters, 'mass_deriver_key')
 
-        ports = {
-            'monomers': self.monomer_ids,
-            'complexes': self.complex_ids,
-            'global': []}
-
-        parameters = {}
-        parameters.update(initial_parameters)
-
-        super(Complexation, self).__init__(ports, parameters)
 
     def ports_schema(self):
         return {

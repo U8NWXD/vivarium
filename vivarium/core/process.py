@@ -11,12 +11,17 @@ class Process(object):
 
     defaults = {}
 
-    def __init__(self, ports, parameters=None):
+    def __init__(self, parameters=None):
         if parameters is None:
              parameters = {}
         self.parameters = copy.deepcopy(self.defaults)
         deep_merge(self.parameters, parameters)
-        self.ports = ports  # list(self.ports_schema().keys())
+
+    def ports(self):
+        ports_schema = self.ports_schema()
+        return {
+            port: list(states.keys())
+            for port, states in ports_schema.items()}
 
     def local_timestep(self):
         '''
@@ -65,15 +70,10 @@ class Process(object):
     def or_default(self, parameters, key):
         return parameters.get(key, self.defaults[key])
 
-    def parameters_for(self, parameters, key):
-        ''' Return key in parameters or from self.default_parameters if not present. '''
-
-        return parameters.get(key, self.default_parameters[key])
-
-    def derive_defaults(self, parameters, original_key, derived_key, f):
-        present = self.parameters_for(parameters, original_key)
-        self.default_parameters[derived_key] = f(present)
-        return self.default_parameters[derived_key]
+    def derive_defaults(self, original_key, derived_key, f):
+        source = self.parameters.get(original_key)
+        self.parameters[derived_key] = f(source)
+        return self.parameters[derived_key]
 
     def next_update(self, timestep, states):
         '''

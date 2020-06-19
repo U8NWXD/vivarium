@@ -28,7 +28,7 @@ class DeriveConcentrations(Deriver):
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveConcentrations, self).__init__({}, parameters)
+        super(DeriveConcentrations, self).__init__(parameters)
 
     def ports_schema(self):
         return {

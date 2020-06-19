@@ -38,11 +38,7 @@ class MetaDivision(Deriver):
         self.daughter_path = self.or_default(
             initial_parameters, 'daughter_path')
 
-        ports = {
-            'global': ['divide'],
-            'cells': ['*']}
-
-        super(MetaDivision, self).__init__(ports, initial_parameters)
+        super(MetaDivision, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {

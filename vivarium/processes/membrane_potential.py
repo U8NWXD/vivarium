@@ -89,7 +89,7 @@ class MembranePotential(Process):
             initial_parameters, 'parameters')
         self.parameters.update(self.defaults['constants'])
 
-        super(MembranePotential, self).__init__({}, self.parameters)
+        super(MembranePotential, self).__init__(self.parameters)
 
     def ports_schema(self):
         ports = [

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 from vivarium.core.process import Process
+from vivarium.core.composition import simulate_process_in_experiment
 from vivarium.library.flux_conversion import millimolar_to_counts, counts_to_millimolar
 from vivarium.library.make_media import Media
 from vivarium.core.composition import PROCESS_OUT_DIR
@@ -90,7 +91,7 @@ MOLECULAR_WEIGHTS = {
 class Transport(Process):
 
     defaults = {
-        'target_fluxes': [],  # ['glc__D_e', 'GLCpts', 'PPS', 'PYK']
+        'target_fluxes': ['glc__D_e', 'GLCpts', 'PPS', 'PYK'],
         'parameters': DEFAULT_PARAMETERS
     }
 
@@ -102,33 +103,18 @@ class Transport(Process):
         self.dt = 0.01  # timestep for ode integration (seconds)
         self.target_fluxes = initial_parameters.get('target_fluxes', self.defaults['target_fluxes'])
 
-        default_settings = self.default_settings()
-        default_state = default_settings['state']
-        internal_state = default_state['internal']
-        external_state = default_state['external']
-
-        ports = {
-            'external': list(external_state.keys()),
-            'exchange': list(external_state.keys()),
-            'internal': list(internal_state.keys()),
-            'fluxes': self.target_fluxes,
-            'global': ['volume']}
-
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
 
-        super(Transport, self).__init__(ports, parameters)
+        super(Transport, self).__init__(parameters)
 
-    def default_settings(self):
-
+    def ports_schema(self):
         # default state
-        # TODO -- select state based on media
         glc_g6p = True
         glc_lct = False
 
         make_media = Media()
 
-        # TODO -- don't use this if/else, select state based on media
         if glc_g6p:
             external = make_media.get_saved_media('GLC_G6P')
             internal = {
@@ -155,47 +141,58 @@ class Transport(Process):
             }
         self.environment_ids = list(external.keys())
 
-        default_state = {
-            'internal': internal,
-            'external': external,
-            'exchange': {state_id: 0.0 for state_id in self.environment_ids},
-            'fluxes': {},
-            'global': {'volume': 1}}
 
-        # default emitter keys
-        default_emitter_keys = {
-            'internal': ['mass', 'UHPT', 'PTSG', 'G6P', 'PEP', 'PYR', 'XP'],
-            'external': ['G6P', 'GLC', 'LAC'],
+        # make the schema
+        ports = [
+            'internal',
+            'external',
+            'exchange',
+            'fluxes',
+            'global'
+        ]
+        schema = {port: {} for port in ports}
+        emitter_keys = {
+            'internal': ['mass', 'UHPT', 'PTSG', 'G6P', 'PEP', 'PYR', 'XP', 'LACZ'],
+            'external': ['G6P', 'GLC', 'LAC', 'LCTS'],
             'fluxes': self.target_fluxes}
 
-        # schema
+        # internal
         set_internal = ['mass', 'UHPT', 'LACZ', 'PTSG', 'G6P', 'PEP', 'PYR', 'XP']
-        internal_schema = {
-            state_id: {
-                'updater': 'set',
-                'divide': 'set'}
-            for state_id in set_internal}
-        fluxes_schema = {
-            state_id: {
-                'updater': 'set',
-                'divide': 'set'}
-            for state_id in self.target_fluxes}
-        exchange_schema = {
-            mol_id: {
-                'updater': 'accumulate'}
-            for mol_id in self.environment_ids}
+        for state, value in internal.items():
+            schema['internal'][state] = {
+                '_default': value,
+                '_updater': 'set' if state in set_internal else 'accumulate',
+                '_divider': 'set' if state in set_internal else 'accumulate',
+                '_emit': state in emitter_keys['internal']
+            }
 
-        schema = {
-            'internal': internal_schema,
-            'fluxes': fluxes_schema,
-            'exchange': exchange_schema}
+        # external
+        for state, value in external.items():
+            schema['external'][state] = {
+                '_default': value,
+                '_emit': state in emitter_keys['external']
+            }
 
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
+        # fluxes
+        for state in self.target_fluxes:
+            schema['fluxes'][state] = {
+                '_default': 0.0,
+                '_updater': 'set',
+                '_divider': 'set',
+                '_emit': state in emitter_keys['fluxes']
+            }
 
-        return default_settings
+        # exchange
+        for state in external.keys():
+            schema['exchange'][state] = {
+                '_default': 0.0,
+                '_updater': 'accumulate'
+            }
+
+        # global
+        schema['global']['volume'] = {'_default': 1}
+
+        return schema
 
     def next_update(self, timestep, states):
 
@@ -424,41 +421,11 @@ def test_transport(sim_time = 10):
 
     # get process, initial state, and saved state
     transport = Transport({})
-    settings = transport.default_settings()
-    state = settings['state']
-    saved_state = {'internal': {}, 'external': {}, 'time': []}
+    settings = {'timeline': {'timeline': timeline}}
+    data = simulate_process_in_experiment(transport, settings)
 
-    # run simulation
-    time = 0
-    timestep = 1  # sec
-    while time < timeline[-1][0]:
-        time += timestep
-        for (t, change_dict) in timeline:
-            if time >= t:
-                for key, change in change_dict.items():
-                    state[key].update(change)
+    return data
 
-        # get update and apply to state
-        update = transport.next_update(timestep, state)
-        saved_state['time'].append(time)
-        state['internal'].update(update['internal'])
-
-        # use exchange to update external state, reset exchange
-        volume = state['global']['volume'] * 1e-15  # convert volume fL to L
-        for mol_id, delta_count in update['exchange'].items():
-            delta_conc = counts_to_millimolar(delta_count, volume)
-            state['external'][mol_id] += delta_conc
-            state['exchange'][mol_id] = 0
-
-        # save state
-        for port in ['internal', 'external']:
-             for state_id, value in state[port].items():
-                 if state_id in saved_state[port].keys():
-                     saved_state[port][state_id].append(value)
-                 else:
-                     saved_state[port][state_id] = [value]
-
-    return saved_state
 
 def kremling_figures(saved_state, out_dir='out'):
 

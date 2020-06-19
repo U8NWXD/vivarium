@@ -224,7 +224,7 @@ class ODE_expression(Process):
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(ODE_expression, self).__init__({}, parameters)
+        super(ODE_expression, self).__init__(parameters)
 
     def ports_schema(self):
         ports = [

@@ -45,14 +45,11 @@ class CellularPotts(Process):
             plt.ion()
             self.animate_frame()
 
-        # make ports
-        ports = {'agents': ['*']}
-
         # parameters
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(CellularPotts, self).__init__(ports, parameters)
+        super(CellularPotts, self).__init__(parameters)
 
     def ports_schema(self):
         default_state = {

@@ -45,7 +45,7 @@ class ToxinAntitoxin(Process):
         parameters = initial_parameters.get(
             'parameters', self.defaults['parameters'])
 
-        super(ToxinAntitoxin, self).__init__({}, parameters)
+        super(ToxinAntitoxin, self).__init__(parameters)
 
     def ports_schema(self):
         schema = {'internal': {}}

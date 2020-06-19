@@ -93,14 +93,6 @@ class AntibioticTransport(ConvenienceKinetics):
                 },
             },
             'initial_state': initial_state,
-            'ports': {
-                'internal': [
-                    'porin',
-                    'AcrAB-TolC',
-                    'antibiotic',
-                ],
-                'external': ['antibiotic'],
-            },
         }
 
         super(AntibioticTransport, self).__init__(parameters)

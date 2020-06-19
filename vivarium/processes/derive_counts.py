@@ -26,7 +26,7 @@ class DeriveCounts(Deriver):
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(DeriveCounts, self).__init__({}, parameters)
+        super(DeriveCounts, self).__init__(parameters)
 
     def ports_schema(self):
         return {

@@ -91,7 +91,7 @@ class ReceptorCluster(Process):
         parameters = self.defaults['parameters']
         parameters.update(initial_parameters)
 
-        super(ReceptorCluster, self).__init__({}, parameters)
+        super(ReceptorCluster, self).__init__(parameters)
 
         # initialize the state by running until steady
         run_to_steady_state(self, self.initial_state, 1.0)

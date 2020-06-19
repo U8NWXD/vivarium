@@ -333,7 +333,7 @@ class Translation(Process):
 
         log.info('translation parameters: {}'.format(self.parameters))
 
-        super(Translation, self).__init__({}, self.parameters)
+        super(Translation, self).__init__(self.parameters)
 
     def ports_schema(self):
 
