@@ -88,8 +88,7 @@ def process_in_experiment(process, settings={}):
         '''
         environment requires ports for exchange and external
         '''
-        ports = environment.get(
-            'ports',
+        ports = environment.get('ports',
             {'external': ('external',), 'exchange': ('exchange',)})
         environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
@@ -137,13 +136,14 @@ def compartment_in_experiment(compartment, settings={}):
         '''
         environment requires ports for exchange and external
         '''
-        ports = environment['ports']
+        ports = environment.get('ports',
+            {'external': ('external',), 'exchange': ('exchange',)})
         environment_process = OneDimEnvironment(environment)
         processes.update({'environment_process': environment_process})
         topology.update({
             'environment_process': {
-                port_id: outer_path + ports[port_id]
-                for port_id in environment_process.ports}})
+                'external': ports['external'],
+                'exchange': ports['exchange']}})
 
     return Experiment({
         'processes': processes,
