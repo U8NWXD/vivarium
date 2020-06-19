@@ -217,8 +217,7 @@ class ToyAntibioticInjector(Process):
             'injection_rate', 1.0)
         self.antibiotic_name = initial_parameters.get(
             'antibiotic_name', 'antibiotic')
-        ports = {'internal': [self.antibiotic_name]}
-        super(ToyAntibioticInjector, self).__init__(ports, initial_parameters)
+        super(ToyAntibioticInjector, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {
