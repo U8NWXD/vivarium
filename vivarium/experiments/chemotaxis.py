@@ -25,14 +25,16 @@ from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
 
 # processes
 from vivarium.processes.Vladimirov2008_motor import MotorActivity
-from vivarium.processes.multibody_physics import (
-    agent_body_config,
+from vivarium.processes.multibody_physics import agent_body_config
+from vivarium.plots.multibody_physics import (
+    plot_temporal_trajectory,
+    plot_agent_trajectory,
+    plot_motility,
 )
-from vivarium.plots.multibody_physics import plot_trajectory, plot_motility
 from vivarium.processes.static_field import make_field
 
 
-DEFAULT_BOUNDS = [400, 2000]
+DEFAULT_BOUNDS = [600, 3000]
 DEFAULT_AGENT_LOCATION = [0.5, 0.1]
 DEFAULT_LIGAND_ID = 'MeAsp'
 DEFAULT_INITIAL_LIGAND = 2.0
@@ -66,7 +68,10 @@ def simulate_chemotaxis_experiment(
         number = config['number']
         if 'name' in config:
             name = config['name']
-            new_agent_ids = [name + '_' + str(num) for num in range(number)]
+            if number > 1:
+                new_agent_ids = [name + '_' + str(num) for num in range(number)]
+            else:
+                new_agent_ids = [name]
         else:
             new_agent_ids = [str(uuid.uuid1()) for num in range(number)]
         config['ids'] = new_agent_ids
@@ -145,8 +150,8 @@ def plot_chemotaxis_experiment(data, field_config, filename):
         'bounds': field_config['bounds'],
         'field': field}
 
-    plot_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
-
+    plot_temporal_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_temporal')
+    plot_agent_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
     try:
         plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
     except:
@@ -155,7 +160,7 @@ def plot_chemotaxis_experiment(data, field_config, filename):
 
 def run_mixed():
     filename = 'mixed'
-    total_time = 360
+    total_time = 720
     timestep = 0.1
     compartment_config = {
         'ligand_id': DEFAULT_LIGAND_ID,
