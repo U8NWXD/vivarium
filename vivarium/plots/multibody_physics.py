@@ -179,23 +179,43 @@ def plot_snapshots(data, plot_config):
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close(fig)
 
+def initialize_spatial_figure(bounds, fontsize=18):
+
+    x_length = bounds[0]
+    y_length = bounds[1]
+
+    # set up figure
+    n_ticks = 4
+    plot_buffer = 0.02
+    y_ratio = y_length / x_length
+    buffer = plot_buffer * min(bounds)
+    min_edge = min(x_length, y_length)
+
+    # make the figure
+    fig = plt.figure(figsize=(8, 8*y_ratio))
+    plt.rcParams.update({'font.size': fontsize, "font.family": "Times New Roman"})
+
+    plt.xlim((0-buffer, x_length+buffer))
+    plt.ylim((0-buffer, y_length+buffer))
+    plt.xlabel(u'\u03bcm')
+    plt.ylabel(u'\u03bcm')
+
+    # specify the number of ticks for each edge
+    [x_bins, y_bins] = [int(n_ticks * edge / min_edge) for edge in [x_length, y_length]]
+    plt.locator_params(axis='y', nbins=y_bins)
+    plt.locator_params(axis='x', nbins=x_bins)
+
+    return fig
 
 def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
     check_plt_backend()
 
-    plot_buffer = 0.02
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     field = config.get('field')
-    x_length = bounds[0]
-    y_length = bounds[1]
-    y_ratio = y_length / x_length
-    buffer = plot_buffer * min(bounds)
 
-    # plot settings
+    # trajectory plot settings
     legend_fontsize = 18
-    min_edge = min(x_length, y_length)
     markersize = 30
-    n_ticks = 4
 
     # get agents
     times = np.array(agent_timeseries['time'])
@@ -211,9 +231,9 @@ def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='tra
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
-    # make the figure
-    fig = plt.figure(figsize=(8, 8*y_ratio))
-    plt.rcParams.update({'font.size': legend_fontsize, "font.family": "Times New Roman"})
+    # initialize a spatial figure
+    fig = initialize_spatial_figure(bounds, legend_fontsize)
+
     if field is not None:
         field = np.transpose(field)
         shape = field.shape
@@ -238,16 +258,6 @@ def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='tra
         plt.plot(x_coord[-1], y_coord[-1],
                  color='r', marker='.', markersize=markersize)  # ending point
 
-    plt.xlim((0-buffer, x_length+buffer))
-    plt.ylim((0-buffer, y_length+buffer))
-    plt.xlabel(u'\u03bcm')
-    plt.ylabel(u'\u03bcm')
-
-    # specify the number of ticks for each edge
-    [x_bins, y_bins] = [int(n_ticks * edge / min_edge) for edge in [x_length, y_length]]
-    plt.locator_params(axis='y', nbins=y_bins)
-    plt.locator_params(axis='x', nbins=x_bins)
-
     # create legend for agent ids
     first_legend = plt.legend(
         title='agent ids', loc='center left', bbox_to_anchor=(1.01, 0.5), prop={'size': legend_fontsize})
@@ -270,13 +280,8 @@ def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='tra
 def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='temporal'):
     check_plt_backend()
 
-    plot_buffer = 0.02
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     field = config.get('field')
-    x_length = bounds[0]
-    y_length = bounds[1]
-    y_ratio = y_length / x_length
-    buffer = plot_buffer * min(bounds)
 
     # get agents
     times = np.array(agent_timeseries['time'])
@@ -292,8 +297,8 @@ def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
-    # make the figure
-    fig = plt.figure(figsize=(8, 8*y_ratio))
+    # initialize a spatial figure
+    fig = initialize_spatial_figure(bounds)
 
     if field is not None:
         field = np.transpose(field)
@@ -301,8 +306,6 @@ def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='
         im = plt.imshow(field,
                         origin='lower',
                         extent=[0, shape[1], 0, shape[0]],
-                        # vmin=vmin,
-                        # vmax=vmax,
                         cmap='Greys'
                         )
 
@@ -321,9 +324,6 @@ def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='
 
         # plot line
         line = plt.gca().add_collection(lc)
-
-    plt.xlim((0-buffer, x_length+buffer))
-    plt.ylim((0-buffer, y_length+buffer))
 
     # color bar
     cbar = plt.colorbar(line, ticks=[times[0], times[-1]], aspect=90, shrink=0.4)
