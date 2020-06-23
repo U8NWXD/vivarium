@@ -229,7 +229,7 @@ class Metabolism(Process):
         for state in self.reaction_ids:
             schema['reactions'][state] = {
                 '_default': 0.0,
-                '_emit': True,
+                '_emit': False,
                 '_updater': 'set',
             }
 

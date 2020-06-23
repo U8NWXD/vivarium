@@ -33,7 +33,7 @@ from vivarium.plots.multibody_physics import (
     plot_agent,
     plot_agents,
     plot_snapshots,
-    plot_trajectory,
+    plot_temporal_trajectory,
     plot_motility,
 )
 
@@ -518,7 +518,7 @@ def run_jitter(config={}, out_dir='out', filename='jitter'):
 
     # make trajectory plot
     timeseries = timeseries_from_data(data)
-    plot_trajectory(timeseries, motility_config, out_dir, filename + '_trajectory')
+    plot_temporal_trajectory(timeseries, motility_config, out_dir, filename + '_trajectory')
 
 def run_motility(config={}, out_dir='out', filename='motility'):
     total_time = config.get('total_time', 30)
@@ -537,7 +537,7 @@ def run_motility(config={}, out_dir='out', filename='motility'):
 
     # make motility plot
     plot_motility(motility_timeseries, out_dir, filename + '_analysis')
-    plot_trajectory(motility_timeseries, motility_config, out_dir, filename + '_trajectory')
+    plot_temporal_trajectory(motility_timeseries, motility_config, out_dir, filename + '_trajectory')
 
 def run_growth_division():
     n_agents = 1

@@ -14,11 +14,11 @@ from vivarium.core.emitter import (
 )
 from vivarium.core.experiment import (
     Experiment,
+    Compartment,
     update_in,
     generate_derivers,
 )
 from vivarium.core.process import Process, Deriver
-from vivarium.core.experiment import Compartment as TreeCompartment
 from vivarium.core import emitter as emit
 from vivarium.library.dict_utils import (
     deep_merge,
@@ -42,7 +42,6 @@ EXPERIMENT_OUT_DIR = os.path.join('out', 'experiments')
 
 # loading functions
 def make_agents(agent_ids, compartment, config=None):
-
     if config is None:
         config = {}
 
@@ -61,6 +60,71 @@ def make_agents(agent_ids, compartment, config=None):
     return {
         'processes': processes,
         'topology': topology}
+
+
+def agent_environment_experiment(
+        agents_config={},
+        environment_config={},
+        initial_state={},
+        settings={}):
+
+    # experiment settings
+    emitter = settings.get('emitter', {'type': 'timeseries'})
+
+    # initialize the agents
+    if isinstance(agents_config, dict):
+        # dict with single agent config
+        agent_type = agents_config['type']
+        agent_ids = agents_config['ids']
+        agent_compartment = agent_type(agents_config['config'])
+        agents = make_agents(agent_ids, agent_compartment, agents_config['config'])
+    elif isinstance(agents_config, list):
+        # list with multiple agent configurations
+        agents = {
+            'processes': {},
+            'topology': {}}
+        for config in agents_config:
+            agent_type = config['type']
+            agent_ids = config['ids']
+            agent_compartment = agent_type(config['config'])
+            new_agents = make_agents(agent_ids, agent_compartment, config['config'])
+            deep_merge(agents['processes'], new_agents['processes'])
+            deep_merge(agents['topology'], new_agents['topology'])
+
+    # initialize the environment
+    environment_type = environment_config['type']
+    environment_compartment = environment_type(environment_config['config'])
+
+    # combine processes and topologies
+    network = environment_compartment.generate({})
+    processes = network['processes']
+    topology = network['topology']
+    processes['agents'] = agents['processes']
+    topology['agents'] = agents['topology']
+
+    return Experiment({
+        'processes': processes,
+        'topology': topology,
+        'emitter': emitter,
+        'initial_state': initial_state})
+
+def process_in_compartment(process, paths={}):
+    """ put a lone process in a compartment"""
+    class ProcessCompartment(Compartment):
+        def __init__(self, config):
+            self.config = config
+            self.paths = paths
+            self.process = process(config)
+
+        def generate_processes(self, config):
+            return {'process': self.process}
+
+        def generate_topology(self, config):
+            return {
+                'process': {
+                    port: self.paths.get(port, (port,)) for port in self.process.ports_schema().keys()}}
+
+    return ProcessCompartment
 
 def process_in_experiment(process, settings={}):
     initial_state = settings.get('initial_state', {})
@@ -449,14 +513,14 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     timeseries = path_timeseries_from_data(data)
 
     # get the agents' port_schema in a list of paths
-    # assume the initial agents have the same port schema as all subsequent agents
     initial_agents = data[time_vec[0]][agents_key]
-    initial_agent_ids = list(initial_agents.keys())
-    first_agent = initial_agents[initial_agent_ids[0]]
-    top_ports = list(first_agent.keys())
-    port_schema_paths = get_path_list_from_dict(first_agent)
+    port_schema_paths = set()
+    for agent_id, agent_data in initial_agents.items():
+        path_list = get_path_list_from_dict(agent_data)
+        port_schema_paths.update(path_list)
     # remove skipped paths
     port_schema_paths = [path for path in port_schema_paths if path not in skip_paths]
+    top_ports = set([path[0] for path in port_schema_paths])
 
     # get port columns, assign subplot locations
     port_rows = {port_id: [] for port_id in top_ports}
@@ -525,7 +589,11 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
             if agent_id not in plotted_agents:
                 plotted_agents.append(agent_id)
                 for port_schema_path in port_schema_paths:
-                    series = timeseries[(agents_key, agent_id) + port_schema_path]
+                    agent_port_schema_path = (agents_key, agent_id) + port_schema_path
+                    if agent_port_schema_path not in timeseries:
+                        continue
+
+                    series = timeseries[agent_port_schema_path]
                     if not isinstance(series[0], (float, int)):
                         continue
                     n_times = len(series)
@@ -914,7 +982,7 @@ class ToyDeath(Process):
 
         return update
 
-class ToyCompartment(TreeCompartment):
+class ToyCompartment(Compartment):
     '''
     a toy compartment for testing
 
