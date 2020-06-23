@@ -77,11 +77,11 @@ class MultiBody(object):
     defaults = {
         # hardcoded parameters
         'elasticity': 0.9,
-        'damping': 0.5,  # 1 is no damping, 0 is full damping
+        'damping': 0.0,  # 1 is no damping, 0 is full damping
         'angular_damping': 0.8,
         'friction': 0.9,  # does this do anything?
         'physics_dt': 0.001,
-        'force_scaling': 1e2,  # scales from pN
+        'force_scaling': 4e2,  # scales from pN
         # configured parameters
         'jitter_force': 1e-3,  # pN
         'bounds': [20, 20],

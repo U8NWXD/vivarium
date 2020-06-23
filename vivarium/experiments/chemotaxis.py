@@ -34,10 +34,10 @@ from vivarium.plots.multibody_physics import (
 from vivarium.processes.static_field import make_field
 
 
-DEFAULT_BOUNDS = [600, 3000]
+DEFAULT_BOUNDS = [1000, 6000]
 DEFAULT_AGENT_LOCATION = [0.5, 0.1]
 DEFAULT_LIGAND_ID = 'MeAsp'
-DEFAULT_INITIAL_LIGAND = 2.0
+DEFAULT_INITIAL_LIGAND = 25.0
 DEFAULT_ENVIRONMENT_TYPE = StaticLattice
 
 MotorActivityAgent = process_in_compartment(
@@ -173,13 +173,13 @@ def run_mixed():
         {
             'type': ChemotaxisMinimal,
             'name': 'motor_receptor',
-            'number': 1,
+            'number': 2,
             'config': compartment_config
         },
         {
             'type': MotorActivityAgent,
             'name': 'motor',
-            'number': 1,
+            'number': 2,
             'config': compartment_config
         }
     ]
