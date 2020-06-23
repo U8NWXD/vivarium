@@ -75,7 +75,7 @@ def agent_environment_experiment(
     if isinstance(agents_config, dict):
         # dict with single agent config
         agent_type = agents_config['type']
-        agent_ids = agents_config['agent_ids']
+        agent_ids = agents_config['ids']
         agent_compartment = agent_type(agents_config['config'])
         agents = make_agents(agent_ids, agent_compartment, agents_config['config'])
     elif isinstance(agents_config, list):
@@ -83,13 +83,13 @@ def agent_environment_experiment(
         agents = {
             'processes': {},
             'topology': {}}
-        for agent_config in agents_config:
-            agent_type = agent_config['type']
-            agent_ids = agent_config['agent_ids']
-            agent_compartment = agent_type(agent_config['config'])
-            new_agents = make_agents(agent_ids, agent_compartment, agent_config['config'])
-
-            import ipdb; ipdb.set_trace()
+        for config in agents_config:
+            agent_type = config['type']
+            agent_ids = config['ids']
+            agent_compartment = agent_type(config['config'])
+            new_agents = make_agents(agent_ids, agent_compartment, config['config'])
+            deep_merge(agents['processes'], new_agents['processes'])
+            deep_merge(agents['topology'], new_agents['topology'])
 
     # initialize the environment
     environment_type = environment_config['type']
@@ -108,17 +108,21 @@ def agent_environment_experiment(
         'emitter': emitter,
         'initial_state': initial_state})
 
-def process_in_compartment(process):
+def process_in_compartment(process, config={}):
     """ put a lone process in a compartment"""
     class ProcessCompartment(Compartment):
+        def __init__(self, config):
+            self.config = config
+            self.paths = self.config.get('topology', {})
+            self.process = process(config)
 
         def generate_processes(self, config):
-            return {'process': process}
+            return {'process': self.process}
 
         def generate_topology(self, config):
             return {
                 'process': {
-                    port: paths.get(port, (port,)) for port in process.ports_schema().keys()}}
+                    port: self.paths.get(port, (port,)) for port in self.process.ports_schema().keys()}}
 
     return ProcessCompartment
 
@@ -509,14 +513,14 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     timeseries = path_timeseries_from_data(data)
 
     # get the agents' port_schema in a list of paths
-    # assume the initial agents have the same port schema as all subsequent agents
     initial_agents = data[time_vec[0]][agents_key]
-    initial_agent_ids = list(initial_agents.keys())
-    first_agent = initial_agents[initial_agent_ids[0]]
-    top_ports = list(first_agent.keys())
-    port_schema_paths = get_path_list_from_dict(first_agent)
+    port_schema_paths = set()
+    for agent_id, agent_data in initial_agents.items():
+        path_list = get_path_list_from_dict(agent_data)
+        port_schema_paths.update(path_list)
     # remove skipped paths
     port_schema_paths = [path for path in port_schema_paths if path not in skip_paths]
+    top_ports = set([path[0] for path in port_schema_paths])
 
     # get port columns, assign subplot locations
     port_rows = {port_id: [] for port_id in top_ports}
@@ -585,7 +589,11 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
             if agent_id not in plotted_agents:
                 plotted_agents.append(agent_id)
                 for port_schema_path in port_schema_paths:
-                    series = timeseries[(agents_key, agent_id) + port_schema_path]
+                    agent_port_schema_path = (agents_key, agent_id) + port_schema_path
+                    if agent_port_schema_path not in timeseries:
+                        continue
+
+                    series = timeseries[agent_port_schema_path]
                     if not isinstance(series[0], (float, int)):
                         continue
                     n_times = len(series)

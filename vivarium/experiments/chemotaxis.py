@@ -42,19 +42,32 @@ MotorActivityAgent = process_in_compartment(MotorActivity)
 
 
 def simulate_chemotaxis_experiment(
-    agent_config=None,
+    agents_config=None,
     environment_config=None,
     initial_state=None,
     simulation_settings=None,
     experiment_settings=None):
+    if not initial_state:
+        initial_state = {}
+    if not experiment_settings:
+        experiment_settings = {}
 
     total_time = simulation_settings['total_time']
     timestep = simulation_settings['timestep']
-    n_agents = simulation_settings['n_agents']
 
-    # agents initial state
-    agent_ids = [str(agent_id) for agent_id in range(n_agents)]
-    agent_config['agent_ids'] = agent_ids
+    # agents ids
+    agent_ids = []
+    for config in agents_config:
+        number = config['number']
+        if 'name' in config:
+            name = config['name']
+            new_agent_ids = [name + '_' + str(num) for num in range(number)]
+        else:
+            new_agent_ids = [str(uuid.uuid1()) for num in range(number)]
+        config['ids'] = new_agent_ids
+        agent_ids.extend(new_agent_ids)
+    n_agents = len(agent_ids)
+
     initial_agent_body = agent_body_config({
         'bounds': DEFAULT_BOUNDS,
         'agent_ids': agent_ids,
@@ -63,7 +76,7 @@ def simulate_chemotaxis_experiment(
 
     # make the experiment
     experiment = agent_environment_experiment(
-        agent_config,
+        agents_config,
         environment_config,
         initial_state,
         experiment_settings)
@@ -137,7 +150,6 @@ def plot_chemotaxis_experiment(data, field_config, filename):
 
 def run_mixed():
     filename = 'mixed'
-    n_agents = 2
     total_time = 360
     timestep = 0.1
     compartment_config = {
@@ -147,32 +159,32 @@ def run_mixed():
         'agents_path': ('..', '..', 'agents')}
 
     # configure
-    agent_config = [
+    agents_config = [
         {
             'type': ChemotaxisMinimal,
+            'name': 'motor_receptor',
             'number': 1,
             'config': compartment_config
         },
         {
             'type': MotorActivityAgent,
+            'name': 'motor',
             'number': 1,
             'config': compartment_config
         }
     ]
 
-
-
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
+
     simulation_settings = {
-        'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
     # simulate
     data = simulate_chemotaxis_experiment(
-        agent_config=agent_config,
+        agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
     )
@@ -185,7 +197,6 @@ def run_mixed():
 def run_minimal():
     filename = 'minimal'
     agent_type = ChemotaxisMinimal
-    n_agents = 2
     total_time = 360
     timestep = 0.1
     compartment_config = {
@@ -195,20 +206,26 @@ def run_minimal():
         'agents_path': ('..', '..', 'agents')}
 
     # configure
-    agent_config = {
-        'type': agent_type,
-        'config': compartment_config}
+    agents_config = [
+            {
+                'number': 2,
+                'type': agent_type,
+                'config': compartment_config
+            }
+        ]
+
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
+
     simulation_settings = {
-        'n_agents': n_agents,
+        # 'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
     # simulate
     data = simulate_chemotaxis_experiment(
-        agent_config=agent_config,
+        agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
     )
@@ -223,7 +240,6 @@ def run_master():
 
     filename = 'master'
     agent_type = ChemotaxisMaster
-    n_agents = 1
     total_time = 30
     timestep = 0.1
     compartment_config = {
@@ -233,20 +249,26 @@ def run_master():
         'agents_path': ('..', '..', 'agents')}
 
     # configure
-    agent_config = {
-        'type': agent_type,
-        'config': compartment_config}
+    agents_config = [
+            {
+                'number': 1,
+                'type': agent_type,
+                'config': compartment_config
+            }
+        ]
+
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
+
     simulation_settings = {
-        'n_agents': n_agents,
+        # 'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
     # simulate
     data = simulate_chemotaxis_experiment(
-        agent_config=agent_config,
+        agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
     )
@@ -262,7 +284,7 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     parser = argparse.ArgumentParser(description='multibody')
-    parser.add_argument('--minimal', '-l', action='store_true', default=False)
+    parser.add_argument('--minimal', '-n', action='store_true', default=False)
     parser.add_argument('--master', '-m', action='store_true', default=False)
     parser.add_argument('--mixed', '-x', action='store_true', default=False)
     args = parser.parse_args()
