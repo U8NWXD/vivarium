@@ -38,7 +38,12 @@ DEFAULT_LIGAND_ID = 'MeAsp'
 DEFAULT_INITIAL_LIGAND = 2.0
 DEFAULT_ENVIRONMENT_TYPE = StaticLattice
 
-MotorActivityAgent = process_in_compartment(MotorActivity)
+MotorActivityAgent = process_in_compartment(
+    MotorActivity,
+    paths={
+        'external': ('boundary',),
+        'internal': ('cell',)
+    })
 
 
 def simulate_chemotaxis_experiment(

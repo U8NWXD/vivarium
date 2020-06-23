@@ -108,12 +108,12 @@ def agent_environment_experiment(
         'emitter': emitter,
         'initial_state': initial_state})
 
-def process_in_compartment(process, config={}):
+def process_in_compartment(process, paths={}):
     """ put a lone process in a compartment"""
     class ProcessCompartment(Compartment):
         def __init__(self, config):
             self.config = config
-            self.paths = self.config.get('topology', {})
+            self.paths = paths
             self.process = process(config)
 
         def generate_processes(self, config):
