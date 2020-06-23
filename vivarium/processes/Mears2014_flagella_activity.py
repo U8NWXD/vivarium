@@ -132,17 +132,17 @@ class FlagellaActivity(Process):
             '_emit': True}
 
         # flagella_activity
-        schema['flagella_activity']['*'] = {
-            '_default': 1,
-            '_updater': 'set',
-            '_emit': True}
-        schema['flagella_activity']['_divider'] = 'split_dict'
-        # schema['flagella_activity']['flagella'] = {
-        #     '_default': {
-        #             flagella_id: random.choice([-1, 1]) for flagella_id in self.flagella_ids},
+        # schema['flagella_activity']['*'] = {
+        #     '_default': 1,
         #     '_updater': 'set',
-        #     '_emit': True,
-        #     '_divider': 'split_dict'}
+        #     '_emit': True}
+        # schema['flagella_activity']['_divider'] = 'split_dict'
+        schema['flagella_activity']['flagella'] = {
+            '_default': {
+                    flagella_id: random.choice([-1, 1]) for flagella_id in self.flagella_ids},
+            '_updater': 'set',
+            '_emit': True,
+            '_divider': 'split_dict'}
 
         return schema
 
