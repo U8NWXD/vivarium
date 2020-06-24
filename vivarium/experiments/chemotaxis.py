@@ -4,6 +4,7 @@ import os
 import sys
 import uuid
 import argparse
+import copy
 
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.experiment import (
@@ -34,7 +35,7 @@ from vivarium.plots.multibody_physics import (
 from vivarium.processes.static_field import make_field
 
 
-DEFAULT_BOUNDS = [1000, 6000]
+DEFAULT_BOUNDS = [1000, 5000]
 DEFAULT_AGENT_LOCATION = [0.5, 0.1]
 DEFAULT_LIGAND_ID = 'MeAsp'
 DEFAULT_INITIAL_LIGAND = 25.0
@@ -108,7 +109,7 @@ def get_environment_config():
     # multibody process config
     multibody_config = {
         'animate': False,
-        'jitter_force': 0.0,
+        'jitter_force': 5e-4,
         'bounds': DEFAULT_BOUNDS}
 
     # static field config
@@ -148,9 +149,10 @@ def plot_chemotaxis_experiment(data, field_config, filename):
     field = make_field(field_config)
     trajectory_config = {
         'bounds': field_config['bounds'],
-        'field': field}
+        'field': field,
+        'rotate_90': True}
 
-    plot_temporal_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_temporal')
+    plot_temporal_trajectory(copy.deepcopy(agents_timeseries), trajectory_config, out_dir, filename + '_temporal')
     plot_agent_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
     try:
         plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
@@ -173,13 +175,13 @@ def run_mixed():
         {
             'type': ChemotaxisMinimal,
             'name': 'motor_receptor',
-            'number': 2,
+            'number': 1,
             'config': compartment_config
         },
         {
             'type': MotorActivityAgent,
             'name': 'motor',
-            'number': 2,
+            'number': 1,
             'config': compartment_config
         }
     ]
@@ -218,7 +220,7 @@ def run_minimal():
     # configure
     agents_config = [
             {
-                'number': 2,
+                'number': 6,
                 'type': agent_type,
                 'config': compartment_config
             }

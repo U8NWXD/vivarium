@@ -572,6 +572,18 @@ class Store(object):
 
                 update = dissoc(update, ['_delete'])
 
+            if '_add' in update:
+                # add a list of sub-compartments
+                for added in update['_add']:
+                    path = added['path']
+                    state = added['state']
+                    target = self.establish_path(path, {})
+                    target.set_value(state)
+                    target.outer.apply_subschemas()
+                    target.apply_defaults()
+
+                update = dissoc(update, ['_add'])
+
             if '_generate' in update:
                 # generate a list of new compartments
                 for generate in update['_generate']:

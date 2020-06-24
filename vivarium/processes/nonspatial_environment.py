@@ -9,7 +9,7 @@ from vivarium.core.process import Deriver
 from vivarium.processes.derive_globals import AVOGADRO
 
 
-class OneDimEnvironment(Deriver):
+class NonSpatialEnvironment(Deriver):
     '''A non-spatial environment with volume'''
 
     defaults = {
@@ -23,7 +23,7 @@ class OneDimEnvironment(Deriver):
         self.mmol_to_counts = (AVOGADRO.to('1/mmol') * volume).to('L/mmol')
 
         parameters = initial_parameters
-        super(OneDimEnvironment, self).__init__(parameters)
+        super(NonSpatialEnvironment, self).__init__(parameters)
 
     def ports_schema(self):
         return {

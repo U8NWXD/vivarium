@@ -64,10 +64,9 @@ class ChemotaxisVariableFlagella(Compartment):
             'flagella': {
                 'internal': ('internal',),
                 'membrane': ('membrane',),
-                'flagella_counts': ('proteins',),
-                'flagella_activity': ('flagella_activity',),
-                'boundary': boundary_path,
-                'external': boundary_path},  # TODO -- is external being used?
+                'internal_counts': ('proteins',),
+                'flagella': ('flagella',),
+                'boundary': boundary_path},
         }
 
 

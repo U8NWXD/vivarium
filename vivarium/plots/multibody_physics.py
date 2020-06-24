@@ -187,12 +187,13 @@ def initialize_spatial_figure(bounds, fontsize=18):
     # set up figure
     n_ticks = 4
     plot_buffer = 0.02
-    y_ratio = y_length / x_length
     buffer = plot_buffer * min(bounds)
     min_edge = min(x_length, y_length)
+    x_scale = x_length/min_edge
+    y_scale = y_length/min_edge
 
     # make the figure
-    fig = plt.figure(figsize=(8, 8*y_ratio))
+    fig = plt.figure(figsize=(8*x_scale, 8*y_scale))
     plt.rcParams.update({'font.size': fontsize, "font.family": "Times New Roman"})
 
     plt.xlim((0-buffer, x_length+buffer))
@@ -210,16 +211,23 @@ def initialize_spatial_figure(bounds, fontsize=18):
 def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
     check_plt_backend()
 
-    bounds = config.get('bounds', DEFAULT_BOUNDS)
-    field = config.get('field')
-
     # trajectory plot settings
     legend_fontsize = 18
     markersize = 30
 
+    bounds = config.get('bounds', DEFAULT_BOUNDS)
+    field = config.get('field')
+    rotate_90 = config.get('rotate_90', False)
+
     # get agents
     times = np.array(agent_timeseries['time'])
     agents = agent_timeseries['agents']
+
+    if rotate_90:
+        field = rotate_field_90(field)
+        for agent_id, series in agents.items():
+            agents[agent_id] = rotate_agent_series_90(series, bounds)
+        bounds = rotate_bounds_90(bounds)
 
     # get each agent's trajectory
     trajectories = {}
@@ -277,23 +285,43 @@ def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='tra
     plt.close(fig)
 
 
+def rotate_bounds_90(bounds):
+    return [bounds[1], bounds[0]]
+
+def rotate_field_90(field):
+    return np.rot90(field, 3)  # rotate 3 times for 270
+
+def rotate_agent_series_90(series, bounds):
+    location_series = series['boundary']['location']  #[time_idx]
+    angle_series = series['boundary']['angle']  #[time_idx]
+    series['boundary']['location'] = [[y, bounds[0] - x] for [x, y] in location_series]
+    series['boundary']['angle'] = [theta + PI / 2 for theta in angle_series]
+    return series
+
 def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='temporal'):
     check_plt_backend()
 
     bounds = config.get('bounds', DEFAULT_BOUNDS)
     field = config.get('field')
+    rotate_90 = config.get('rotate_90', False)
 
     # get agents
     times = np.array(agent_timeseries['time'])
     agents = agent_timeseries['agents']
 
+    if rotate_90:
+        field = rotate_field_90(field)
+        for agent_id, series in agents.items():
+            agents[agent_id] = rotate_agent_series_90(series, bounds)
+        bounds = rotate_bounds_90(bounds)
+
     # get each agent's trajectory
     trajectories = {}
-    for agent_id, data in agents.items():
+    for agent_id, series in agents.items():
         trajectories[agent_id] = []
         for time_idx, time in enumerate(times):
-            x, y = data['boundary']['location'][time_idx]
-            theta = data['boundary']['angle'][time_idx]
+            x, y = series['boundary']['location'][time_idx]
+            theta = series['boundary']['angle'][time_idx]
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
@@ -424,7 +452,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
     ax1.axhline(y=expected_velocity, color='r', linestyle='dashed', label='expected mean')
     ax1.set_ylabel(u'velocity \n (\u03bcm/sec)')
     ax1.set_xlabel('time')
-    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax2 = plt.subplot(rows, cols, 2)
     for agent_id, analysis in motility_analysis.items():
@@ -432,7 +460,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         ax2.plot(times, angular_velocity, label=agent_id)
     ax2.set_ylabel(u'angular velocity \n (degrees/sec)')
     ax2.set_xlabel('time')
-    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax3 = plt.subplot(rows, cols, 3)
     for agent_id, analysis in motility_analysis.items():
@@ -450,7 +478,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         plot_angles = [point[1] for point in run_angle_points]
         mean_angle_change = np.mean(plot_angles)
         ax3.scatter(plot_times, plot_angles, label=agent_id)
-        ax3.axhline(y=mean_angle_change, linestyle='dashed', label='mean_' + agent_id)
+        ax3.axhline(y=mean_angle_change, linestyle='dashed') #, label='mean_' + agent_id)
     ax3.set_ylabel(u'degrees \n between runs')
     ax3.axhline(y=expected_angle_between_runs, color='r', linestyle='dashed', label='expected')
     ax3.legend(loc='center left', bbox_to_anchor=(1, 0.5))
