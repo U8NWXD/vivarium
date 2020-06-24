@@ -546,6 +546,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     agents_key = settings.get('agents_key', 'agents')
     max_rows = settings.get('max_rows', 25)
     skip_paths = settings.get('skip_paths', [])
+    title_size = settings.get('title_size', 16)
     time_vec = list(data.keys())
     timeseries = path_timeseries_from_data(data)
 
@@ -605,7 +606,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
             # make the subplot axis
             ax = fig.add_subplot(grid[row_idx, col_idx])
             ax.title.set_text(path)
-            ax.title.set_fontsize(16)
+            ax.title.set_fontsize(title_size)
             ax.set_xlim([time_vec[0], time_vec[-1]])
 
             # if last state in this port, add time ticks
