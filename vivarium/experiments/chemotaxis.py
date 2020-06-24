@@ -4,6 +4,7 @@ import os
 import sys
 import uuid
 import argparse
+import copy
 
 from vivarium.core.emitter import timeseries_from_data
 from vivarium.core.experiment import (
@@ -148,9 +149,10 @@ def plot_chemotaxis_experiment(data, field_config, filename):
     field = make_field(field_config)
     trajectory_config = {
         'bounds': field_config['bounds'],
-        'field': field}
+        'field': field,
+        'rotate_90': True}
 
-    plot_temporal_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_temporal')
+    plot_temporal_trajectory(copy.deepcopy(agents_timeseries), trajectory_config, out_dir, filename + '_temporal')
     plot_agent_trajectory(agents_timeseries, trajectory_config, out_dir, filename + '_trajectory')
     try:
         plot_motility(agents_timeseries, out_dir, filename + '_motility_analysis')
