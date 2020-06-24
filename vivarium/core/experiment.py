@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import copy
-import uuid
 import random
 import datetime
 
@@ -1104,7 +1103,8 @@ def timestamp(dt=None):
 class Experiment(object):
     def __init__(self, config):
         self.config = config
-        self.experiment_id = config.get('experiment_id', str(uuid.uuid1()))
+        self.experiment_id = config.get(
+            'experiment_id', datetime.datetime.now().isoformat())
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
