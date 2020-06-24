@@ -462,8 +462,11 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     # save fluxes as node size
     reaction_fluxes = {}
     for rxn_id in reaction_ids:
-        flux = abs(np.mean(reactions[rxn_id][1:]))
-        reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        if rxn_id in reactions:
+            flux = abs(np.mean(reactions[rxn_id][1:]))
+            reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        else:
+            reaction_fluxes[rxn_id] = 1
 
     # define node type
     node_types = {rxn_id: 'reaction' for rxn_id in reaction_ids}
