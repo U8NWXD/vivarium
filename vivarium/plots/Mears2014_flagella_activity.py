@@ -7,34 +7,37 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.patches import Patch
 
+from vivarium.core.emitter import timeseries_from_data
 
 
-def plot_activity(output, out_dir='out', filename='motor_control'):
-    # receptor_activities = output['receptor_activities']
-    CheY_vec = output['internal']['CheY']
-    CheY_P_vec = output['internal']['CheY_P']
-    cw_bias_vec = output['internal']['cw_bias']
-    motile_state_vec = output['internal']['motile_state']
-    thrust_vec = output['boundary']['thrust']
-    flagella_activity = output['flagella_activity']['flagella']
-    time_vec = output['time']
 
-    # get flagella ids by order appearance
-    flagella_ids = []
-    for state in flagella_activity:
-        flg_ids = list(state.keys())
-        for flg_id in flg_ids:
-            if flg_id not in flagella_ids:
-                flagella_ids.append(flg_id)
+def plot_activity(data, out_dir='out', filename='motor_control'):
+    timeseries = timeseries_from_data(data)
+
+    CheY_vec = timeseries['internal']['CheY']
+    CheY_P_vec = timeseries['internal']['CheY_P']
+    cw_bias_vec = timeseries['internal']['cw_bias']
+    motile_state_vec = timeseries['internal']['motile_state']
+    thrust_vec = timeseries['boundary']['thrust']
+    flagella_activity = timeseries.get('flagella', {})
+    time_vec = timeseries['time']
 
     # make flagella activity grid
+    flagella_ids = list(flagella_activity.keys())
+    flagella_indexes = {}
+    next_index = 0
     activity_grid = np.zeros((len(flagella_ids), len(time_vec)))
     total_CW = np.zeros((len(time_vec)))
-    for time_index, flagella_state in enumerate(flagella_activity):
-        for flagella_id, rotation_states in flagella_state.items():
+    for time_index, (time, time_data) in enumerate(data.items()):
+        time_flagella = time_data.get('flagella', {})
 
-            # get this flagella's index
-            flagella_index = flagella_ids.index(flagella_id)
+        for flagella_id, rotation_states in time_flagella.items():
+
+            # get flagella_index by order of appearance
+            if flagella_id not in flagella_indexes:
+                flagella_indexes[flagella_id] = next_index
+                next_index += 1
+            flagella_index = flagella_indexes[flagella_id]
 
             modified_rotation_state = 0
             CW_rotation_state = 0
