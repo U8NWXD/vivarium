@@ -452,7 +452,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
     ax1.axhline(y=expected_velocity, color='r', linestyle='dashed', label='expected mean')
     ax1.set_ylabel(u'velocity \n (\u03bcm/sec)')
     ax1.set_xlabel('time')
-    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax2 = plt.subplot(rows, cols, 2)
     for agent_id, analysis in motility_analysis.items():
@@ -460,7 +460,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         ax2.plot(times, angular_velocity, label=agent_id)
     ax2.set_ylabel(u'angular velocity \n (degrees/sec)')
     ax2.set_xlabel('time')
-    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax3 = plt.subplot(rows, cols, 3)
     for agent_id, analysis in motility_analysis.items():
@@ -478,7 +478,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         plot_angles = [point[1] for point in run_angle_points]
         mean_angle_change = np.mean(plot_angles)
         ax3.scatter(plot_times, plot_angles, label=agent_id)
-        ax3.axhline(y=mean_angle_change, linestyle='dashed', label='mean_' + agent_id)
+        ax3.axhline(y=mean_angle_change, linestyle='dashed') #, label='mean_' + agent_id)
     ax3.set_ylabel(u'degrees \n between runs')
     ax3.axhline(y=expected_angle_between_runs, color='r', linestyle='dashed', label='expected')
     ax3.legend(loc='center left', bbox_to_anchor=(1, 0.5))
