@@ -28,8 +28,11 @@ class TimelineProcess(Process):
     def ports_schema(self):
 
         schema = {
-            port: {'_default': 0.0}
-            for port in list(self.ports.keys()) if port not in ['global']}
+            port: {
+                '*': {
+                    '_default': 0.0}}
+            for port in list(self.ports.keys())
+            if port not in ['global']}
 
         schema.update({
             'global': {

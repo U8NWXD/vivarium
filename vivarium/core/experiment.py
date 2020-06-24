@@ -218,6 +218,8 @@ class Store(object):
             config = without(config, '_subtopology')
 
         if self.schema_keys & config.keys():
+            if self.inner:
+                raise Exception('trying to assign leaf values to a branch at: {}'.format(self.path_for()))
             self.leaf = True
 
             # self.units = config.get('_units', self.units)
@@ -257,6 +259,9 @@ class Store(object):
                 self.sources[source] = config
 
         else:
+            if self.leaf and config:
+                raise Exception('trying to assign create inner for leaf node: {}'.format(self.path_for()))
+
             self.value = None
 
             for key, child in config.items():
@@ -579,8 +584,8 @@ class Store(object):
                     state = added['state']
                     target = self.establish_path(path, {})
                     target.set_value(state)
-                    target.outer.apply_subschemas()
-                    target.apply_defaults()
+                self.apply_subschemas()
+                self.apply_defaults()
 
                 update = dissoc(update, ['_add'])
 
