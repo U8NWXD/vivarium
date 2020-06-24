@@ -217,9 +217,8 @@ class Store(object):
             self.merge_subtopology(config['_subtopology'])
             config = without(config, '_subtopology')
 
-        if self.schema_keys & config.keys():
+        if self.schema_keys & set(config.keys()):
             self.leaf = True
-
             # self.units = config.get('_units', self.units)
             if '_serializer' in config:
                 self.serializer = config['_serializer']
@@ -648,7 +647,9 @@ class Store(object):
                     initial=reduction['initial'])
 
             updater = self.updater
-            if isinstance(update, dict) and self.schema_keys & update.keys():
+            if (
+                isinstance(update, dict) and self.schema_keys & set(update.keys())
+            ):
                 if '_updater' in update:
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
