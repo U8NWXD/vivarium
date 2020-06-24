@@ -123,7 +123,6 @@ class TransportMetabolism(Compartment):
     def generate_topology(self, config):
         exchange_path =  self.boundary_path + ('exchange',)
         external_path = self.boundary_path + ('external',)
-        # properties_path = self.boundary_path + ('properties',)
         return {
             'transport': {
                 'internal': ('cytoplasm',),
