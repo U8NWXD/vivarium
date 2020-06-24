@@ -174,7 +174,6 @@ class ODE_expression(Process):
         'transcription_leak': {
             'sigma': 0.0,
             'magnitude': 0.0},
-
         'regulation': {},
         'regulators': [],
         'initial_state': {},
@@ -184,8 +183,6 @@ class ODE_expression(Process):
     def __init__(self, initial_parameters=None):
         if initial_parameters is None:
             initial_parameters = {}
-
-        # TODO -- kinetic regulation, cooperativity, autoinhibition, autactivation
 
         # ode gene expression
         self.transcription = initial_parameters.get(
