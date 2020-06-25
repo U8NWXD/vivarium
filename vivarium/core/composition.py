@@ -166,6 +166,7 @@ def make_experiment_from_compartment_dicts(
 def process_in_experiment(process, settings={}):
     initial_state = settings.get('initial_state', {})
     emitter = settings.get('emitter', {'type': 'timeseries'})
+    emit_step = settings.get('emit_step')
     timeline = settings.get('timeline', [])
     environment = settings.get('environment', {})
     paths = settings.get('topology', {})
@@ -207,6 +208,7 @@ def process_in_experiment(process, settings={}):
         'processes': processes,
         'topology': topology,
         'emitter': emitter,
+        'emit_step': emit_step,
         'initial_state': initial_state})
 
 def compartment_in_experiment(compartment, settings={}):
@@ -214,6 +216,7 @@ def compartment_in_experiment(compartment, settings={}):
     timeline = settings.get('timeline', {})
     environment = settings.get('environment', {})
     outer_path = settings.get('outer_path', tuple())
+    emit_step = settings.get('emit_step')
 
     network = compartment.generate(compartment_config, outer_path)
     processes = network['processes']
@@ -250,6 +253,7 @@ def compartment_in_experiment(compartment, settings={}):
         'processes': processes,
         'topology': topology,
         'emitter': settings.get('emitter', {'type': 'timeseries'}),
+        'emit_step': emit_step,
         'initial_state': settings.get('initial_state', {})})
 
 
@@ -276,7 +280,6 @@ def simulate_experiment(experiment, settings={}):
         - a timeseries of variables from all ports.
         - if 'return_raw_data' is True, it returns the raw data instead
     '''
-    timestep = settings.get('timestep', 1)
     total_time = settings.get('total_time', 10)
     return_raw_data = settings.get('return_raw_data', False)
 
@@ -284,7 +287,7 @@ def simulate_experiment(experiment, settings={}):
         total_time = settings['timeline']['timeline'][-1][0]
 
     # run simulation
-    experiment.update_interval(total_time, timestep)
+    experiment.update(total_time)
 
     if return_raw_data:
         return experiment.emitter.get_data()
@@ -856,23 +859,15 @@ class ToyLinearGrowthDeathProcess(Process):
         super(ToyLinearGrowthDeathProcess, self).__init__(initial_parameters)
 
     def ports_schema(self):
-        schema = {
+        return {
             'global': {
                 'mass': {
-                    '_default': 0.0,
-                    '_emit': True}}}
-
-        schema['targets'] = {
-            target: {
-                '_default': None}
-            for target in self.targets}
-
-        # schema['global'].update({
-        #     target: {
-        #         '_default': None}
-        #     for target in self.targets})
-
-        return schema
+                    '_default': 1.0,
+                    '_emit': True}},
+            'targets': {
+                target: {
+                    '_default': None}
+                for target in self.targets}}
 
     def next_update(self, timestep, states):
         mass = states['global']['mass']
@@ -893,6 +888,7 @@ class TestSimulateProcess:
         '''Check that processes are successfully deleted'''
         process = ToyLinearGrowthDeathProcess({'targets': ['process']})
         settings = {
+            'emit_step': 1,
             'topology': {
                 'global': ('global',),
                 'targets': tuple()}}
@@ -901,7 +897,7 @@ class TestSimulateProcess:
         expected_masses = [
             # Mass stops increasing the iteration after mass > 5 because
             # cell dies
-            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0]
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0, 7.0]
         masses = timeseries['global']['mass']
         assert masses == expected_masses
 
@@ -1056,7 +1052,6 @@ class ToyCompartment(Compartment):
 def test_compartment():
     toy_compartment = ToyCompartment({})
     settings = {
-        'timestep': 1,
         'total_time': 10,
         'initial_state': {
             'periplasm': {

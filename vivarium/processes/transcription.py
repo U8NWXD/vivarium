@@ -549,7 +549,7 @@ def test_transcription():
             'factors': {'tfA': 0.2, 'tfB': 0.7}}})
 
     pp(experiment.state.get_value())
-    experiment.update_interval(10.0, 1.0)
+    experiment.update(10.0)
     pp(experiment.state.get_value())
 
     print('complete!')

@@ -114,7 +114,7 @@ def run_antibiotics_composite():
         'environment_port': ('environment',),
         'exchange_port': ('exchange',),
         'environment_volume': 1e-5,  # L
-        'timestep': 1,
+        'emit_step': 1,
         'total_time': DIVISION_TIME * NUM_DIVISIONS,
     }
     config = {
