@@ -333,8 +333,8 @@ def get_lacy_config():
     regulators = [('external', 'glc__D_e')]
     regulation = {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
     transcription_leak = {
-        'sigma': 2.0e-4,
-        'magnitude': 6e-6}
+        'sigma': 1e-4,
+        'magnitude': 1e-6}
 
     # initial state
     initial_state = {
@@ -342,7 +342,8 @@ def get_lacy_config():
             'lacy_RNA': 0.0,
             'LacY': 0.0},
         'external': {
-            'glc__D_e': 8.0}}
+            'glc__D_e': 8.0,
+            'lcts_e': 8.0}}
 
     return {
         'transcription_rates': transcription_rates,

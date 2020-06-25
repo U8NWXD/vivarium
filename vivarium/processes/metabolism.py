@@ -176,8 +176,8 @@ class Metabolism(Process):
         self.initial_state = {
             'external': external_state,
             'internal': internal_state,
-            'flux_bounds': {state_id: self.default_upper_bound
-                            for state_id in self.constrained_reaction_ids},
+            'flux_bounds': {reaction_id: self.default_upper_bound
+                            for reaction_id in self.constrained_reaction_ids},
         }
 
         # parameters
@@ -236,7 +236,7 @@ class Metabolism(Process):
         # flux_bounds
         for state in self.constrained_reaction_ids:
             schema['flux_bounds'][state] = {
-                '_default': self.initial_state['flux_bounds'].get('state', 1000.0),
+                '_default': self.initial_state['flux_bounds'].get(state, self.default_upper_bound),
                 '_emit': True,
             }
 

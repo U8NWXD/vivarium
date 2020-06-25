@@ -217,6 +217,8 @@ class Store(object):
             config = without(config, '_subtopology')
 
         if self.schema_keys & set(config.keys()):
+            if self.inner:
+                raise Exception('trying to assign leaf values to a branch at: {}'.format(self.path_for()))
             self.leaf = True
             # self.units = config.get('_units', self.units)
             if '_serializer' in config:
@@ -255,6 +257,9 @@ class Store(object):
                 self.sources[source] = config
 
         else:
+            if self.leaf and config:
+                raise Exception('trying to assign create inner for leaf node: {}'.format(self.path_for()))
+
             self.value = None
 
             for key, child in config.items():
@@ -577,8 +582,8 @@ class Store(object):
                     state = added['state']
                     target = self.establish_path(path, {})
                     target.set_value(state)
-                    target.outer.apply_subschemas()
-                    target.apply_defaults()
+                self.apply_subschemas()
+                self.apply_defaults()
 
                 update = dissoc(update, ['_add'])
 
@@ -871,9 +876,20 @@ class Store(object):
 
         source = source or self.path_for()
 
-        if schema.keys() & self.schema_keys:
+        if set(schema.keys()) & self.schema_keys:
             self.get_path(topology).apply_config(schema)
         else:
+            mismatch_topology = (
+                set(topology.keys()) - set(schema.keys()))
+            mismatch_schema = (
+                set(schema.keys()) - set(topology.keys()))
+            if mismatch_topology:
+                raise Exception(
+                    'topology at path {} and source {} has keys that are not in the schema: {}'.format(
+                        self.path_for(), source, mismatch_topology))
+            if mismatch_schema:
+                log.info('{} schema has keys not in topology: {}'.format(
+                    source, mismatch_schema))
             for port, subschema in schema.items():
                 path = topology.get(port, (port,))
 
@@ -1116,11 +1132,12 @@ class Experiment(object):
     def __init__(self, config):
         self.config = config
         self.experiment_id = config.get(
-            'experiment_id', datetime.datetime.now().isoformat())
+            'experiment_id', timestamp(datetime.datetime.utcnow()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
+        self.emit_step = config.get('emit_step')
 
         self.state = generate_state(
             self.processes,
@@ -1200,12 +1217,6 @@ class Experiment(object):
                 update = self.process_update(path, deriver, 0)
                 self.apply_update(update)
 
-    # def emit_paths(self, paths):
-    #     emit_config = {
-    #         'table': 'history',
-    #         'data': data}
-    #     self.emitter_emit(emit_config)
-
     def emit_data(self):
         data = self.state.emit_data()
         data.update({
@@ -1225,10 +1236,11 @@ class Experiment(object):
                 if state.value is not None and isinstance(state.value, Process) and state.value.is_deriver()}
         self.run_derivers(derivers)
 
-    def update(self, timestep):
-        """ Run each process for the given time step and update the related states. """
+    def update(self, interval):
+        """ Run each process for the given interval and update the related states. """
 
         time = 0
+        emit_time = self.emit_step
 
         def empty_front(t):
             return {
@@ -1238,7 +1250,7 @@ class Experiment(object):
         # keep track of which processes have simulated until when
         front = {}
 
-        while time < timestep:
+        while time < interval:
             full_step = INFINITY
 
             if VERBOSE:
@@ -1270,21 +1282,21 @@ class Experiment(object):
 
                 if process_time <= time:
                     process = state.value
-                    future = min(process_time + process.local_timestep(), timestep)
-                    interval = future - process_time
+                    future = min(process_time + process.local_timestep(), interval)
+                    timestep = future - process_time
 
                     # calculate the update for this process
-                    update = self.process_update(path, state, interval)
+                    update = self.process_update(path, state, timestep)
 
                     # store the update to apply at its projected time
-                    if interval < full_step:
-                        full_step = interval
+                    if timestep < full_step:
+                        full_step = timestep
                     front[path]['time'] = future
                     front[path]['update'] = update
 
             if full_step == INFINITY:
                 # no processes ran, jump to next process
-                next_event = timestep
+                next_event = interval
                 for process_name in front.keys():
                     if front[path]['time'] < next_event:
                         next_event = front[path]['time']
@@ -1304,23 +1316,25 @@ class Experiment(object):
                         paths.append(path)
 
                 self.send_updates(updates, derivers)
-                # self.emit_paths(paths)
-                self.emit_data()
 
                 time = future
+                self.local_time += full_step
+
+                if self.emit_step is None:
+                    self.emit_data()
+                elif emit_time <= time:
+                    while emit_time <= time:
+                        self.emit_data()
+                        emit_time += self.emit_step
 
         for process_name, advance in front.items():
-            assert advance['time'] == time == timestep
+            assert advance['time'] == time == interval
             assert len(advance['update']) == 0
 
-        self.local_time += timestep
 
-        # run emitters
-        # self.emit_data()
-
-    def update_interval(self, time, interval):
-        while self.local_time < time:
-            self.update(interval)
+    # def update_interval(self, time, interval):
+    #     while self.local_time < time:
+    #         self.update(interval)
 
 
 # Tests
@@ -1556,7 +1570,7 @@ def test_topology_ports():
 
     log.debug(pf(experiment.state.get_config(True)))
 
-    experiment.update_interval(10.0, 1.0)
+    experiment.update(10.0)
 
     log.debug(pf(experiment.state.get_config(True)))
 

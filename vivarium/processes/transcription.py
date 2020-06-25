@@ -502,7 +502,7 @@ class Transcription(Process):
         chromosome_dict = chromosome.to_dict()
         rnaps = chromosome_dict['rnaps']
 
-        completed_rnaps = original_rnap_keys - rnaps.keys()
+        completed_rnaps = set(original_rnap_keys) - set(rnaps.keys())
         rnap_updates = {
             rnap_id: rnap
             for rnap_id, rnap in rnaps.items()
@@ -549,7 +549,7 @@ def test_transcription():
             'factors': {'tfA': 0.2, 'tfB': 0.7}}})
 
     pp(experiment.state.get_value())
-    experiment.update_interval(10.0, 1.0)
+    experiment.update(10.0)
     pp(experiment.state.get_value())
 
     print('complete!')

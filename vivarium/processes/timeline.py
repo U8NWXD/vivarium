@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import copy
 
-from vivarium.library.dict_utils import deep_merge
+from vivarium.library.dict_utils import deep_merge_combine_lists
 from vivarium.core.experiment import Compartment
 from vivarium.core.process import Process
 
@@ -18,9 +18,9 @@ class TimelineProcess(Process):
         # get ports
         self.ports = {'global': ['time']}
         for event in self.timeline:
-            for state in list(event[1].keys()):
-                port = {state[0]: [state[1]]}
-                deep_merge(self.ports, port)
+            for state in event[1].keys():
+                port = {state[0]: [state[1:]]}
+                self.ports = deep_merge_combine_lists(self.ports, port)
 
         parameters = {'timeline': self.timeline}
         super(TimelineProcess, self).__init__(parameters)
@@ -28,8 +28,11 @@ class TimelineProcess(Process):
     def ports_schema(self):
 
         schema = {
-            port: {'_default': 0.0}
-            for port in list(self.ports.keys()) if port not in ['global']}
+            port: {
+                '*': {
+                    '_default': 0.0}}
+            for port in list(self.ports.keys())
+            if port not in ['global']}
 
         schema.update({
             'global': {
