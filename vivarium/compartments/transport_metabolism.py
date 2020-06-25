@@ -100,7 +100,7 @@ class TransportMetabolism(Compartment):
         metabolism = Metabolism(metabolism_config)
 
         # Gene expression
-        expression = ODE_expression(config.get( 'expression', {}))
+        expression = ODE_expression(config.get('expression', {}))
 
         # Division
         division_config = dict(
@@ -121,9 +121,8 @@ class TransportMetabolism(Compartment):
         }
 
     def generate_topology(self, config):
-        exchange_path =  self.boundary_path + ('exchange',)
+        exchange_path = self.boundary_path + ('exchange',)
         external_path = self.boundary_path + ('external',)
-        # properties_path = self.boundary_path + ('properties',)
         return {
             'transport': {
                 'internal': ('cytoplasm',),
@@ -170,17 +169,22 @@ def test_txp_mtb_ge():
 
 def simulate_txp_mtb_ge(config={}, out_dir='out'):
 
-    end_time = 200  # 2520 sec (42 min) is the expected doubling time in minimal media
+    end_time = 2520  # 2520 sec (42 min) is the expected doubling time in minimal media
+    environment_volume = 1e-14
     timeline = [
         (0, {
             ('external', 'glc__D_e'): 3.0,
             ('external', 'lcts_e'): 3.0,
         }),
+        # (500, {
+        #     ('external', 'glc__D_e'): 0.0,
+        #     ('external', 'lcts_e'): 3.0,
+        # }),
         (end_time, {})]
 
     sim_settings = {
         'environment': {
-            'volume': 1e-14 * units.L,
+            'volume': environment_volume * units.L,
             'ports': {
                 'external': ('boundary', 'external'),
                 'exchange': ('boundary', 'exchange'),
@@ -188,7 +192,8 @@ def simulate_txp_mtb_ge(config={}, out_dir='out'):
         'timeline': {
             'timeline': timeline,
             'ports': {
-                'external': ('boundary', 'external')}}}
+                'external': ('boundary', 'external')}}
+    }
 
     # run simulation
     compartment = TransportMetabolism({})

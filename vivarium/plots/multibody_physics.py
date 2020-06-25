@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.lines as mlines
 from matplotlib.colors import hsv_to_rgb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.collections import LineCollection
@@ -134,7 +135,9 @@ def plot_snapshots(data, plot_config):
     # make the figure
     n_rows = max(len(field_ids), 1)
     n_cols = n_snapshots + 1  # one column for the colorbar
-    fig = plt.figure(figsize=(12 * n_cols, 12 * n_rows))
+    figsize = (12 * n_cols, 12 * n_rows)
+    max_dpi = min([2**16 // dim for dim in figsize]) - 1
+    fig = plt.figure(figsize=figsize, dpi=min(max_dpi, 100))
     grid = plt.GridSpec(n_rows, n_cols, wspace=0.2, hspace=0.2)
     plt.rcParams.update({'font.size': 36})
 
@@ -178,21 +181,55 @@ def plot_snapshots(data, plot_config):
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close(fig)
 
+def initialize_spatial_figure(bounds, fontsize=18):
 
-def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
-    check_plt_backend()
-
-    plot_buffer = 0.02
-    bounds = config.get('bounds', DEFAULT_BOUNDS)
-    field = config.get('field')
     x_length = bounds[0]
     y_length = bounds[1]
-    y_ratio = y_length / x_length
+
+    # set up figure
+    n_ticks = 4
+    plot_buffer = 0.02
     buffer = plot_buffer * min(bounds)
+    min_edge = min(x_length, y_length)
+    x_scale = x_length/min_edge
+    y_scale = y_length/min_edge
+
+    # make the figure
+    fig = plt.figure(figsize=(8*x_scale, 8*y_scale))
+    plt.rcParams.update({'font.size': fontsize, "font.family": "Times New Roman"})
+
+    plt.xlim((0-buffer, x_length+buffer))
+    plt.ylim((0-buffer, y_length+buffer))
+    plt.xlabel(u'\u03bcm')
+    plt.ylabel(u'\u03bcm')
+
+    # specify the number of ticks for each edge
+    [x_bins, y_bins] = [int(n_ticks * edge / min_edge) for edge in [x_length, y_length]]
+    plt.locator_params(axis='y', nbins=y_bins)
+    plt.locator_params(axis='x', nbins=x_bins)
+
+    return fig
+
+def plot_agent_trajectory(agent_timeseries, config, out_dir='out', filename='trajectory'):
+    check_plt_backend()
+
+    # trajectory plot settings
+    legend_fontsize = 18
+    markersize = 30
+
+    bounds = config.get('bounds', DEFAULT_BOUNDS)
+    field = config.get('field')
+    rotate_90 = config.get('rotate_90', False)
 
     # get agents
     times = np.array(agent_timeseries['time'])
     agents = agent_timeseries['agents']
+
+    if rotate_90:
+        field = rotate_field_90(field)
+        for agent_id, series in agents.items():
+            agents[agent_id] = rotate_agent_series_90(series, bounds)
+        bounds = rotate_bounds_90(bounds)
 
     # get each agent's trajectory
     trajectories = {}
@@ -204,8 +241,8 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
             pos = [x, y, theta]
             trajectories[agent_id].append(pos)
 
-    # make the figure
-    fig = plt.figure(figsize=(8, 8*y_ratio))
+    # initialize a spatial figure
+    fig = initialize_spatial_figure(bounds, legend_fontsize)
 
     if field is not None:
         field = np.transpose(field)
@@ -224,6 +261,90 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
         x_coord = locations_array[:, 0]
         y_coord = locations_array[:, 1]
 
+        # plot line
+        plt.plot(x_coord, y_coord, linewidth=2, label=agent_id)
+        plt.plot(x_coord[0], y_coord[0],
+                 color=(0.0, 0.8, 0.0), marker='.', markersize=markersize)  # starting point
+        plt.plot(x_coord[-1], y_coord[-1],
+                 color='r', marker='.', markersize=markersize)  # ending point
+
+    # create legend for agent ids
+    first_legend = plt.legend(
+        title='agent ids', loc='center left', bbox_to_anchor=(1.01, 0.5), prop={'size': legend_fontsize})
+    ax = plt.gca().add_artist(first_legend)
+
+    # create a legend for start/end markers
+    start = mlines.Line2D([], [],
+            color=(0.0, 0.8, 0.0), marker='.', markersize=markersize, linestyle='None', label='start')
+    end = mlines.Line2D([], [],
+            color='r', marker='.', markersize=markersize, linestyle='None', label='end')
+    plt.legend(
+        handles=[start, end], loc='upper right', prop={'size': legend_fontsize})
+
+    fig_path = os.path.join(out_dir, filename)
+    plt.subplots_adjust(wspace=0.7, hspace=0.1)
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close(fig)
+
+
+def rotate_bounds_90(bounds):
+    return [bounds[1], bounds[0]]
+
+def rotate_field_90(field):
+    return np.rot90(field, 3)  # rotate 3 times for 270
+
+def rotate_agent_series_90(series, bounds):
+    location_series = series['boundary']['location']  #[time_idx]
+    angle_series = series['boundary']['angle']  #[time_idx]
+    series['boundary']['location'] = [[y, bounds[0] - x] for [x, y] in location_series]
+    series['boundary']['angle'] = [theta + PI / 2 for theta in angle_series]
+    return series
+
+def plot_temporal_trajectory(agent_timeseries, config, out_dir='out', filename='temporal'):
+    check_plt_backend()
+
+    bounds = config.get('bounds', DEFAULT_BOUNDS)
+    field = config.get('field')
+    rotate_90 = config.get('rotate_90', False)
+
+    # get agents
+    times = np.array(agent_timeseries['time'])
+    agents = agent_timeseries['agents']
+
+    if rotate_90:
+        field = rotate_field_90(field)
+        for agent_id, series in agents.items():
+            agents[agent_id] = rotate_agent_series_90(series, bounds)
+        bounds = rotate_bounds_90(bounds)
+
+    # get each agent's trajectory
+    trajectories = {}
+    for agent_id, series in agents.items():
+        trajectories[agent_id] = []
+        for time_idx, time in enumerate(times):
+            x, y = series['boundary']['location'][time_idx]
+            theta = series['boundary']['angle'][time_idx]
+            pos = [x, y, theta]
+            trajectories[agent_id].append(pos)
+
+    # initialize a spatial figure
+    fig = initialize_spatial_figure(bounds)
+
+    if field is not None:
+        field = np.transpose(field)
+        shape = field.shape
+        im = plt.imshow(field,
+                        origin='lower',
+                        extent=[0, shape[1], 0, shape[0]],
+                        cmap='Greys'
+                        )
+
+    for agent_id, agent_trajectory in trajectories.items():
+        # convert trajectory to 2D array
+        locations_array = np.array(agent_trajectory)
+        x_coord = locations_array[:, 0]
+        y_coord = locations_array[:, 1]
+
         # make multi-colored trajectory
         points = np.array([x_coord, y_coord]).T.reshape(-1, 1, 2)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -233,11 +354,6 @@ def plot_trajectory(agent_timeseries, config, out_dir='out', filename='trajector
 
         # plot line
         line = plt.gca().add_collection(lc)
-        plt.plot(x_coord[0], y_coord[0], color=(0.0, 0.8, 0.0), marker='*')  # starting point
-        plt.plot(x_coord[-1], y_coord[-1], color='r', marker='*')  # ending point
-
-    plt.xlim((0-buffer, x_length+buffer))
-    plt.ylim((0-buffer, y_length+buffer))
 
     # color bar
     cbar = plt.colorbar(line, ticks=[times[0], times[-1]], aspect=90, shrink=0.4)
@@ -338,7 +454,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
     ax1.axhline(y=expected_velocity, color='r', linestyle='dashed', label='expected mean')
     ax1.set_ylabel(u'velocity \n (\u03bcm/sec)')
     ax1.set_xlabel('time')
-    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax2 = plt.subplot(rows, cols, 2)
     for agent_id, analysis in motility_analysis.items():
@@ -346,7 +462,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         ax2.plot(times, angular_velocity, label=agent_id)
     ax2.set_ylabel(u'angular velocity \n (degrees/sec)')
     ax2.set_xlabel('time')
-    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     ax3 = plt.subplot(rows, cols, 3)
     for agent_id, analysis in motility_analysis.items():
@@ -364,7 +480,7 @@ def plot_motility(timeseries, out_dir='out', filename='motility_analysis'):
         plot_angles = [point[1] for point in run_angle_points]
         mean_angle_change = np.mean(plot_angles)
         ax3.scatter(plot_times, plot_angles, label=agent_id)
-        ax3.axhline(y=mean_angle_change, linestyle='dashed', label='mean_' + agent_id)
+        ax3.axhline(y=mean_angle_change, linestyle='dashed') #, label='mean_' + agent_id)
     ax3.set_ylabel(u'degrees \n between runs')
     ax3.axhline(y=expected_angle_between_runs, color='r', linestyle='dashed', label='expected')
     ax3.legend(loc='center left', bbox_to_anchor=(1, 0.5))

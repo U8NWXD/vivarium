@@ -163,10 +163,9 @@ class ChemotaxisMaster(Compartment):
             'flagella': {
                 'internal': ('internal',),
                 'membrane': ('membrane',),
-                'flagella_counts': ('proteins',),
-                'flagella_activity': ('flagella_activity',),
-                'boundary': self.boundary_path,
-                'external': self.boundary_path},  # TODO -- is external being used?
+                'internal_counts': ('proteins',),
+                'flagella': ('flagella',),
+                'boundary': self.boundary_path},
 
             'PMF': {
                 'external': external_path,

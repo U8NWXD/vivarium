@@ -176,8 +176,8 @@ class Metabolism(Process):
         self.initial_state = {
             'external': external_state,
             'internal': internal_state,
-            'flux_bounds': {state_id: self.default_upper_bound
-                            for state_id in self.constrained_reaction_ids},
+            'flux_bounds': {reaction_id: self.default_upper_bound
+                            for reaction_id in self.constrained_reaction_ids},
         }
 
         # parameters
@@ -229,14 +229,14 @@ class Metabolism(Process):
         for state in self.reaction_ids:
             schema['reactions'][state] = {
                 '_default': 0.0,
-                '_emit': True,
+                '_emit': state in self.constrained_reaction_ids,
                 '_updater': 'set',
             }
 
         # flux_bounds
         for state in self.constrained_reaction_ids:
             schema['flux_bounds'][state] = {
-                '_default': self.initial_state['flux_bounds'].get('state', 1000.0),
+                '_default': self.initial_state['flux_bounds'].get(state, self.default_upper_bound),
                 '_emit': True,
             }
 
@@ -462,8 +462,11 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     # save fluxes as node size
     reaction_fluxes = {}
     for rxn_id in reaction_ids:
-        flux = abs(np.mean(reactions[rxn_id][1:]))
-        reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        if rxn_id in reactions:
+            flux = abs(np.mean(reactions[rxn_id][1:]))
+            reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        else:
+            reaction_fluxes[rxn_id] = 1
 
     # define node type
     node_types = {rxn_id: 'reaction' for rxn_id in reaction_ids}
