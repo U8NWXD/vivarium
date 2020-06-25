@@ -305,8 +305,7 @@ def test_death_freeze_state(end_time=10, asserts=True):
             },
             'time': [],
         }
-        for i in range(end_time):
-            time = i + 1
+        for time in range(end_time + 1):
             expected_saved_states['cell']['antibiotic'].append(
                 time * TOY_INJECTION_RATE
                 if time <= expected_death
@@ -322,7 +321,8 @@ def test_death_freeze_state(end_time=10, asserts=True):
                 time * TOY_INJECTION_RATE)
             expected_saved_states['global']['dead'].append(
                 0 if time <= expected_death else 1)
-            expected_saved_states['time'].append(float(i))
+            expected_saved_states['time'].append(float(time))
+
         assert expected_saved_states == saved_states
 
     return saved_states
