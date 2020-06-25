@@ -131,37 +131,6 @@ def get_environment_config():
         'field': field_config}
 
 
-
-def plot_chemotaxis_experiment(data, field_config, out_dir):
-    ## plots
-    # multigen agents plot
-    plot_settings = {
-        'agents_key': 'agents',
-        'max_rows': 30,
-        'skip_paths': [
-            ('boundary', 'mass'),
-            ('boundary', 'length'),
-            ('boundary', 'width'),
-            ('boundary', 'location'),
-        ]}
-    plot_agents_multigen(data, plot_settings, out_dir, 'agents')
-
-    # trajectory and motility
-    agents_timeseries = timeseries_from_data(data)
-    field = make_field(field_config)
-    trajectory_config = {
-        'bounds': field_config['bounds'],
-        'field': field,
-        'rotate_90': True}
-
-    plot_temporal_trajectory(copy.deepcopy(agents_timeseries), trajectory_config, out_dir, 'temporal')
-    plot_agent_trajectory(agents_timeseries, trajectory_config, out_dir, 'trajectory')
-    try:
-        plot_motility(agents_timeseries, out_dir, 'motility_analysis')
-    except:
-        print('plot_motility failed')
-
-
 def get_default_config():
     total_time = 720
     timestep = 0.1
@@ -198,18 +167,26 @@ def get_default_config():
 def run_chemotaxis_experiment(config=None):
     if config is None:
         config = {}
-    config = deep_merge(get_default_config(), config)
+    default_config = get_default_config()
+    default_config = deep_merge(default_config, config)
 
-    agents_config = config['agents_config']
-    environment_config = config['environment_config']
-    simulation_settings = config['simulation_settings']
+
+    # TODO -- merge agent config lists.
+    import ipdb;
+    ipdb.set_trace()
+
+
+
+    agents_config = default_config['agents_config']
+    environment_config = default_config['environment_config']
+    simulation_settings = default_config['simulation_settings']
 
     data = simulate_chemotaxis_experiment(
             agents_config=agents_config,
             environment_config=environment_config,
             simulation_settings=simulation_settings)
-    return data
 
+    return data
 
 
 def run_mixed(out_dir='out'):
@@ -299,39 +276,26 @@ def run_variable(out_dir='out'):
 
 
 def run_minimal(out_dir='out'):
-    agent_type = ChemotaxisMinimal
-    total_time = 360
+    total_time = 30
     timestep = 0.1
-    compartment_config = {
-        'ligand_id': DEFAULT_LIGAND_ID,
-        'initial_ligand': DEFAULT_INITIAL_LIGAND,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
+    agent_type = ChemotaxisMinimal
 
-    # configure
-    agents_config = [
+    data = run_chemotaxis_experiment({
+            'agents_config': [
             {
                 'number': 6,
                 'type': agent_type,
-                'config': compartment_config
+                # 'config': compartment_config
             }
-        ]
+        ],
+            # 'environment_config': {},
+            'simulation_settings': {
+                'total_time': total_time,
+                'timestep': timestep}
+    })
 
-    environment_config = {
-        'type': DEFAULT_ENVIRONMENT_TYPE,
-        'config': get_environment_config()}
-
-    simulation_settings = {
-        # 'n_agents': n_agents,
-        'total_time': total_time,
-        'timestep': timestep}
-
-    # simulate
-    data = simulate_chemotaxis_experiment(
-        agents_config=agents_config,
-        environment_config=environment_config,
-        simulation_settings=simulation_settings,
-    )
+    import ipdb;
+    ipdb.set_trace()
 
     # plot
     field_config = environment_config['config']['field']
@@ -378,6 +342,36 @@ def run_master(out_dir='out'):
     # plot
     field_config = environment_config['config']['field']
     plot_chemotaxis_experiment(data, field_config, out_dir)
+
+
+def plot_chemotaxis_experiment(data, field_config, out_dir):
+    ## plots
+    # multigen agents plot
+    plot_settings = {
+        'agents_key': 'agents',
+        'max_rows': 30,
+        'skip_paths': [
+            ('boundary', 'mass'),
+            ('boundary', 'length'),
+            ('boundary', 'width'),
+            ('boundary', 'location'),
+        ]}
+    plot_agents_multigen(data, plot_settings, out_dir, 'agents')
+
+    # trajectory and motility
+    agents_timeseries = timeseries_from_data(data)
+    field = make_field(field_config)
+    trajectory_config = {
+        'bounds': field_config['bounds'],
+        'field': field,
+        'rotate_90': True}
+
+    plot_temporal_trajectory(copy.deepcopy(agents_timeseries), trajectory_config, out_dir, 'temporal')
+    plot_agent_trajectory(agents_timeseries, trajectory_config, out_dir, 'trajectory')
+    try:
+        plot_motility(agents_timeseries, out_dir, 'motility_analysis')
+    except:
+        print('plot_motility failed')
 
 
 def make_dir(out_dir):
