@@ -879,6 +879,12 @@ class Store(object):
         if schema.keys() & self.schema_keys:
             self.get_path(topology).apply_config(schema)
         else:
+            mismatch_topology = topology.keys() - schema.keys()
+            mismatch_schema = schema.keys() - topology.keys()
+            if mismatch_topology:
+                raise Exception('topology at path {} has keys that are not in the schema: {}'.format(self.path_for(), mismatch_topology))
+            if mismatch_schema:
+                log.info('{} schema has keys not in topology: {}'.format(source, mismatch_schema))
             for port, subschema in schema.items():
                 path = topology.get(port, (port,))
 
