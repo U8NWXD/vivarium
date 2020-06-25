@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import copy
-import uuid
 import random
 import datetime
 
@@ -217,11 +216,10 @@ class Store(object):
             self.merge_subtopology(config['_subtopology'])
             config = without(config, '_subtopology')
 
-        if self.schema_keys & config.keys():
+        if self.schema_keys & set(config.keys()):
             if self.inner:
                 raise Exception('trying to assign leaf values to a branch at: {}'.format(self.path_for()))
             self.leaf = True
-
             # self.units = config.get('_units', self.units)
             if '_serializer' in config:
                 self.serializer = config['_serializer']
@@ -665,7 +663,9 @@ class Store(object):
                     initial=reduction['initial'])
 
             updater = self.updater
-            if isinstance(update, dict) and self.schema_keys & update.keys():
+            if (
+                isinstance(update, dict) and self.schema_keys & set(update.keys())
+            ):
                 if '_updater' in update:
                     updater = self.get_updater(update)
                     update = update.get('_value', self.default)
@@ -711,7 +711,7 @@ class Store(object):
     def schema_topology(self, schema, topology):
         '''
         Fill in the structure of the given schema with the values located according
-        to the given topology. 
+        to the given topology.
         '''
 
         state = {}
@@ -785,7 +785,7 @@ class Store(object):
             subschema = self.subschema
         if subtopology is None:
             subtopology = self.subtopology or {}
-            
+
         inner = list(self.inner.items())
 
         for child_key, child in inner:
@@ -869,7 +869,7 @@ class Store(object):
         return node, path
 
     def topology_ports(self, schema, topology, source=None):
-        ''' 
+        '''
         Distribute a schema into the tree by mapping its ports
         according to the given topology.
         '''
@@ -942,8 +942,8 @@ class Store(object):
 
     def generate(self, path, processes, topology, initial_state):
         '''
-        Generate a subtree of this store at the given path. 
-        The processes will be mapped into locations in the tree by the 
+        Generate a subtree of this store at the given path.
+        The processes will be mapped into locations in the tree by the
         topology, and once everything is constructed the initial_state
         will be applied.
         '''
@@ -957,8 +957,8 @@ class Store(object):
 
 def inverse_topology(outer, update, topology):
     '''
-    Transform an update from the form its process produced into 
-    one aligned to the given topology. 
+    Transform an update from the form its process produced into
+    one aligned to the given topology.
 
     The inverse of this function (using a topology to construct a view for
     the perspective of a Process ports_schema()) lives in `Store`, called
@@ -1067,9 +1067,10 @@ class Compartment(object):
 
         # merge config with self.config
         if config is None:
-            config = {}
-        default = copy.deepcopy(self.config)
-        config = deep_merge(default, config)
+            config = self.config
+        else:
+            default = copy.deepcopy(self.config)
+            config = deep_merge(default, config)
 
         processes = self.generate_processes(config)
         topology = self.generate_topology(config)
@@ -1125,7 +1126,8 @@ def timestamp(dt=None):
 class Experiment(object):
     def __init__(self, config):
         self.config = config
-        self.experiment_id = config.get('experiment_id', str(uuid.uuid1()))
+        self.experiment_id = config.get(
+            'experiment_id', datetime.datetime.now().isoformat())
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']

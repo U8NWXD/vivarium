@@ -19,6 +19,7 @@ setup(
         'vivarium.core',
         'vivarium.compartments',
         'vivarium.parameters',
+        'vivarium.plots',
         'vivarium.processes',
         'vivarium.reference_data',
         'vivarium.states',

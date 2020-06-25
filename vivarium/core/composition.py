@@ -67,7 +67,6 @@ def agent_environment_experiment(
         environment_config={},
         initial_state={},
         settings={}):
-
     # experiment settings
     emitter = settings.get('emitter', {'type': 'timeseries'})
 
@@ -101,7 +100,6 @@ def agent_environment_experiment(
     topology = network['topology']
     processes['agents'] = agents['processes']
     topology['agents'] = agents['topology']
-
     return Experiment({
         'processes': processes,
         'topology': topology,
@@ -125,6 +123,45 @@ def process_in_compartment(process, paths={}):
                     port: self.paths.get(port, (port,)) for port in self.process.ports_schema().keys()}}
 
     return ProcessCompartment
+
+def make_experiment_from_configs(
+    agents_config={},
+    environment_config={},
+    initial_state={},
+    settings={},
+):
+    # experiment settings
+    emitter = settings.get('emitter', {'type': 'timeseries'})
+
+    # initialize the agents
+    agent_type = agents_config['agent_type']
+    agent_ids = agents_config['agent_ids']
+    agent = agent_type(agents_config['config'])
+    agents = make_agents(agent_ids, agent, agents_config['config'])
+
+    # initialize the environment
+    environment_type = environment_config['environment_type']
+    environment = environment_type(environment_config['config'])
+
+    return make_experiment_from_compartments(
+        environment.generate({}), agents, emitter, initial_state)
+
+
+def make_experiment_from_compartment_dicts(
+    environment_dict, agents_dict, emitter_dict, initial_state
+):
+    # environment_dict comes from environment.generate()
+    # agents_dict comes from make_agents
+    processes = environment_dict['processes']
+    topology = environment_dict['topology']
+    processes['agents'] = agents_dict['processes']
+    topology['agents'] = agents_dict['topology']
+    return Experiment({
+        'processes': processes,
+        'topology': topology,
+        'emitter': emitter_dict,
+        'initial_state': initial_state})
+
 
 def process_in_experiment(process, settings={}):
     initial_state = settings.get('initial_state', {})
@@ -506,6 +543,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     agents_key = settings.get('agents_key', 'agents')
     max_rows = settings.get('max_rows', 25)
     skip_paths = settings.get('skip_paths', [])
+    title_size = settings.get('title_size', 16)
     time_vec = list(data.keys())
     timeseries = path_timeseries_from_data(data)
 
@@ -565,7 +603,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
             # make the subplot axis
             ax = fig.add_subplot(grid[row_idx, col_idx])
             ax.title.set_text(path)
-            ax.title.set_fontsize(16)
+            ax.title.set_fontsize(title_size)
             ax.set_xlim([time_vec[0], time_vec[-1]])
 
             # if last state in this port, add time ticks

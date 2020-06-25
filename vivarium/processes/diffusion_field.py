@@ -37,7 +37,7 @@ def make_gradient(gradient, n_bins, size):
     if gradient.get('type') == 'gaussian':
         """
         gaussian gradient multiplies the base concentration of the given molecule
-        by a gaussian function of distance from center and deviation. Distance is 
+        by a gaussian function of distance from center and deviation. Distance is
         scaled by 1/1000 from microns to millimeters.
 
         'gradient': {
@@ -72,10 +72,10 @@ def make_gradient(gradient, n_bins, size):
     elif gradient.get('type') == 'linear':
         """
         linear gradient sets a site's concentration (c) of the given molecule
-        as a function of distance (d) from center and slope (b), and base 
-        concentration (a). Distance is scaled by 1/1000 from microns to 
+        as a function of distance (d) from center and slope (b), and base
+        concentration (a). Distance is scaled by 1/1000 from microns to
         millimeters.
-        
+
         c = a + b * d
 
         'gradient': {
@@ -96,7 +96,7 @@ def make_gradient(gradient, n_bins, size):
             field = np.zeros((bins_x, bins_y), dtype=np.float64)
             center = [specs['center'][0] * length_x,
                       specs['center'][1] * length_y]
-            base = specs('base', 0.0)
+            base = specs.get('base', 0.0)
             slope = specs['slope']
 
             for x_bin in range(bins_x):
@@ -109,11 +109,11 @@ def make_gradient(gradient, n_bins, size):
 
     elif gradient.get('type') == 'exponential':
         """
-        exponential gradient sets a site's concentration (c) of the given 
-        molecule as a function of distance (d) from center, with parameters 
-        base (b) and scale (a). Distance is scaled by 1/1000 from microns to 
+        exponential gradient sets a site's concentration (c) of the given
+        molecule as a function of distance (d) from center, with parameters
+        base (b) and scale (a). Distance is scaled by 1/1000 from microns to
         millimeters. Note: base > 1 makes concentrations increase from the center.
-        
+
         c=a*b^d.
 
         'gradient': {
