@@ -49,8 +49,7 @@ class StaticLattice(Compartment):
             'multibody': {
                 'agents': ('agents',)},
             'field': {
-                'agents': ('agents',),
-                'fields': ('fields',)}}
+                'agents': ('agents',)}}
 
 
 def get_static_lattice_config(config={}):
@@ -125,14 +124,3 @@ if __name__ == '__main__':
     config = get_static_lattice_config()
     data = test_static_lattice(config, 40)
 
-    # make snapshot plot
-    agents = {time: time_data['agents'] for time, time_data in data.items()}
-    fields = {time: time_data['fields'] for time, time_data in data.items()}
-    data = {
-        'agents': agents,
-        'fields': fields,
-        'config': config}
-    plot_config = {
-        'out_dir': out_dir,
-        'filename': 'snapshots'}
-    plot_snapshots(data, plot_config)
