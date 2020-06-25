@@ -167,9 +167,6 @@ class DiffusionField(Process):
         'diffusion': 5e-1,
         'gradient': {},
         'agents': {},
-        'boundary_port': 'boundary',
-        'exchange_port': 'exchange',
-        'external_port': 'external',
     }
 
     def __init__(self, initial_parameters=None):
@@ -184,9 +181,6 @@ class DiffusionField(Process):
         self.n_bins = initial_parameters.get('n_bins', self.defaults['n_bins'])
         self.bounds = initial_parameters.get('bounds', self.defaults['bounds'])
         depth = initial_parameters.get('depth', self.defaults['depth'])
-        self.boundary_port = initial_parameters.get('boundary_port', self.defaults['boundary_port'])
-        self.exchange_port = initial_parameters.get('exchange_port', self.defaults['exchange_port'])
-        self.external_port = initial_parameters.get('external_port', self.defaults['external_port'])
 
         # diffusion
         diffusion = initial_parameters.get('diffusion', self.defaults['diffusion'])
@@ -228,10 +222,10 @@ class DiffusionField(Process):
 
         schema = {'agents': {}}
         for agent_id, states in self.initial_agents.items():
-            location = states[self.boundary_port].get('location', [])
-            exchange = states[self.boundary_port].get('exchange', {})
+            location = states['boundary'].get('location', [])
+            exchange = states['boundary'].get('exchange', {})
             schema['agents'][agent_id] = {
-                self.boundary_port: {
+                'boundary': {
                     'location': {
                         '_value': location},
                     'exchange': {
@@ -240,7 +234,7 @@ class DiffusionField(Process):
                         for mol_id, value in exchange.items()}}}
         glob_schema = {
             '*': {
-                self.boundary_port: {
+                'boundary': {
                     'location': {
                         '_default': [0.5, 0.5],
                         '_updater': 'set'},
@@ -301,9 +295,9 @@ class DiffusionField(Process):
         local_environments = {}
         if agents:
             for agent_id, specs in agents.items():
-                local_environments[agent_id] = {self.boundary_port: {}}
-                local_environments[agent_id][self.boundary_port][self.external_port] = \
-                    self.get_single_local_environments(specs[self.boundary_port], fields)
+                local_environments[agent_id] = {'boundary': {}}
+                local_environments[agent_id]['boundary']['external'] = \
+                    self.get_single_local_environments(specs['boundary'], fields)
         return local_environments
 
     def apply_single_exchange(self, delta_fields, specs):
@@ -329,7 +323,7 @@ class DiffusionField(Process):
         if agents:
             # apply exchanges to delta_fields
             for agent_id, specs in agents.items():
-                self.apply_single_exchange(delta_fields, specs[self.boundary_port])
+                self.apply_single_exchange(delta_fields, specs['boundary'])
 
         return delta_fields
 
