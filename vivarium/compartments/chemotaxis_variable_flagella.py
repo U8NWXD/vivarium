@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import random
+import argparse
 
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
@@ -24,6 +25,7 @@ NAME = 'chemotaxis_variable_flagella'
 class ChemotaxisVariableFlagella(Compartment):
 
     defaults = {
+        'n_flagella': 5,
         'ligand_id': 'MeAsp',
         'initial_ligand': 0.1,
         'boundary_path': ('boundary',)
@@ -31,24 +33,30 @@ class ChemotaxisVariableFlagella(Compartment):
 
     def __init__(self, config):
         self.config = config
-        self.ligand_id = config.get(
+
+        n_flagella = config.get(
+            'n_flagella',
+            self.defaults['n_flagella'])
+        ligand_id = config.get(
             'ligand_id',
             self.defaults['ligand_id'])
-        self.initial_ligand = config.get(
+        initial_ligand = config.get(
             'initial_ligand',
             self.defaults['initial_ligand'])
         self.boundary_path = self.config.get(
             'boundary_path',
             self.defaults['boundary_path'])
 
-    def generate_processes(self, config):
-        receptor_parameters = {
-            'ligand_id': self.ligand_id,
-            'initial_ligand': self.initial_ligand}
+        self.config['receptor'] = {
+            'ligand_id': ligand_id,
+            'initial_ligand': initial_ligand}
 
-        # declare the processes
-        receptor = ReceptorCluster(receptor_parameters)
-        flagella = FlagellaActivity({})
+        self.config['flagella'] = {
+            'n_flagella': n_flagella}
+
+    def generate_processes(self, config):
+        receptor = ReceptorCluster(config['receptor'])
+        flagella = FlagellaActivity(config['flagella'])
 
         return {
             'receptor': receptor,
@@ -70,21 +78,7 @@ class ChemotaxisVariableFlagella(Compartment):
         }
 
 
-def get_chemotaxis_config(config={}):
-    ligand_id = config.get('ligand_id', 'MeAsp')
-    initial_ligand = config.get('initial_ligand', 5.0)
-    external_path = config.get('external_path', 'external')
-    return {
-        'external_path': (external_path,),
-        'ligand_id': ligand_id,
-        'initial_ligand': initial_ligand}
-
-
-if __name__ == '__main__':
-    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
+def test_variable_chemotaxis(n_flagella=5, out_dir='out'):
     environment_port = 'external'
     ligand_id = 'MeAsp'
     initial_conc = 0
@@ -102,10 +96,11 @@ if __name__ == '__main__':
 
     # make the compartment
     config = {
+        'external_path': (environment_port,),
         'ligand_id': ligand_id,
         'initial_ligand': initial_conc,
-        'external_path': environment_port}
-    compartment = ChemotaxisVariableFlagella(get_chemotaxis_config(config))
+        'n_flagella': n_flagella}
+    compartment = ChemotaxisVariableFlagella(config)
 
     # run experiment
     experiment_settings = {
@@ -128,3 +123,15 @@ if __name__ == '__main__':
         plot_settings,
         out_dir,
         'exponential_timeline')
+
+
+if __name__ == '__main__':
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    parser = argparse.ArgumentParser(description='variable flagella')
+    parser.add_argument('--flagella', '-f', type=int, default=5)
+    args = parser.parse_args()
+
+    test_variable_chemotaxis(args.flagella, out_dir)
