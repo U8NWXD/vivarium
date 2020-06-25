@@ -103,7 +103,6 @@ class Antibiotics(Compartment):
                 'global': ('global',),
             },
             'death': {
-                'internal': ('cell',),
                 'global': ('global',),
             },
         }
