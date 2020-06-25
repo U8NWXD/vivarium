@@ -284,7 +284,7 @@ def simulate_experiment(experiment, settings={}):
         total_time = settings['timeline']['timeline'][-1][0]
 
     # run simulation
-    experiment.update_interval(total_time, timestep)
+    experiment.update(total_time)
 
     if return_raw_data:
         return experiment.emitter.get_data()

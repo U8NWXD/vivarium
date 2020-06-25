@@ -1212,12 +1212,6 @@ class Experiment(object):
                 update = self.process_update(path, deriver, 0)
                 self.apply_update(update)
 
-    # def emit_paths(self, paths):
-    #     emit_config = {
-    #         'table': 'history',
-    #         'data': data}
-    #     self.emitter_emit(emit_config)
-
     def emit_data(self):
         data = self.state.emit_data()
         data.update({
@@ -1317,10 +1311,9 @@ class Experiment(object):
                         paths.append(path)
 
                 self.send_updates(updates, derivers)
-                # self.emit_paths(paths)
-                # self.emit_data()
 
                 time = future
+                self.local_time += full_step
 
                 if self.emit_interval is None:
                     self.emit_data()
@@ -1333,14 +1326,10 @@ class Experiment(object):
             assert advance['time'] == time == interval
             assert len(advance['update']) == 0
 
-        self.local_time += interval
 
-        # run emitters
-        # self.emit_data()
-
-    def update_interval(self, time, interval):
-        while self.local_time < time:
-            self.update(interval)
+    # def update_interval(self, time, interval):
+    #     while self.local_time < time:
+    #         self.update(interval)
 
 
 # Tests
@@ -1576,7 +1565,7 @@ def test_topology_ports():
 
     log.debug(pf(experiment.state.get_config(True)))
 
-    experiment.update_interval(10.0, 1.0)
+    experiment.update(10.0)
 
     log.debug(pf(experiment.state.get_config(True)))
 
