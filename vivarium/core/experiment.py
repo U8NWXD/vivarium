@@ -1107,6 +1107,7 @@ class Experiment(object):
         self.processes = config['processes']
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
+        self.emit_interval = config.get('emit_interval')
 
         self.state = generate_state(
             self.processes,
@@ -1211,10 +1212,11 @@ class Experiment(object):
                 if state.value is not None and isinstance(state.value, Process) and state.value.is_deriver()}
         self.run_derivers(derivers)
 
-    def update(self, timestep):
-        """ Run each process for the given time step and update the related states. """
+    def update(self, interval):
+        """ Run each process for the given interval and update the related states. """
 
         time = 0
+        emit_time = self.emit_interval
 
         def empty_front(t):
             return {
@@ -1224,7 +1226,7 @@ class Experiment(object):
         # keep track of which processes have simulated until when
         front = {}
 
-        while time < timestep:
+        while time < interval:
             full_step = INFINITY
 
             if VERBOSE:
@@ -1256,21 +1258,21 @@ class Experiment(object):
 
                 if process_time <= time:
                     process = state.value
-                    future = min(process_time + process.local_timestep(), timestep)
-                    interval = future - process_time
+                    future = min(process_time + process.local_timestep(), interval)
+                    timestep = future - process_time
 
                     # calculate the update for this process
-                    update = self.process_update(path, state, interval)
+                    update = self.process_update(path, state, timestep)
 
                     # store the update to apply at its projected time
-                    if interval < full_step:
-                        full_step = interval
+                    if timestep < full_step:
+                        full_step = timestep
                     front[path]['time'] = future
                     front[path]['update'] = update
 
             if full_step == INFINITY:
                 # no processes ran, jump to next process
-                next_event = timestep
+                next_event = interval
                 for process_name in front.keys():
                     if front[path]['time'] < next_event:
                         next_event = front[path]['time']
@@ -1291,15 +1293,22 @@ class Experiment(object):
 
                 self.send_updates(updates, derivers)
                 # self.emit_paths(paths)
-                self.emit_data()
+                # self.emit_data()
 
                 time = future
 
+                if self.emit_interval is None:
+                    self.emit_data()
+                elif emit_time <= time:
+                    while emit_time < time:
+                        self.emit_data()
+                        emit_time += self.emit_interval
+
         for process_name, advance in front.items():
-            assert advance['time'] == time == timestep
+            assert advance['time'] == time == interval
             assert len(advance['update']) == 0
 
-        self.local_time += timestep
+        self.local_time += interval
 
         # run emitters
         # self.emit_data()
