@@ -502,7 +502,7 @@ class Transcription(Process):
         chromosome_dict = chromosome.to_dict()
         rnaps = chromosome_dict['rnaps']
 
-        completed_rnaps = original_rnap_keys - rnaps.keys()
+        completed_rnaps = set(original_rnap_keys) - set(rnaps.keys())
         rnap_updates = {
             rnap_id: rnap
             for rnap_id, rnap in rnaps.items()
