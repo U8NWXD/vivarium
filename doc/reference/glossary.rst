@@ -14,7 +14,7 @@ Glossary
         population-level phenomena are emergent from interactions among
         simple agents. An agent-based model is a model constructed using
         this paradigm.
-    
+
     Boundary Store
     Boundary Stores
         :term:`Compartments` interact through boundary stores that
@@ -27,23 +27,14 @@ Glossary
     Compartments
         We organize our models into compartments, each of which is like
         an agent in an :term:`agent-based model`. Each compartment
-        stores a :term:`composite` of :term:`processes` and
-        :term:`stores`. Compartments can be nested and interact with
-        neighbor, parent, and child compartments through :term:`boundary
-        stores`. Thus, a model might contain a compartment for the
-        environment that contains two child compartments for the two
-        cells in the environment. For more details, see our :doc:`guide
-        to compartments </guides/compartments>`.
-
-    Composite
-    Composites
-        Composites model how a set of :term:`processes` interact through
-        shared :term:`stores`. When the composite is simulated, each
-        store gets updated by one or more of the processes in the
-        composite. This lets us simulate how the state of the model
-        evolves as all the processes run simultaneously. For more
-        information, see our :doc:`guide to composites
-        </guides/composites>`.
+        stores a collection of :term:`processes` that operate on the
+        compartment's :term:`stores` simultaneously. Compartments can be
+        nested and interact with neighbor, parent, and child
+        compartments through :term:`boundary stores`. Thus, a model
+        might contain a compartment for the environment that contains
+        two child compartments for the two cells in the environment. For
+        more details, see our :doc:`guide to compartments
+        </guides/compartments>`.
 
     Deriver
     Derivers
@@ -51,7 +42,19 @@ Glossary
         :term:`timepoint` and compute values from the state of the
         model. These computed values are generally stored in the
         ``global`` :term:`store`. For example, one common deriver uses
-        the cell's mass and density to compute the volume.
+        the cell's mass and density to compute the volume. For details
+        on the particular derivers available, see the documentation for
+        :py:mod:`vivarium.core.repository`.
+
+    Divider
+    Dividers
+        When a cell divides, we have to decide how to generate the
+        states of its daughter cells. Dividers specify how to generate
+        these daughter cells, for example by assigning half of the value
+        of the variable in the mother cell to each of the daughter
+        cells. We assign a divider to each variable in the
+        :term:`schema`. For more details, see the documentation for
+        :py:mod:`vivarium.core.repository`.
 
     Emitter
     Emitters
@@ -67,6 +70,15 @@ Glossary
     Exchanges
         The flux between a cell and its environment. This is stored in a
         :term:`boundary store`.
+
+    Experiment
+    Experiments
+        Vivarium defines simulations using
+        :py:class:`vivarium.core.experiment.Experiment` objects. These
+        simulations can contain arbitrarily nested :term:`compartments`,
+        and you can run them to simulate your model over time. See the
+        documentation for the ``Experiment`` class and our :doc:`guide
+        to experiments </guides/experiments>` for more details.
 
     Masking
         When Vivarium passes stores to processes, it includes only the
@@ -113,6 +125,24 @@ Glossary
         configured, to create :term:`processes`. Each process class must
         subclass either :py:class:`vivarium.core.process.Process`
         or another process class.
+
+    Schema
+    Schemas
+        A schema defines the properties of a set of :term:`variables` by
+        associating with each variable a set of :term:`schema key-value
+        pairs`.
+
+    Schema Key
+    Schema Keys
+    Schema Value
+    Schema Values
+    Schema Key-Value Pair
+    Schema Key-Value Pairs
+        Each :term:`variable` is defined by a set of schema key-value
+        pairs. The available keys are defined in
+        :py:attr:`vivarium.core.experiment.Store.schema_keys`. These
+        keys are described in more detail in the documentation for
+        :py:class:`vivarium.core.experiment.Store`.
 
     Store
     Stores
@@ -177,7 +207,7 @@ Glossary
           a :py:class:`dict` with the following keys:
 
             * **position** (:py:class:`int`): The index in the genetic
-              sequence of the terminator. 
+              sequence of the terminator.
             * **strength** (:py:class:`int`): The relative strength of
               the terminator. For example, if there remain two
               terminators ahead of RNA polymerase, the first of strength
@@ -188,7 +218,7 @@ Glossary
             * **products** (:py:class:`list`): A list of the genes that
               will be transcribed or translated should
               transcription/translation halt at this terminator.
-        
+
     Timepoint
     Timepoints
         We discretize time into timepoints and update the model state at
@@ -212,7 +242,18 @@ Glossary
     Topologies
         A topology defines how :term:`stores` are associated to
         :term:`ports`. This tells Vivarium which store to pass to each
-        port of each process during the simulation.
+        port of each process during the simulation. See the constructor
+        documentation for
+        :py:class:`vivarium.core.experiment.Experiment` for a more
+        detailed specification of the form of a topology.
+
+    Hierarchy
+    Hierarchies
+        We nest the :term:`stores` of a model to form a tree called a
+        hierarchy. Each internal node is a store and each leaf node is a
+        :term:`variable`. This tree can be traversed like a directory
+        tree, and stores are identified by paths. For details see the
+        :doc:`hierarchy guide <../guides/hierarchy>`.
 
     Update
     Updates
@@ -224,7 +265,9 @@ Glossary
     Updaters
         An updater describes how an update should be applied to the
         model state to produce the updated state. For example, the
-        update could be added to the old value or replace it.
+        update could be added to the old value or replace it. Updaters
+        are described in more detail in the documentation for
+        :py:mod:`vivarium.core.repository`.
 
     Variable
     Variables
@@ -238,6 +281,9 @@ Glossary
         track the amount of a molecule in a physical region. Exceptions
         exist though, for instance whether a cell is dead could also be
         a variable.
+
+        Each variable is defined by a set of
+        :term:`schema key-value pairs`.
 
     WCM
     Whole-Cell Model

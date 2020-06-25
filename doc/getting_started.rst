@@ -346,7 +346,7 @@ install the Python packages Vivarium uses.
 
    .. code-block:: console
 
-        $ pip install -r reqirements.txt
+        $ pip install -r requirements.txt
 
    If you encounter problems installing numpy and/or scipy, try this
    instead:
@@ -366,27 +366,25 @@ Run Simulations
 Some Terminology: Processes and Composites
 ==========================================
 
-In Vivarium, we break our cell models into *processes*. Each process
+In Vivarium, we break our cell models into :term:`processes`. Each process
 models part of the cell's function. For example, we have processes for
 metabolism, transcription, and translation in Vivarium. We can combine
-these processes into *composites* that model a cell with all the
+these processes into :term:`compartments` that model a cell with all the
 functionality modeled by the included processes. For example, we could
 compose transcription and translation to create a fuller gene
 expression model.
 
-.. todo:: Link to topical guide on processes and composites
-
 In Vivarium, we store individual processes in
-``vivarium/vivarium/processes`` and composites of processes in
+``vivarium/vivarium/processes`` and compartments of processes in
 ``vivarium/vivarium/compartments``.
 
 Running Processes and Composites in Isolation
 =============================================
 
-You can run any process or composite by itself. While this is too simple
+You can run any process or compartment by itself. While this is too simple
 for modeling whole cells or colonies, simulating processes in isolation
 lets you study their dynamics and tune them to different conditions. To
-run a process or composite, you can execute the Python file that defines
+run a process or compartment, you can execute the Python file that defines
 it. For example, we can run the degradation process like this:
 
 .. code-block:: console
@@ -400,7 +398,7 @@ it. For example, we can run the degradation process like this:
 
 Don't worry about the output--it's for developers. You will see a new
 folder at ``vivarium_work/vivarium/vivarium/out/tests``. This is where
-we store the output from running processes and composites in isolation.
+we store the output from running processes and compartments in isolation.
 For the degradation process, the output is in the ``degradation`` folder
 inside ``tests``. Here you'll find a ``simulation.png`` file that looks
 like this:
@@ -424,14 +422,15 @@ Some processes also produce the data shown in the plots.  You can find
 this data in ``simulation_data.csv``. Try running the
 ``convenience_kinetics`` process to see how this works!
 
-Lastly, try running the ``flagella_expression`` composite like this:
+Lastly, try running the ``flagella_expression`` compartment like this:
 
 .. code-block:: console
 
     $ python vivarium_work/vivarium/vivarium/compartments/flagella_expression.py
 
-Now in the ``flagella_expression_composite`` in ``tests``, you should
-see an image containing a plot like this:
+Now in the ``flagella_expression_composite`` (the suffix ``_composite``
+is left over from when we called compartments "composites") in
+``tests``, you should see an image containing a plot like this:
 
 .. image:: ./_static/flagella_expression_aa_plot.png
     :width: 100%
@@ -684,7 +683,7 @@ instructions above.
 Let's take a look at an example of using Shepherd. We'll be able to
 model cells dividing!
 
-.. todo:: Reference composites in this and the previous tutorial
+.. todo:: Reference compartments in this and the previous tutorial
 
 #. First, start Zookeeper, Kafka, and MongoDB as we discussed above in
    :ref:`getting-started-how-to-run-agents`.

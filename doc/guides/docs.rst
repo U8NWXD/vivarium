@@ -33,9 +33,10 @@ We write four kinds of documentation for Vivarium:
   ``doc/tutorials``. Make sure to list all tutorials in
   ``doc/tutorials/index.rst`` so that they appear in the sidebar and the
   list of tutorials.
-* Guides: These dive into the technical details of Vivarium and should
+* Guides: These dive into the details of Vivarium and should
   be comprehensive. We store guides in ``doc/guides`` and list them in
-  ``doc/guides/index.rst``.
+  ``doc/guides/index.rst``. Guides should focus on the conceptual
+  aspects of Vivarium, leaving technical details to the API reference.
 * References: Reference material should cater to users who already know
   what they're looking for and just need to find it. For example, a user
   looking up a particular process or term. Our reference material
@@ -45,6 +46,7 @@ We write four kinds of documentation for Vivarium:
   reStructuredText syntax we use elsewhere in Vivarium. Eventually, we
   will remove from the reference material the stubs for functions that
   aren't user-facing and the auto-generated titles on each page.
+
     * For an example of reference documentation that defines an API, see
       :py:mod:`vivarium.processes.death`. For an example of
       documentation that explains how to use a process, look at
@@ -67,6 +69,19 @@ We write four kinds of documentation for Vivarium:
 
                     def __init__(self):
                         '''This is the constructor docstring'''
+
+Glossary vs Guide vs API Reference
+----------------------------------
+
+In the guide, describe the concept and perhaps our rationale behind any
+design choices we made. Link terms to the glossary, which succinctly
+describes the term and links to relevant API reference pages and guides.
+In the API reference, describe the technical details.
+
+We try to keep technical details in the API reference because the API
+reference is built from docstrings. Since these docstrings live
+alongside the code, they are more likely to be kept up-to-date than a
+separate guide.
 
 Pointers for Technical Writing
 ==============================

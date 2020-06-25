@@ -16,7 +16,7 @@ the RFC:
 
 Models in Vivarium are built by combining :term:`processes`, each of
 which models a mechanism in the cell. These processes can be combined in
-a :term:`composite` to build more complicated models. Process models are
+a :term:`compartment` to build more complicated models. Process models are
 defined in a class that inherit from
 :py:class:`vivarium.core.process.Process`, and these
 :term:`process classes` can be instantiated to create individual
@@ -37,15 +37,15 @@ Class Variables
 ===============
 
 Each process class SHOULD define default configurations in a
-``defaults`` class variable. These defaults SHOULD then be read by the
-constructor. For example:
+``defaults`` class variable. The constructor SHOULD read these defaults.
+For example:
 
 .. code-block:: python
-    
+
     class MyProcess:
         defaults = {
             'growth_rate': 0.0006,
-        }  
+        }
 
 
 Constructor
@@ -57,7 +57,7 @@ is configurable, it SHOULD accept configuration options through this
 dictionary.
 
 In the constructor, the process class MUST call its superclass
-constructor with its :term:`ports` and a dictionary of parameters. 
+constructor with its :term:`ports` and a dictionary of parameters.
 
 .. _constructor-define-ports:
 
@@ -68,7 +68,7 @@ Ports MUST be specified as a dictionary with port names as keys and
 lists of :term:`variable` names as values. These port names may be
 chosen arbitrarily. Variable names are also at the discretion of the
 process class author, but note that if two processes are to be combined
-in a :term:`composite` and share variables through a shared
+in a :term:`compartment` and share variables through a shared
 :term:`store`, the processes MUST use the same variable names for the
 shared variables.
 
@@ -111,135 +111,77 @@ to ``initial_parameters``.
     stores information about the total model state that, like ``mass``
     doesn't fit into any store.
 
-Default Settings
-================
+.. _constructor-ports-schema:
 
-The process class MUST implement a ``default_settings`` method that can
-be called with no arguments. This method MUST return a dictionary with
-the ``state`` key for the default state. The dictionary MAY also contain
-the following keys: ``emitter_keys`` for the emitter keys, ``schema``
-for the schema, and ``deriver_setting`` for the deriver settings. We
-describe each of these in turn:
+Ports Schema
+============
 
-.. _constructor-default-state:
-
-Default State
--------------
-
-The process class MUST provide a default value for each variable
-included in its ports declaration in the constructor, with the exception
-that variables whose values will be computed by :term:`derivers` do not
-need a default value. These default values MUST be specified as a
-dictionary whose keys are port names and whose values are dictionaries,
-termed sub-dictionaries. Each sub-dictionary has keys of variable names
-and values of variable values. For example, the growth process class we
-have been discussing might have a default state like this:
+The process class MUST implement a ``process_schema`` method with no
+required arguments. This method MUST return nested dictionaries of the
+following form:
 
 .. code-block:: python
 
     {
-        'global': {
-            'mass': 1339  # Mass in fg
-        }
+        'port_name': {
+            'variable_name': {
+                'schema_key': 'schema_value',
+                ...
+            },
+            ...
+        },
+        ...
     }
 
-Here we exclude the ``volume`` variable, which is computed by a deriver.
+``schema_key`` MUST be a :term:`schema key` and have an appropriate
+value. Any applicable and omitted schema keys will take on their default
+values. Note that every variable SHOULD specify ``_default``. If the
+cell will be dividing, every variable also MUST specify ``_divider``.
+Variables in the ports schema SHOULD NOT specify ``_value``.
 
-Emitter Keys
-------------
-
-As the simulation runs, the total model state is recorded in the stores,
-but this state is overwritten each timestep with an updated state. To
-save data for analysis, we send variable values to an :term:`emitter`,
-for example a Kafka emitter or one for a database. The emitter keys
-specify which variables' values are sent to emitters for recording.
-Emitter keys MUST be specified as a dictionary of the same form as the
-:ref:`ports declaration dictionary <constructor-define-ports>`, but with
-only the variables to be emitted.
-
-.. _constructor-schema:
-
-Schema
-------
-
-.. todo:: What else does the schema do?
-
-In the schema, we define how this process class will specify
-:term:`updates` for each variable. The available updaters are as
-follows:
-
-* ``accumulate`` is the default, and it specifies that the value of the
-  variable in the update be added to the variable's current value when
-  the update is applied.
-* ``set`` specifies that the update value overwrite the current value.
-
-The schema MUST take the form of a dictionary like the default state
-dictionary, only the variable values are replaced with dictionaries that
-MAY include the ``updater`` key with a value equal to the name of the
-desired updater. Variables MAY be omitted, in which case they will take
-on the default updater of ``accumulate``.
-
-Each value in the schema MAY also specify a mass using the ``mass`` key.
-If you are using the mass :term:`deriver`, each variable accessed by the
-deriver MUST specify a mass.
-
-Deriver Setting
----------------
-
-:term:`Derivers` calculate metrics or perform conversions for us over
-the course of the simulation, but they do not encode mechanism. For
-example, we use them to calculate a cell's mass or convert between
-counts and concentrations. We configure derivers with a list of
-dictionaries, one dictionary for each deriver. For example:
+Example Ports Schema
+--------------------
 
 .. code-block:: python
 
-    deriver_setting = [
-        {   # Configuration for one deriver
-            'type': ...
-        },
-        {   # Configuration for another deriver
-            'type': ...
-        },
-    ]
-
-Example Default Settings
-------------------------
-
-Let's take a look at a potential ``default_settings`` method for our
-growth process:
-
-.. code-block:: python
-
-    def default_settings(self):
-
-        # default state
-        default_state = {
+    def ports_schema(self):
+        return {
             'global': {
-                'mass': 1339
+                'mass': {
+                    '_emit': True,
+                    '_default': 1339 * units.fg,
+                    '_updater': 'set',
+                    '_divider': 'split'},
+                'volume': {
+                    '_updater': 'set',
+                    '_divider': 'split'},
+                'divide': {
+                    '_default': False,
+                    '_updater': 'set'
+                }
             }
         }
 
-        # default emitter keys
-        default_emitter_keys = {'global': ['mass']}
+Here we specify that only ``mass`` should be emitted. We assign a
+default value of 1339 fg to ``mass``, and we declare that the ``mass``
+and ``volume`` variables should be split in half on division. Further,
+we specify that all the three variables should have their updates set,
+not accumulated.
 
-        # schema
-        schema = {
-            'global': {
-                'mass': {
-                    'updater': 'set'}}}
+Derivers
+========
 
-        # We can omit the deriver_setting key so long as we aren't using
-        # derivers
-        default_settings = {
-            'state': default_state,
-            'emitter_keys': default_emitter_keys,
-            'schema': schema}
+For each port, we can also specify a :term:`deriver`. Each process class
+MUST implement a `derivers` method that returns a dictionary whose keys
+are the ports to which we want to apply derivers. For each port, the
+value in the dictionary must be a dictionary with the following keys:
 
-        return default_settings
-
-Here, we set the mass to a default of 1339. We also choose to emit the
-``mass`` variable's values and to overwrite the mass variable on update.
+* **deriver** (:py:class:`str`): The name of the deriver to apply.
+* **port_mapping** (:py:class:`dict`): Maps from ports of the deriver
+  process to ports of the process class we are writing. This is like a
+  :term:`topology`.
+* **config** (:py:class:`dict`): A configuration dictionary that
+  conforms to the requirements of the particular deriver being invoked.
 
 Next Updates
 ============
@@ -254,7 +196,8 @@ State Format
 
 The ``next_update`` method MUST accept the model state as a dictionary
 of the same form as the :ref:`default state dictionary
-<constructor-default-state>`.
+<constructor-ports-schema>`, but with the dictionary of schema keys
+replaced with the current (i.e. pre-update) value of the variable.
 
 .. note:: In the code, you may see the model state referred to as
     ``states``. This is left over from when stores were called states,
@@ -278,7 +221,8 @@ Update Format
 ``next_update`` MUST return a single dictionary, the update that
 describes how the modeled mechanism would change the model state over
 the specified time. The update dictionary MUST be of the same form as the
-:ref:`default state dictionary <constructor-default-state>`, though
+:ref:`default state dictionary <constructor-ports-schema>`, though with
+the dictionaries of schema keys replaced with update values. Also,
 variables that do not need to be updated can be excluded.
 
 Example Next Update Method
@@ -293,14 +237,14 @@ Here is an example ``next_update`` method for our growth process:
         new_mass = mass * np.exp(self.parameters['growth_rate'] * timestep)
         return {'global': {'mass': new_mass}}
 
-Recall from :ref:`our example schema <constructor-schema>` that we use
+Recall from :ref:`our example schema <constructor-ports-schema>` that we use
 the ``set`` updater for the ``mass`` variable. Thus, we compute the new
 mass of the cell and include it in our update. Notice that we access the
 growth rate specified in the constructor by using the
 ``self.parameters`` attribute.
 
 .. note:: Notice that this function works regardless of what timestep we
-    use. This is important because different composites may need
+    use. This is important because different compartments may need
     different timesteps based on what they are modeling.
 
 Process Class Examples
@@ -336,9 +280,13 @@ Simulating a process can be sketched by the following pseudocode:
     configuration = {...}
     process = ProcessClass(configuration)
 
-    # Get the initial state from the process's defaults
+    # Get the initial state from the process's schema
     # This means the stores and ports are the same
-    state = process.default_settings()['state']
+    state = {}
+    schema = process.ports_schema()
+    for port, port_dict in schema.items():
+        for variable, variable_schema in port_dict.items():
+            state[port][variable] = variable_schema["_default"]
 
     # Run the simulation in a loop for 10 seconds
     time = 0

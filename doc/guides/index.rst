@@ -11,6 +11,8 @@ through the :doc:`getting started guide <../getting_started>` first.
 
    modeling_paradigm
    processes
-   composites
    compartments
+   environments
+   experiments
+   hierarchy
    docs
