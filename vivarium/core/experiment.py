@@ -859,7 +859,7 @@ class Store(object):
 
         source = source or self.path_for()
 
-        if schema.keys() & self.schema_keys:
+        if set(schema.keys()) & self.schema_keys:
             self.get_path(topology).apply_config(schema)
         else:
             for port, subschema in schema.items():
