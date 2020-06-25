@@ -7,6 +7,7 @@ Stochastic Translation
 import copy
 import numpy as np
 import random
+import logging as log
 from arrow import StochasticSystem
 
 from vivarium.core.process import Process
@@ -33,9 +34,6 @@ def random_string(alphabet, length):
         string += random.choice(alphabet)
     return string
 
-#: Whether to print the parameters when initializing
-#: :py:class:`Translation`
-VERBOSE = True
 #: Variable name for unbound ribosomes
 UNBOUND_RIBOSOME_KEY = 'Ribosome'
 
@@ -253,9 +251,8 @@ class Translation(Process):
         ...     'monomer_ids': amino_acids.values(),
         ...     'concentration_keys': []
         ... }
-        >>> # We omit output using "..." below
+        >>> # make the translation process, and initialize the states
         >>> translation = Translation(configurations)  # doctest:+ELLIPSIS
-        translation parameters: ...
         >>> states = {
         ...     'ribosomes': {},
         ...     'molecules': {},
@@ -329,29 +326,16 @@ class Translation(Process):
 
         self.protein_keys = self.concentration_keys + self.protein_ids
         self.all_protein_keys = self.protein_keys + [UNBOUND_RIBOSOME_KEY]
-        self.ports = {
-            'ribosomes': ['ribosomes'],
-            'molecules': self.molecule_ids,
-            'transcripts': list(self.operons.keys()),
-            'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys}
 
         self.mass_deriver_key = self.or_default(initial_parameters, 'mass_deriver_key')
         self.concentrations_deriver_key = self.or_default(
             initial_parameters, 'concentrations_deriver_key')
 
-        if VERBOSE:
-            print('translation parameters: {}'.format(self.parameters))
+        log.info('translation parameters: {}'.format(self.parameters))
 
-        super(Translation, self).__init__(self.ports, self.parameters)
+        super(Translation, self).__init__(self.parameters)
 
     def ports_schema(self):
-        self.ports = {
-            'ribosomes': {},
-            'molecules': self.molecule_ids,
-            'transcripts': list(self.operons.keys()),
-            'proteins': self.all_protein_keys,
-            'concentrations': self.protein_keys}
 
         def add_mass(schema, masses, key):
             if '_properties' not in schema:
@@ -549,7 +533,8 @@ class Translation(Process):
             key: count * -1
             for key, count in elongation.monomers.items()}
 
-        completed_ribosomes = original_ribosome_keys - ribosomes.keys()
+        completed_ribosomes = (
+            set(original_ribosome_keys) - set(ribosomes.keys()))
         ribosome_updates = {
             id: ribosome
             for id, ribosome in ribosomes.items()

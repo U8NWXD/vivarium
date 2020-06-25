@@ -5,35 +5,24 @@ import uuid
 from vivarium.core.process import Deriver
 
 
-def divide_condition(compartment):
-    division_port = compartment.division_port
-    division = compartment.states[division_port].state_for(['division'])
-    if division.get('division', 0) == 0:  # 0 means false
-        divide = False
-    else:
-        divide = True
-    return divide
+# functions for generating daughter ids
+def daughter_uuid(mother_id):
+    return [
+        str(uuid.uuid1()),
+        str(uuid.uuid1())]
 
+def daughter_phylogeny_id(mother_id):
+    return [
+        str(mother_id) + '0',
+        str(mother_id) + '1']
 
-class CountForever(object):
-    def __init__(self, start=0, by=1):
-        self.index = start
-        self.by = by
-
-    def generate(self):
-        value = self.index
-        self.index += self.by
-        return value
-
-def get_uuid():
-    return str(uuid.uuid1())
 
 class MetaDivision(Deriver):
 
     defaults = {
         'initial_state': {},
         'daughter_path': ('cell',),
-        'id_function': get_uuid}
+        'daughter_ids_function': daughter_phylogeny_id}
 
     def __init__(self, initial_parameters=None):
         if initial_parameters is None:
@@ -42,16 +31,14 @@ class MetaDivision(Deriver):
         self.division = 0
 
         # must provide a compartment to generate new daughters
-        self.compartment = initial_parameters['compartment']
-        self.id_function = self.or_default(initial_parameters, 'id_function')
         self.agent_id = initial_parameters['agent_id']
-        self.daughter_path = initial_parameters.get('daughter_path', self.defaults['daughter_path'])
+        self.compartment = initial_parameters['compartment']
+        self.daughter_ids_function = self.or_default(
+            initial_parameters, 'daughter_ids_function')
+        self.daughter_path = self.or_default(
+            initial_parameters, 'daughter_path')
 
-        ports = {
-            'global': ['divide'],
-            'cells': ['*']}
-
-        super(MetaDivision, self).__init__(ports, initial_parameters)
+        super(MetaDivision, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {
@@ -64,13 +51,9 @@ class MetaDivision(Deriver):
 
     def next_update(self, timestep, states):
         divide = states['global']['divide']
-        cells = states['cells']
 
         if divide:
-            daughter_ids = [
-                str(self.id_function()),
-                str(self.id_function())]
-
+            daughter_ids = self.daughter_ids_function(self.agent_id)
             daughter_updates = []
             
             for daughter_id in daughter_ids:

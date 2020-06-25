@@ -15,6 +15,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import logging as log
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,7 +46,6 @@ from vivarium.processes.derive_globals import AVOGADRO
 
 
 NAME = 'metabolism'
-GLOBALS = ['volume', 'mass', 'mmol_to_counts']
 
 
 
@@ -112,17 +112,18 @@ class Metabolism(Process):
         'default_upper_bound': 0.0,
         'regulation': {},
         'initial_state': {},
-        'exchange_threshold': 1e-6, # external concs lower than exchange_threshold are considered depleted
+        'exchange_threshold': 1e-6, # concentrations lower than exchange_threshold are considered depleted
         'initial_mass': 1339,  # fg
         'global_deriver_key': 'global_deriver',
         'mass_deriver_key': 'mass_deriver',
-        'time_step': 2,
+        'time_step': 1,
     }
 
     def __init__(self, initial_parameters={}):
         self.nAvogadro = AVOGADRO
 
-        time_step = initial_parameters.get('time_step', self.defaults['time_step'])
+        time_step = self.or_default(
+            initial_parameters, 'time_step')
 
         # initialize FBA
         if 'model_path' not in initial_parameters and 'stoichiometry' not in initial_parameters:
@@ -132,19 +133,19 @@ class Metabolism(Process):
         self.exchange_threshold = self.defaults['exchange_threshold']
 
         # additional FBA options
-        self.constrained_reaction_ids = initial_parameters.get(
-            'constrained_reaction_ids', self.defaults['constrained_reaction_ids'])
-        self.default_upper_bound = initial_parameters.get(
-            'default_upper_bound', self.defaults['default_upper_bound'])
+        self.constrained_reaction_ids = self.or_default(
+            initial_parameters, 'constrained_reaction_ids')
+        self.default_upper_bound = self.or_default(
+            initial_parameters, 'default_upper_bound')
 
-        # get regulation functions
-        regulation_logic = initial_parameters.get(
-            'regulation', self.defaults['regulation'])
+        # make the regulation functions
+        regulation_logic = self.or_default(
+            initial_parameters, 'regulation')
         self.regulation = {
             reaction: build_rule(logic)
             for reaction, logic in regulation_logic.items()}
 
-        # get molecules from fba objective
+        # get internal molecules from fba objective
         self.objective_composition = {}
         for reaction_id, coeff1 in self.fba.objective.items():
             for mol_id, coeff2 in self.fba.stoichiometry[reaction_id].items():
@@ -154,7 +155,8 @@ class Metabolism(Process):
                     self.objective_composition[mol_id] = coeff1 * coeff2
 
         ## Get initial internal state from initial_mass
-        initial_metabolite_mass = initial_parameters.get('initial_mass', self.defaults['initial_mass'])
+        initial_metabolite_mass = self.or_default(
+            initial_parameters, 'initial_mass')
         mw = self.fba.molecular_weights
         composition = {
             mol_id: (-coeff if coeff < 0 else 0)
@@ -164,7 +166,7 @@ class Metabolism(Process):
         internal_state = {mol_id: int(coeff * scaling_factor)
             for mol_id, coeff in composition.items()}
         self.initial_mass = get_fg_from_counts(internal_state, mw)
-        print('metabolism initial mass: {}'.format(self.initial_mass))
+        log.info('metabolism initial mass: {}'.format(self.initial_mass))
 
         ## Get external state from minimal_external fba solution
         external_state = {state_id: 0.0 for state_id in self.fba.external_molecules}
@@ -174,23 +176,11 @@ class Metabolism(Process):
         self.initial_state = {
             'external': external_state,
             'internal': internal_state,
-            'reactions': {state_id: 0 for state_id in self.reaction_ids},
-            'exchange': {state_id: 0 for state_id in self.fba.external_molecules},
-            'flux_bounds': {state_id: self.default_upper_bound
-                            for state_id in self.constrained_reaction_ids},
+            'flux_bounds': {reaction_id: self.default_upper_bound
+                            for reaction_id in self.constrained_reaction_ids},
         }
 
-        ## assign ports
-        self.internal_state_ids = list(self.objective_composition.keys())
-        ports = {
-            'external': self.fba.external_molecules,
-            'internal': self.internal_state_ids,
-            'reactions': self.reaction_ids,
-            'exchange': self.fba.external_molecules,
-            'flux_bounds': self.constrained_reaction_ids,
-            'global': GLOBALS}
-
-        ## parameters
+        # parameters
         parameters = {'time_step': time_step}
         parameters.update(initial_parameters)
 
@@ -199,41 +189,65 @@ class Metabolism(Process):
         self.mass_deriver_key = self.or_default(
             initial_parameters, 'mass_deriver_key')
 
-        super(Metabolism, self).__init__(ports, parameters)
+        super(Metabolism, self).__init__(parameters)
 
     def ports_schema(self):
-        emit = {
-            'internal': self.internal_state_ids,
-            'external': self.fba.external_molecules,
-            'exchange': self.fba.external_molecules,
-            'reactions': self.reaction_ids,
-            'flux_bounds': self.constrained_reaction_ids,
-            'global': ['mass']}
-        set_mass = {
-            'internal': {
-                mol_id: self.fba.molecular_weights[mol_id]
-                for mol_id in self.internal_state_ids}}
-        set_updater = {
-            'reactions': self.reaction_ids}
+        ports = [
+            'internal',
+            'external',
+            'exchange',
+            'reactions',
+            'flux_bounds',
+            'global',
+        ]
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state_id in states:
-                schema[port][state_id] = {}
-                if port in set_updater:
-                    if state_id in set_updater[port]:
-                        schema[port][state_id]['_updater'] = 'set'
-                if port in emit:
-                    if state_id in emit[port]:
-                        schema[port][state_id]['_emit'] = True
-                if port in self.initial_state:
-                    if state_id in self.initial_state[port]:
-                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
-                if port in set_mass:
-                    if state_id in set_mass[port]:
-                        schema[port][state_id]['_properties'] = {
-                            'mw': set_mass[port][state_id] * units.g / units.mol}
+        schema = {port: {} for port in ports}
+
+        # internal
+        for state in list(self.objective_composition.keys()):
+            schema['internal'][state] = {
+                '_default': self.initial_state['internal'].get(state, 0),
+                '_emit': True,
+                '_properties': {
+                    'mw': self.fba.molecular_weights[state] * units.g / units.mol},
+            }
+
+        # external
+        for state in self.fba.external_molecules:
+            schema['external'][state] = {
+                '_default': self.initial_state['external'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        # exchange
+        for state in self.fba.external_molecules:
+            schema['exchange'][state] = {
+                '_default': 0.0,
+            }
+
+        # reactions
+        for state in self.reaction_ids:
+            schema['reactions'][state] = {
+                '_default': 0.0,
+                '_emit': state in self.constrained_reaction_ids,
+                '_updater': 'set',
+            }
+
+        # flux_bounds
+        for state in self.constrained_reaction_ids:
+            schema['flux_bounds'][state] = {
+                '_default': self.initial_state['flux_bounds'].get(state, self.default_upper_bound),
+                '_emit': True,
+            }
+
+        # globals
+        schema['global']['mass'] = {
+            '_default': 0.0 * units.fg,
+            '_emit': True}
+        schema['global']['mmol_to_counts'] = {
+            '_default': 0.0 * units.L / units.mmol,
+            '_emit': True}
+
         return schema
 
     def derivers(self):
@@ -254,7 +268,6 @@ class Metabolism(Process):
                 }}}
 
     def next_update(self, timestep, states):
-
         ## get the state
         external_state = states['external']
         constrained_reaction_bounds = states['flux_bounds']  # (units.mmol / units.L / units.s)
@@ -277,7 +290,8 @@ class Metabolism(Process):
 
         # next, add constraints coming from flux_bounds
         # to constrain exchange fluxes, add the suffix 'EX_' to the external molecule ID
-        self.fba.constrain_flux(constrained_reaction_bounds)
+        if constrained_reaction_bounds:
+            self.fba.constrain_flux(constrained_reaction_bounds)
 
         # finally, turn reactions on/off based on regulation
         self.fba.regulate_flux(regulation_state)
@@ -448,8 +462,11 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
     # save fluxes as node size
     reaction_fluxes = {}
     for rxn_id in reaction_ids:
-        flux = abs(np.mean(reactions[rxn_id][1:]))
-        reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        if rxn_id in reactions:
+            flux = abs(np.mean(reactions[rxn_id][1:]))
+            reaction_fluxes[rxn_id] = np.log(1000 * flux + 1.1)
+        else:
+            reaction_fluxes[rxn_id] = 1
 
     # define node type
     node_types = {rxn_id: 'reaction' for rxn_id in reaction_ids}
@@ -465,7 +482,7 @@ def run_sim_save_network(config=get_toy_configuration(), out_dir='out/network'):
 def run_metabolism(metabolism, settings=None):
     if not settings:
         settings = {
-            'end_time': 10}
+            'total_time': 10}
     return simulate_process_in_experiment(metabolism, settings)
 
 # tests
@@ -505,18 +522,22 @@ def test_BiGG_metabolism(config=get_iAF1260b_config(), settings={}):
 
 reference_sim_settings = {
     'environment': {
-        'volume': 1e-5 * units.L},
+        'volume': 1e-5 * units.L,
+        'ports': {
+            'exchange': ('exchange',),
+            'external': ('external',),
+        }},
     'timestep': 1,
-    'end_time': 20}
+    'total_time': 10}
 
-def test_metabolism_similar_to_reference():
+def metabolism_similar_to_reference():
     config = get_iAF1260b_config()
     metabolism = Metabolism(config)
     timeseries = run_metabolism(metabolism, reference_sim_settings)
+
     reference = load_timeseries(
         os.path.join(REFERENCE_DATA_DIR, NAME + '.csv'))
     assert_timeseries_close(timeseries, reference)
-
 
 
 if __name__ == '__main__':
@@ -542,7 +563,7 @@ if __name__ == '__main__':
                     'external': ('external',),
                 }},
             # 'timestep': 1,
-            'total_time': 100,  # 2520 sec (42 min) is the expected doubling time in minimal media
+            'total_time': 20,  # 2520 sec (42 min) is the expected doubling time in minimal media
         }
 
         # run simulation

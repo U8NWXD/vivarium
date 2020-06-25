@@ -93,40 +93,9 @@ class AntibioticTransport(ConvenienceKinetics):
                 },
             },
             'initial_state': initial_state,
-            'ports': {
-                'internal': [
-                    'porin',
-                    'AcrAB-TolC',
-                    'antibiotic',
-                ],
-                'external': ['antibiotic'],
-            },
         }
 
         super(AntibioticTransport, self).__init__(parameters)
-
-    def ports_schema(self):
-        emit = {
-            'internal': ['antibiotic'],
-            'external': ['antibiotic']}
-        set_update = {
-            'exchange': ['antibiotic'],
-            'fluxes': [
-                'antibiotic_import',
-                'antibiotic_export']}
-
-        # update convenience kinetics schema
-        schema = super(AntibioticTransport, self).ports_schema()
-        for port, states in self.ports.items():
-            for state_id in states:
-                if port in emit:
-                    if state_id in emit[port]:
-                        schema[port][state_id]['_emit'] = True
-                if port in set_update:
-                    if state_id in set_update[port]:
-                        schema[port][state_id]['_updater'] = 'set'
-
-        return schema
 
 def run_antibiotic_transport():
     process = AntibioticTransport()

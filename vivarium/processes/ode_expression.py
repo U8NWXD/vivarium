@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import argparse
+import random
 
 from vivarium.core.process import Process
 from vivarium.library.dict_utils import deep_merge, tuplify_port_dicts
@@ -170,6 +171,9 @@ class ODE_expression(Process):
         'translation_rates': {},
         'degradation_rates': {},
         'protein_map': {},
+        'transcription_leak': {
+            'sigma': 0.0,
+            'magnitude': 0.0},
         'regulation': {},
         'regulators': [],
         'initial_state': {},
@@ -180,8 +184,6 @@ class ODE_expression(Process):
         if initial_parameters is None:
             initial_parameters = {}
 
-        # TODO -- kinetic regulation, cooperativity, autoinhibition, autactivation
-
         # ode gene expression
         self.transcription = initial_parameters.get(
             'transcription_rates', self.defaults['transcription_rates'])
@@ -191,6 +193,10 @@ class ODE_expression(Process):
             'degradation_rates', self.defaults['degradation_rates'])
         self.protein_map = initial_parameters.get(
             'protein_map', self.defaults['protein_map'])
+        transcription_leak = initial_parameters.get(
+            'transcription_leak', self.defaults['transcription_leak'])
+        self.transcription_leak_sigma = transcription_leak['sigma']
+        self.transcription_leak_magnitude = transcription_leak['magnitude']
 
         # boolean regulation
         regulation_logic = initial_parameters.get(
@@ -198,8 +204,8 @@ class ODE_expression(Process):
         self.regulation = {
             gene_id: build_rule(logic) for gene_id, logic in regulation_logic.items()}
         regulators = initial_parameters.get('regulators', self.defaults['regulators'])
-        internal_regulators = [state_id for port_id, state_id in regulators if port_id == 'internal']
-        external_regulators = [state_id for port_id, state_id in regulators if port_id == 'external']
+        self.internal_regulators = [state_id for port_id, state_id in regulators if port_id == 'internal']
+        self.external_regulators = [state_id for port_id, state_id in regulators if port_id == 'external']
 
         # get initial state
         states = list(self.transcription.keys()) + list(self.translation.keys())
@@ -207,40 +213,48 @@ class ODE_expression(Process):
             state_id: 0 for state_id in states}}
         initialized_states = initial_parameters.get('initial_state', self.defaults['initial_state'])
         self.initial_state = deep_merge(null_states, initialized_states)
-        internal = list(self.initial_state.get('internal', {}).keys())
-        external = list(self.initial_state.get('external', {}).keys())
-
+        self.internal = list(self.initial_state.get('internal', {}).keys())
+        self.external = list(self.initial_state.get('external', {}).keys())
         self.counts_deriver_key = self.or_default(
             initial_parameters, 'counts_deriver_key')
-
-        self.concentration_keys = internal + internal_regulators
-        ports = {
-            'internal': self.concentration_keys,
-            'external': external + external_regulators,
-            'counts': self.concentration_keys,
-            'global': ['volume']}
 
         parameters = {}
         parameters.update(initial_parameters)
 
-        super(ODE_expression, self).__init__(ports, parameters)
+        super(ODE_expression, self).__init__(parameters)
 
     def ports_schema(self):
-        set_mmol = {'internal': self.ports['internal']}
-        emit_port = ['internal', 'external', 'counts']
+        ports = [
+            'internal',
+            'external',
+            'counts',
+            'global',
+        ]
+        schema = {port: {} for port in ports}
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {state: {} for state in states}
-            # if port in set_mmol:
-            #     for state_id in set_mmol[port]:
-            #         schema[port][state_id]['_units'] = units.mmol
-            if port in self.initial_state:
-                for state_id, value in self.initial_state[port].items():
-                    schema[port][state_id]['_default'] = value
-            if port in emit_port:
-                for state_id in self.ports[port]:
-                    schema[port][state_id]['_emit'] = True
+        # internal
+        for state in self.internal + self.internal_regulators:
+            schema['internal'][state] = {
+                '_default': self.initial_state['internal'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        # external
+        for state in self.external + self.external_regulators:
+            schema['external'][state] = {
+                '_default': self.initial_state['external'].get(state, 0.0),
+                '_emit': True,
+            }
+
+        # counts
+        for state in self.internal + self.internal_regulators:
+            schema['counts'][state] = {
+                '_emit': True
+            }
+
+        # global
+        schema['global'] = {}
+
         return schema
 
     def derivers(self):
@@ -252,7 +266,7 @@ class ODE_expression(Process):
                     'concentrations': 'internal',
                     'counts': 'counts'},
                 'config': {
-                    'concentration_keys': self.concentration_keys}}}
+                    'concentration_keys': self.internal + self.internal_regulators}}}
 
     def next_update(self, timestep, states):
         internal_state = states['internal']
@@ -270,7 +284,10 @@ class ODE_expression(Process):
             transcript_state = internal_state[transcript]
             # do not transcribe inhibited genes
             if transcript in regulation_state and not regulation_state[transcript]:
-                rate = 0
+                if random.uniform(0, 1) < abs(random.gauss(0, self.transcription_leak_sigma)):
+                    rate = self.transcription_leak_magnitude
+                else:
+                    rate = 0.0
 
             internal_update[transcript] = \
                 (rate - self.degradation.get(transcript, 0) * transcript_state) * timestep
@@ -315,6 +332,9 @@ def get_lacy_config():
     # define regulation
     regulators = [('external', 'glc__D_e')]
     regulation = {'lacy_RNA': 'if not (external, glc__D_e) > 0.1'}
+    transcription_leak = {
+        'sigma': 1e-4,
+        'magnitude': 1e-6}
 
     # initial state
     initial_state = {
@@ -322,7 +342,8 @@ def get_lacy_config():
             'lacy_RNA': 0.0,
             'LacY': 0.0},
         'external': {
-            'glc__D_e': 8.0}}
+            'glc__D_e': 8.0,
+            'lcts_e': 8.0}}
 
     return {
         'transcription_rates': transcription_rates,
@@ -331,6 +352,7 @@ def get_lacy_config():
         'protein_map': protein_map,
         'regulators': regulators,
         'regulation': regulation,
+        'transcription_leak': transcription_leak,
         'initial_state': initial_state}
 
 def get_flagella_expression():
@@ -367,10 +389,8 @@ def get_flagella_expression():
     initial_state = {
         'counts': counts,
         'internal': concentrations}
-        # 'global': {
-        #     'volume': 1.2}}
 
-    return  {
+    return {
         'transcription_rates': transcription,
         'translation_rates': translation,
         'degradation_rates': degradation,

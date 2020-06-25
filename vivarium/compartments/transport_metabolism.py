@@ -59,6 +59,7 @@ def default_expression_config():
 
     return config
 
+
 class TransportMetabolism(Compartment):
     """
     Transport/Metabolism Compartment, with ODE expression
@@ -66,47 +67,40 @@ class TransportMetabolism(Compartment):
 
     defaults = {
         'boundary_path': ('boundary',),
-        'agents_path': ('..', '..', 'agents',),
+        'agents_path': ('agents',),
         'daughter_path': tuple(),
-        'transport': get_glc_lct_config(),
-        'metabolism': default_metabolism_config(),
-        'expression': default_expression_config(),
         'division': {}}
 
-    def __init__(self, config):
+    default_config = {
+        'transport': get_glc_lct_config(),
+        'metabolism': default_metabolism_config(),
+        'expression': default_expression_config()}
+
+    def __init__(self, config=None):
+        if not config:
+            config = self.default_config
         self.config = config
 
         self.boundary_path = config.get('boundary_path', self.defaults['boundary_path'])
         self.agents_path = config.get('agents_path', self.defaults['agents_path'])
         self.daughter_path = config.get('daughter_path', self.defaults['daughter_path'])
 
-        self.transport_config = config.get('transport', self.defaults['transport'])
-        self.metabolism_config = config.get('metabolism', self.defaults['metabolism'])
-        self.expression_config = config.get('expression', self.defaults['expression'])
-        self.division_config = config.get('division', self.defaults['division'])
-
     def generate_processes(self, config):
         agent_id = config.get('agent_id', '0')  # TODO -- configure the agent_id
 
         # Transport
         # load the kinetic parameters
-        transport = ConvenienceKinetics(config.get(
-            'transport',
-            self.transport_config))
+        transport = ConvenienceKinetics(config.get('transport', {}))
 
         # Metabolism
         # get target fluxes from transport, and update constrained_reaction_ids
-        metabolism_config = config.get(
-            'metabolism',
-            self.metabolism_config)
+        metabolism_config = config.get('metabolism', {})
         target_fluxes = transport.kinetic_rate_laws.reaction_ids
         metabolism_config.update({'constrained_reaction_ids': target_fluxes})
         metabolism = Metabolism(metabolism_config)
 
         # Gene expression
-        expression = ODE_expression(config.get(
-            'expression',
-            self.expression_config))
+        expression = ODE_expression(config.get('expression', {}))
 
         # Division
         division_config = dict(
@@ -127,9 +121,8 @@ class TransportMetabolism(Compartment):
         }
 
     def generate_topology(self, config):
-        exchange_path =  self.boundary_path + ('exchange',)
+        exchange_path = self.boundary_path + ('exchange',)
         external_path = self.boundary_path + ('external',)
-        # properties_path = self.boundary_path + ('properties',)
         return {
             'transport': {
                 'internal': ('cytoplasm',),
@@ -160,12 +153,6 @@ class TransportMetabolism(Compartment):
 
 
 # simulate
-default_compartment_config = {
-    'external_path': ('external',),
-    'exchange_path': ('exchange',),
-    'global_path': ('global',),
-    'agents_path': ('agents',)}
-
 def test_txp_mtb_ge():
     default_test_setting = {
         'environment': {
@@ -177,22 +164,27 @@ def test_txp_mtb_ge():
         'timestep': 1,
         'total_time': 10}
 
-    compartment = TransportMetabolism(default_compartment_config)
+    compartment = TransportMetabolism({})
     return simulate_compartment_in_experiment(compartment, default_test_setting)
 
-def simulate_txp_mtb_ge(config=default_compartment_config, out_dir='out'):
+def simulate_txp_mtb_ge(config={}, out_dir='out'):
 
-    end_time = 200  # 2520 sec (42 min) is the expected doubling time in minimal media
+    end_time = 2520  # 2520 sec (42 min) is the expected doubling time in minimal media
+    environment_volume = 1e-14
     timeline = [
         (0, {
             ('external', 'glc__D_e'): 3.0,
             ('external', 'lcts_e'): 3.0,
         }),
+        # (500, {
+        #     ('external', 'glc__D_e'): 0.0,
+        #     ('external', 'lcts_e'): 3.0,
+        # }),
         (end_time, {})]
 
     sim_settings = {
         'environment': {
-            'volume': 1e-14 * units.L,
+            'volume': environment_volume * units.L,
             'ports': {
                 'external': ('boundary', 'external'),
                 'exchange': ('boundary', 'exchange'),
@@ -200,10 +192,11 @@ def simulate_txp_mtb_ge(config=default_compartment_config, out_dir='out'):
         'timeline': {
             'timeline': timeline,
             'ports': {
-                'external': ('boundary', 'external')}}}
+                'external': ('boundary', 'external')}}
+    }
 
     # run simulation
-    compartment = TransportMetabolism(default_compartment_config)
+    compartment = TransportMetabolism({})
     timeseries = simulate_compartment_in_experiment(compartment, sim_settings)
 
     # calculate growth
@@ -234,8 +227,10 @@ def simulate_txp_mtb_ge(config=default_compartment_config, out_dir='out'):
     plot_simulation_output(timeseries, plot_settings, out_dir)
 
 # parameters
-def scan_txp_mtb_ge():
-    composite_function = compose_txp_mtb_ge
+def scan_transport_metabolism():
+
+    # initialize the compartment
+    compartment = TransportMetabolism({})
 
     # parameters to be scanned, and their values
     scan_params = {
@@ -244,20 +239,20 @@ def scan_txp_mtb_ge():
          'EX_glc__D_e',
          ('internal', 'EIIglc'),
          'kcat_f'):
-            get_parameters_logspace(1e3, 1e6, 4),
+            get_parameters_logspace(1e3, 1e6, 3),
         ('transport',
          'kinetic_parameters',
          'EX_lcts_e',
          ('internal', 'LacY'),
          'kcat_f'):
-            get_parameters_logspace(1e3, 1e6, 4),
+            get_parameters_logspace(1e3, 1e6, 3),
     }
 
     # metrics are the outputs of a scan
     metrics = [
         ('reactions', 'EX_glc__D_e'),
         ('reactions', 'EX_lcts_e'),
-        ('global', 'mass')
+        ('boundary', 'mass')
     ]
 
     # define conditions
@@ -286,21 +281,24 @@ def scan_txp_mtb_ge():
     # set up scan options
     timeline = [(10, {})]
     sim_settings = {
-        'environment_port': 'environment',
-        'exchange_port': 'exchange',
-        'environment_volume': 1e-6,  # L
-        'timeline': timeline}
-    scan_options = {
-        'simulate_with_environment': True,
-        'simulation_settings': sim_settings}
+        'environment': {
+            'volume': 1e-14 * units.L,
+            'ports': {
+                'external': ('boundary', 'external'),
+                'exchange': ('boundary', 'exchange'),
+            }},
+        'timeline': {
+            'timeline': timeline,
+            'ports': {
+                'external': ('boundary', 'external')}}}
 
     # run scan
     scan_config = {
-        'composite': composite_function,
+        'compartment': compartment,
         'scan_parameters': scan_params,
         'conditions': conditions,
         'metrics': metrics,
-        'options': scan_options}
+        'settings': sim_settings}
     results = parameter_scan(scan_config)
 
     return results
@@ -318,7 +316,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.scan:
-        results = scan_txp_mtb_ge()
+        results = scan_transport_metabolism()
         plot_scan_results(results, out_dir)
     else:
         config = {}

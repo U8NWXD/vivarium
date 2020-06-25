@@ -33,6 +33,21 @@ def deep_merge_check(dct, merge_dct):
             dct[k] = merge_dct[k]
     return dct
 
+def deep_merge_combine_lists(dct, merge_dct):
+    '''
+    Recursive dict merge, combines values that are lists
+    This mutates dct - the contents of merge_dct are added to dct (which is also returned).
+    If you want to keep dct you could call it like deep_merge(dict(dct), merge_dct)'''
+    for k, v in merge_dct.items():
+        if (k in dct and isinstance(dct[k], dict)
+                and isinstance(merge_dct[k], collections.Mapping)):
+            deep_merge(dct[k], merge_dct[k])
+        elif k in dct and isinstance(dct[k], list) and isinstance(v, list):
+            dct[k].extend(v)
+        else:
+            dct[k] = merge_dct[k]
+    return dct
+
 def deep_merge(dct, merge_dct):
     '''
     Recursive dict merge
@@ -68,8 +83,9 @@ def tuplify_port_dicts(dicts):
     '''
     merge = {}
     for port, states_dict in dicts.items():
-        for state, value in states_dict.items():
-            merge.update({(port, state): value})
+        if states_dict:
+            for state, value in states_dict.items():
+                merge.update({(port, state): value})
     return merge
 
 def flatten_timeseries(timeseries):

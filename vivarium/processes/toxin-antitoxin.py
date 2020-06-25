@@ -42,34 +42,19 @@ class ToxinAntitoxin(Process):
     def __init__(self, initial_parameters=None):
         if initial_parameters is None:
             initial_parameters = {}
-
-        ports = {
-            'internal': list(self.defaults['initial_state'].keys()),
-        }
-
         parameters = initial_parameters.get(
             'parameters', self.defaults['parameters'])
 
-        super(ToxinAntitoxin, self).__init__(ports, parameters)
+        super(ToxinAntitoxin, self).__init__(parameters)
 
     def ports_schema(self):
-        default_state = {'internal': self.defaults['initial_state']}
-        emit_port = ['internal']
-        set_update_port = ['internal']
-
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {state: {} for state in states}
-            if port in default_state:
-                for state_id, value in default_state[port].items():
-                    schema[port][state_id]['_default'] = value
-            if port in emit_port:
-                for state_id in states:
-                    schema[port][state_id]['_emit'] = True
-            if port in set_update_port:
-                for state_id in states:
-                    schema[port][state_id]['_updater'] = 'set'
-
+        schema = {'internal': {}}
+        for state, value in self.defaults['initial_state'].items():
+            schema['internal'][state] = {
+                '_default': value,
+                '_emit': True,
+                '_updater': 'set',
+            }
         return schema
 
     def next_update(self, timestep, states):

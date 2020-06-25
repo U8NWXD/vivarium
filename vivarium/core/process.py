@@ -1,23 +1,50 @@
 from __future__ import absolute_import, division, print_function
 
+import copy
+
+from vivarium.library.dict_utils import deep_merge
+
+DEFAULT_TIME_STEP = 1.0
+
 
 class Process(object):
-    def __init__(self, ports, parameters=None):
-        ''' Declare what ports this process expects. '''
 
-        self.ports = ports
-        self.parameters = parameters or {}
-        self.states = None
-        self.time_step = parameters.get('time_step', 1.0)
+    defaults = {}
+
+    def __init__(self, parameters=None):
+        if parameters is None:
+             parameters = {}
+        self.parameters = copy.deepcopy(self.defaults)
+        deep_merge(self.parameters, parameters)
+
+    def ports(self):
+        ports_schema = self.ports_schema()
+        return {
+            port: list(states.keys())
+            for port, states in ports_schema.items()}
 
     def local_timestep(self):
         '''
         Returns the favored timestep for this process.
         Meant to be overridden in subclasses, unless 1.0 is a happy value.
         '''
-        return self.time_step
+        return self.parameters.get('time_step', DEFAULT_TIME_STEP)
 
     def default_state(self):
+        '''
+        ports_schema returns a dictionary that declares which states are expected by the processes,
+        and how each state will behave.
+
+        state keys can be assigned properties through schema_keys declared in Store:
+            '_default'
+            '_updater'
+            '_divider'
+            '_value'
+            '_properties'
+            '_emit'
+            '_serializer'
+        '''
+
         schema = self.ports_schema()
         state = {}
         for port, states in schema.items():
@@ -43,25 +70,14 @@ class Process(object):
     def or_default(self, parameters, key):
         return parameters.get(key, self.defaults[key])
 
-    def parameters_for(self, parameters, key):
-        ''' Return key in parameters or from self.default_parameters if not present. '''
-
-        return parameters.get(key, self.default_parameters[key])
-
-    def derive_defaults(self, parameters, original_key, derived_key, f):
-        present = self.parameters_for(parameters, original_key)
-        self.default_parameters[derived_key] = f(present)
-        return self.default_parameters[derived_key]
-
-    def find_states(self, tree, topology):
-        return {
-            port: tree.state_for(topology[port], keys)
-            for port, keys in self.ports.items()}
+    def derive_defaults(self, original_key, derived_key, f):
+        source = self.parameters.get(original_key)
+        self.parameters[derived_key] = f(source)
+        return self.parameters[derived_key]
 
     def next_update(self, timestep, states):
         '''
         Find the next update given the current states this process cares about.
-
         This is the main function a new process would override.'''
 
         return {

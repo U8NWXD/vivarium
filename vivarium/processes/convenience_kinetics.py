@@ -115,8 +115,7 @@ class ConvenienceKinetics(Process):
                initial quantities of the molecules and enzymes. The
                initial reaction flux must also be specified. For
                example, to start with :math:`[E] = 1.2 mM` and
-               :math:`[A] = [B] = [C] = 0 mM` with an initial
-               reaction flux of `0`, we would have:
+               :math:`[A] = [B] = [C] = 0 mM`, we would have:
 
                .. code-block:: python
 
@@ -127,9 +126,6 @@ class ConvenienceKinetics(Process):
                          'C': 0.0,
                          'E': 1.2,
                      },
-                     'fluxes': {
-                         'reaction1': 0.0,
-                     }
                  }
 
                .. note:: Unlike the previous configuration options,
@@ -218,9 +214,10 @@ class ConvenienceKinetics(Process):
             'internal': {},
             'external': {}},
         'kinetic_parameters': {},
-        'ports': {
-            'internal': [],
-            'external': []},
+        'port_ids': [
+            'internal',
+            'external'
+        ],
         'global_deriver_key': 'global_deriver'}
 
     def __init__(self, initial_parameters=None):
@@ -230,21 +227,21 @@ class ConvenienceKinetics(Process):
         self.nAvogadro = constants.N_A * 1 / units.mol
 
         # retrieve initial parameters
-        self.reactions = initial_parameters.get('reactions', self.defaults['reactions'])
-        self.initial_state = initial_parameters.get('initial_state', self.defaults['initial_state'])
-        kinetic_parameters = initial_parameters.get('kinetic_parameters', self.defaults['kinetic_parameters'])
-        ports = initial_parameters.get('ports', self.defaults['ports'])
+        self.reactions = self.or_default(
+            initial_parameters, 'reactions')
+        self.initial_state = self.or_default(
+            initial_parameters, 'initial_state')
+        kinetic_parameters = self.or_default(
+            initial_parameters, 'kinetic_parameters')
+        self.port_ids = self.or_default(
+            initial_parameters, 'port_ids') + [
+            'fluxes',
+            'exchange',
+            'global'
+        ]
 
         # make the kinetic model
         self.kinetic_rate_laws = KineticFluxModel(self.reactions, kinetic_parameters)
-
-        # ports
-        # fluxes port is used to pass constraints
-        # exchange is equivalent to external, for lattice_compartment
-        ports.update({
-            'fluxes': self.kinetic_rate_laws.reaction_ids,
-            'exchange': ports['external'],
-            'global': ['mmol_to_counts']})
 
         # parameters
         parameters = {}
@@ -253,29 +250,39 @@ class ConvenienceKinetics(Process):
         self.global_deriver_key = self.or_default(
             initial_parameters, 'global_deriver_key')
 
-        super(ConvenienceKinetics, self).__init__(ports, parameters)
+        super(ConvenienceKinetics, self).__init__(parameters)
 
     def ports_schema(self):
-        set_ports = ['fluxes']
-        emit_ports = ['internal', 'external', 'fluxes']
 
-        schema = {}
-        for port, states in self.ports.items():
-            schema[port] = {}
-            for state_id in states:
-                schema[port][state_id] = {}
-                if port in self.initial_state:
-                    if state_id in self.initial_state[port]:
-                        schema[port][state_id]['_default'] = self.initial_state[port][state_id]
-                else:
-                    schema[port][state_id]['_default'] = 0.0
-            if port in set_ports:
-                for state_id in states:
-                    schema[port][state_id]['_updater'] = 'set'
+        schema = {port_id: {} for port_id in self.port_ids}
 
-            emitting = port in emit_ports
+        for port, states in self.initial_state.items():
             for state_id in states:
-                schema[port][state_id]['_emit'] = emitting
+                schema[port][state_id] = {
+                    '_default': self.initial_state[port][state_id],
+                    '_emit': True}
+
+        # exchange
+        # Note: exchange depends on a port called external
+        if 'external' in schema:
+            schema['exchange'] = {
+                state_id: {
+                    '_default': 0.0}
+                for state_id in schema['external'].keys()}
+
+        # fluxes
+        for state in self.kinetic_rate_laws.reaction_ids:
+            schema['fluxes'][state] = {
+                '_default': 0.0,
+                '_emit': False,
+                '_updater': 'set',
+            }
+
+        # global
+        schema['global']['mmol_to_counts'] = {
+            '_default': 0.0 * units.L / units.mmol,
+            '_emit': False,
+        }
 
         return schema
 
@@ -291,7 +298,7 @@ class ConvenienceKinetics(Process):
     def next_update(self, timestep, states):
 
         # get mmol_to_counts for converting flux to exchange counts
-        mmol_to_counts = states['global']['mmol_to_counts'] * units.L / units.mmol
+        mmol_to_counts = states['global']['mmol_to_counts']
 
         # kinetic rate law requires a flat dict with ('port', 'state') keys.
         flattened_states = tuplify_port_dicts(states)
@@ -301,14 +308,14 @@ class ConvenienceKinetics(Process):
 
         # make the update
         # add fluxes to update
-        update = {port: {} for port in self.ports.keys()}
+        update = {port: {} for port in self.port_ids}
         update.update({'fluxes': fluxes})
 
         # get exchange
         for reaction_id, flux in fluxes.items():
             stoichiometry = self.reactions[reaction_id]['stoichiometry']
             for port_state_id, coeff in stoichiometry.items():
-                for port_id, state_list in self.ports.items():
+                for port_id in self.port_ids:
                     # separate the state_id and port_id
                     if port_id in port_state_id:
                         state_id = port_state_id[1]
@@ -334,6 +341,97 @@ class ConvenienceKinetics(Process):
 
 
 # functions
+def get_glc_lct_transport():
+
+    transport_reactions = {
+        'LCTSt3ipp': {
+            'stoichiometry': {
+                ('internal', 'h_c'): 1.0,
+                ('external', 'h_p'): -1.0,
+                ('internal', 'lcts_c'): 1.0,
+                ('external', 'lcts_p'): -1.0
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'LacY')]
+        },
+        'GLCptspp': {
+            'stoichiometry': {
+                ('internal', 'g6p_c'): 1.0,
+                ('external', 'glc__D_e'): -1.0,
+                ('internal', 'pep_c'): -1.0,
+                ('internal', 'pyr_c'): 1.0,
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'EIIglc')]
+        },
+        'GLCt2pp': {
+            'stoichiometry': {
+                ('internal', 'glc__D_c'): 1.0,
+                ('external', 'glc__D_p'): -1.0,
+                ('internal', 'h_c'): 1.0,
+                ('external', 'h_p'): -1.0,
+            },
+            'is reversible': False,
+            'catalyzed by': [('internal', 'GalP')]
+        },
+    }
+
+    transport_kinetics = {
+        # lcts uptake by LacY
+        'LCTSt3ipp': {
+            ('internal', 'LacY'): {
+                ('external', 'h_p'): None,
+                ('external', 'lcts_p'): 1e0,
+                'kcat_f': 7.8e2,  # 1/s
+            }
+        },
+        # g6p PTS uptake by EIIglc
+        'GLCptspp': {
+            ('internal', 'EIIglc'): {
+                ('external', 'glc__D_e'): 1e0,
+                ('internal', 'pep_c'): 1e0,
+                'kcat_f': 7.5e4,  # 1/s
+            }
+        },
+        # glc uptake by GalP
+        'GLCt2pp': {
+            ('internal', 'GalP'): {
+                ('external', 'glc__D_p'): 1e0,
+                ('external', 'h_p'): None,
+                'kcat_f': 1.5e2,  # 1/s
+            }
+        },
+    }
+
+    transport_initial_state = {
+        'internal': {
+            'EIIglc': 1.8e-3,  # (mmol/L)
+            'g6p_c': 0.0,
+            'pep_c': 1.8e-1,
+            'pyr_c': 0.0,
+            'LacY': 0,
+            'lcts_p': 0.0,
+        },
+        'external': {
+            'glc__D_e': 10.0,
+            'lcts_e': 10.0,
+        },
+    }
+
+    transport_ports = {
+        'internal': [
+            'g6p_c', 'pep_c', 'pyr_c', 'EIIglc', 'LacY', 'lcts_p'],
+        'external': [
+            'glc__D_e', 'lcts_e']
+    }
+
+    return {
+        'reactions': transport_reactions,
+        'kinetic_parameters': transport_kinetics,
+        'initial_state': transport_initial_state,
+        'ports': transport_ports}
+
+
 def get_glc_lct_config():
     """
     :py:class:`ConvenienceKinetics` configuration for simplified glucose
@@ -352,7 +450,7 @@ def get_glc_lct_config():
             'stoichiometry': {
                 ('internal', 'g6p_c'): 1.0,
                 ('external', 'glc__D_e'): -1.0,
-                ('internal', 'pep_c'): -1.0,  # TODO -- PEP requires homeostasis mechanism to avoid depletion
+                ('internal', 'pep_c'): -1.0,
                 ('internal', 'pyr_c'): 1.0,
             },
             'is reversible': False,
@@ -397,10 +495,6 @@ def get_glc_lct_config():
             'glc__D_e': 10.0,
             'lcts_e': 10.0,
         },
-        'fluxes': {
-            'EX_glc__D_e': 0.0,
-            'EX_lcts_e': 0.0,
-        }
     }
 
     transport_ports = {
@@ -415,6 +509,7 @@ def get_glc_lct_config():
         'kinetic_parameters': transport_kinetics,
         'initial_state': transport_initial_state,
         'ports': transport_ports}
+
 
 def get_toy_config():
     '''
@@ -454,9 +549,6 @@ def get_toy_config():
         'external': {
             'B': 10.0,
         },
-        'fluxes': {
-            'reaction1': 0.0,
-        }
     }
 
     return {
@@ -480,6 +572,7 @@ def test_convenience_kinetics(end_time=2520):
         'total_time': end_time}
 
     return simulate_process_in_experiment(kinetic_process, settings)
+
 
 def test_convenience_kinetics_correlated_to_reference():
     timeseries = test_convenience_kinetics()

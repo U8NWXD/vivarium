@@ -11,7 +11,7 @@ from vivarium.core.composition import (
 # processes
 from vivarium.processes.multibody_physics import (
     Multibody,
-    random_body_config,
+    agent_body_config,
 )
 from vivarium.plots.multibody_physics import plot_snapshots
 from vivarium.processes.diffusion_field import (
@@ -29,31 +29,33 @@ class Lattice(Compartment):
     """
 
     defaults = {
-        'multibody': {
-            'bounds': [10, 10],
-            'agents': {}
-        },
-        'diffusion': {
-            'molecules': ['glc'],
-            'n_bins': [10, 10],
-            'bounds': [10, 10],
-            'depth': 3000.0,
-            'diffusion': 1e-2,
+        'config': {
+            'multibody': {
+                'bounds': [10, 10],
+                'size': [10, 10],
+                'agents': {}
+            },
+            'diffusion': {
+                'molecules': ['glc'],
+                'n_bins': [10, 10],
+                'size': [10, 10],
+                'depth': 3000.0,
+                'diffusion': 1e-2,
+            }
         }
     }
 
-    def __init__(self, config):
+    def __init__(self, config=None):
+        if config is None or not bool(config):
+            config = self.defaults['config']
         self.config = config
 
-    def generate_processes(self, config=None):
-        multibody = Multibody(config['multibody'])
-        diffusion = DiffusionField(config['diffusion'])
-
+    def generate_processes(self, config):
         return {
-            'multibody': multibody,
-            'diffusion': diffusion}
+            'multibody': Multibody(config['multibody']),
+            'diffusion': DiffusionField(config['diffusion'])}
 
-    def generate_topology(self, config=None):
+    def generate_topology(self, config):
         return {
             'multibody': {
                 'agents': ('agents',)},
@@ -80,7 +82,7 @@ def get_lattice_config(config={}):
     body_config = {
         'bounds': bounds,
         'agent_ids': agent_ids}
-    mbp_config.update(random_body_config(body_config))
+    mbp_config.update(agent_body_config(body_config))
 
     # diffusion config
     dff_config = get_gaussian_config({

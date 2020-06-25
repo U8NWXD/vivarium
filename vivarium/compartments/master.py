@@ -8,6 +8,7 @@ from vivarium.core.composition import (
     plot_simulation_output,
     COMPARTMENT_OUT_DIR
 )
+from vivarium.library.dict_utils import deep_merge
 from vivarium.compartments.gene_expression import plot_gene_expression_output
 
 # processes
@@ -18,6 +19,7 @@ from vivarium.processes.transcription import Transcription
 from vivarium.processes.translation import Translation
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
+from vivarium.states.chromosome import toy_chromosome_config
 
 
 NAME = 'master'
@@ -38,32 +40,35 @@ class Master(Compartment):
     defaults = {
         'global_path': ('global',),
         'external_path': ('external',),
-        'transport': get_glc_lct_config(),
-        'metabolism': default_metabolism_config(),
+        'config': {
+            'transport': get_glc_lct_config(),
+            'metabolism': default_metabolism_config()
+        }
     }
 
-    def __init__(self, config):
-        self.config = config
-        self.global_path = config.get('global_path', self.defaults['global_path'])
-        self.external_path = config.get('external_path', self.defaults['external_path'])
+    def __init__(self, config=None):
+        if not config:
+            config = {}
+        self.config = deep_merge(self.defaults['config'], config)
+        self.global_path = self.or_default(
+            config, 'global_path')
+        self.external_path = self.or_default(
+            config, 'external_path')
 
     def generate_processes(self, config):
 
-        ## Declare the processes.
         # Transport
-        # load the kinetic parameters
-        transport_config = config.get('transport', self.defaults['transport'])
+        transport_config = config.get('transport')
         transport = ConvenienceKinetics(transport_config)
         target_fluxes = transport.kinetic_rate_laws.reaction_ids
 
         # Metabolism
-        # get target fluxes from transport
-        # load regulation function
-        metabolism_config = config.get('metabolism', self.defaults['metabolism'])
+        # add target fluxes from transport
+        metabolism_config = config.get('metabolism')
         metabolism_config.update({'constrained_reaction_ids': target_fluxes})
         metabolism = Metabolism(metabolism_config)
 
-        # expression
+        # Expression
         transcription_config = config.get('transcription', {})
         translation_config = config.get('translation', {})
         degradation_config = config.get('degradation', {})
@@ -88,24 +93,21 @@ class Master(Compartment):
             'division': division}
 
     def generate_topology(self, config):
-        external_path = config.get('external_path', self.external_path)
-        global_path = config.get('global_path', self.global_path)
-
         return {
             'transport': {
                 'internal': ('metabolites',),
-                'external': external_path,
+                'external': self.external_path,
                 'exchange': ('null',),  # metabolism's exchange is used
                 'fluxes': ('flux_bounds',),
-                'global': global_path},
+                'global': self.global_path},
 
             'metabolism': {
                 'internal': ('metabolites',),
-                'external': external_path,
+                'external': self.external_path,
                 'reactions': ('reactions',),
                 'exchange': ('exchange',),
                 'flux_bounds': ('flux_bounds',),
-                'global': global_path},
+                'global': self.global_path},
 
             'transcription': {
                 'chromosome': ('chromosome',),
@@ -113,7 +115,7 @@ class Master(Compartment):
                 'proteins': ('proteins',),
                 'transcripts': ('transcripts',),
                 'factors': ('concentrations',),
-                'global': global_path},
+                'global': self.global_path},
 
             'translation': {
                 'ribosomes': ('ribosomes',),
@@ -121,21 +123,21 @@ class Master(Compartment):
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'concentrations': ('concentrations',),
-                'global': global_path},
+                'global': self.global_path},
 
             'degradation': {
                 'transcripts': ('transcripts',),
                 'proteins': ('proteins',),
                 'molecules': ('metabolites',),
-                'global': global_path},
+                'global': self.global_path},
 
             'complexation': {
                 'monomers': ('proteins',),
                 'complexes': ('proteins',),
-                'global': global_path},
+                'global': self.global_path},
 
             'division': {
-                'global': global_path}}
+                'global': self.global_path}}
 
 
 def run_master(out_dir):
@@ -162,7 +164,14 @@ def test_master():
         'external_path': ('external',),
         'exchange_path': ('exchange',),
         'global_path': ('global',),
-        'agents_path': ('..', '..', 'cells',)}
+        'agents_path': ('..', '..', 'cells',),
+        'transcription': {
+            'sequence': toy_chromosome_config['sequence'],
+            'templates': toy_chromosome_config['promoters'],
+            'genes': toy_chromosome_config['genes'],
+            'promoter_affinities': toy_chromosome_config['promoter_affinities'],
+            'transcription_factors': ['tfA', 'tfB'],
+            'elongation_rate': 10.0}}
     compartment = Master(compartment_config)
 
     # simulate
