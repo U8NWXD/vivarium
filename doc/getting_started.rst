@@ -346,7 +346,7 @@ install the Python packages Vivarium uses.
 
    .. code-block:: console
 
-        $ pip install -r reqirements.txt
+        $ pip install -r requirements.txt
 
    If you encounter problems installing numpy and/or scipy, try this
    instead:
