@@ -4,6 +4,10 @@ from pymongo import MongoClient
 from confluent_kafka import Producer
 import json
 import copy
+try:
+    from urllib.parse import quote_plus  # Python 3
+except ImportError:
+    from urllib import quote_plus  # Python 2
 
 from vivarium.actor.actor import delivery_report
 from vivarium.library.dict_utils import (
@@ -20,6 +24,8 @@ CONFIGURATION_INDEXES = [
     'type',
     'simulation_id',
     'experiment_id']
+
+SECRETS_PATH = 'secrets.json'
 
 
 def create_indexes(table, columns):
@@ -158,8 +164,8 @@ class DatabaseEmitter(Emitter):
     '''
     Emit data to a mongoDB database
 
-	example:
-	config = {
+    example:
+    config = {
         'host': 'localhost:27017',
         'database': 'DB_NAME'}
     '''
@@ -198,3 +204,99 @@ class DatabaseEmitter(Emitter):
             if key not in ['_id', 'experiment_id']}
             for datum in data]
         return data
+
+
+def get_atlas_client(secrets_path):
+    with open(secrets_path, 'r') as f:
+        secrets = json.load(f)
+    emitter_config = get_atlas_database_emitter_config(
+        **secrets['database'])
+    uri = emitter_config['host']
+    client = MongoClient(uri)
+    return client[emitter_config['database']]
+
+
+def get_local_client(port, database_name):
+    client = MongoClient('localhost:{}'.format(port))
+    return client[database_name]
+
+
+def data_from_database(experiment_id, client):
+    # Retrieve environment config
+    config_collection = client.configuration
+    environment_config = config_collection.find_one({
+        'experiment_id': experiment_id,
+        'type': 'environment_config',
+    })
+
+    # Retrieve timepoint data
+    history_collection = client.history
+
+    unique_time_objs = history_collection.aggregate([
+        {
+            '$match': {
+                'experiment_id': experiment_id
+            }
+        }, {
+            '$group': {
+                '_id': {
+                    'time': '$time'
+                },
+                'id': {
+                    '$first': '$_id'
+                }
+            }
+        }, {
+            '$sort': {
+                '_id.time': 1
+            }
+        },
+    ])
+    unique_time_ids = [
+        obj['id'] for obj in unique_time_objs
+    ]
+    data_cursor = history_collection.find({
+        '_id': {
+            '$in': unique_time_ids
+        }
+    }).sort('time')
+    raw_data = list(data_cursor)
+
+    # Reshape data
+    data = {
+        timepoint_dict['time']: {
+            key: val
+            for key, val in timepoint_dict.items()
+            if key != 'time'
+        }
+        for timepoint_dict in raw_data
+    }
+    return data, environment_config
+
+def get_atlas_database_emitter_config(
+    username, password, cluster_subdomain, database
+):
+    username = quote_plus(username)
+    password = quote_plus(password)
+    database = quote_plus(database)
+
+    uri = (
+        "mongodb+srv://{}:{}@{}.mongodb.net/"
+        + "?retryWrites=true&w=majority"
+    ).format(username, password, cluster_subdomain)
+    return {
+        'type': 'database',
+        'host': uri,
+        'database': database,
+    }
+
+
+def emit_environment_config(environment_config, emitter):
+    config = {
+        'bounds': environment_config['multibody']['bounds'],
+        'type': 'environment_config',
+    }
+    emitter.emit({
+        'data': config,
+        'table': 'configuration',
+    })
