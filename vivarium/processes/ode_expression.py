@@ -342,7 +342,8 @@ def get_lacy_config():
             'lacy_RNA': 0.0,
             'LacY': 0.0},
         'external': {
-            'glc__D_e': 8.0}}
+            'glc__D_e': 8.0,
+            'lcts_e': 8.0}}
 
     return {
         'transcription_rates': transcription_rates,
