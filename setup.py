@@ -28,7 +28,8 @@ setup(
         'vivarium.data.flat',
         'vivarium.data.flat.media',
         'vivarium.data.json_files',
-        'vivarium.library'],
+        'vivarium.library'
+    ],
     author='Eran Agmon, Ryan Spangler',
     author_email='eagmon@stanford.edu, spanglry@stanford.edu',
     url='https://github.com/CovertLab/vivarium',
@@ -37,9 +38,12 @@ setup(
         'console_scripts': [
             'vivarium.actor.boot=vivarium.actor.boot:run',
             'vivarium.actor.control=vivarium.actor.control:run',
+            'vivarium.analysis.analyze=vivarium.analysis.analyze:run',
             'vivarium.environment.boot=vivarium.environment.boot:run',
             'vivarium.environment.control=vivarium.environment.control:run',
-            'vivarium.compartments=vivarium.compartments:run']},
+            'vivarium.compartments=vivarium.compartments:run'
+        ],
+    },
     long_description=long_description,
     long_description_content_type='text/markdown',
     package_data={
