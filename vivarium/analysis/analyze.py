@@ -1,12 +1,16 @@
 from __future__ import absolute_import, division, print_function
 
 import argparse
+import csv
 import json
 import os
 
 from pymongo import MongoClient
 
-from vivarium.plots.multibody_physics import plot_snapshots
+from vivarium.plots.multibody_physics import (
+    plot_snapshots,
+    plot_tags,
+)
 from vivarium.core.composition import plot_agents_multigen
 from vivarium.core.emitter import (
     get_atlas_client,
@@ -36,7 +40,7 @@ def plot(args):
     else:
         os.makedirs(out_dir)
 
-    if args.snapshots:
+    if args.snapshots or args.tags:
         agents = {
             time: timepoint['agents']
             for time, timepoint in data.items()
@@ -45,16 +49,31 @@ def plot(args):
             time: timepoint['fields']
             for time, timepoint in data.items()
         }
-        snapshots_data = {
-            'agents': agents,
-            'fields': fields,
-            'config': environment_config,
-        }
-        plot_config = {
-            'out_dir': out_dir,
-            'filename': 'snapshot',
-        }
-        plot_snapshots(snapshots_data, plot_config)
+        if args.snapshots:
+            snapshots_data = {
+                'agents': agents,
+                'fields': fields,
+                'config': environment_config,
+            }
+            plot_config = {
+                'out_dir': out_dir,
+            }
+            plot_snapshots(snapshots_data, plot_config)
+        if args.tags is not None:
+            with open(args.tags, 'r') as f:
+                reader = csv.reader(f)
+                molecules = [
+                    (store, molecule) for store, molecule in reader
+                ]
+            tags_data = {
+                'agents': agents,
+                'config': environment_config,
+            }
+            plot_config = {
+                'out_dir': out_dir,
+                'tagged_molecules': molecules,
+            }
+            plot_tags(tags_data, plot_config)
 
     if args.timeseries:
         plot_settings = {
@@ -76,6 +95,18 @@ def run():
         action='store_true',
         default=False,
         help='Plot snapshots',
+    )
+    parser.add_argument(
+        '--tags', '-g',
+        default=None,
+        help=(
+            'A path to a CSV file that lists the tagged molecules to '
+            'plot. The first column should contain the name of the store '
+            'under each agent boundary where the molecule is reported, '
+            'and the second column should contain the name of the '
+            'molecule. Setting this parameter causes a plot of the tagged '
+            'molecues to be produced.'
+        ),
     )
     parser.add_argument(
         '--timeseries', '-t',

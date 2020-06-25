@@ -25,6 +25,8 @@ PI = math.pi
 HUES = [hue/360 for hue in np.linspace(0,360,30)]
 DEFAULT_HUE = HUES[0]
 DEFAULT_SV = [100.0/100.0, 70.0/100.0]
+BASELINE_TAG_COLOR = [220/360, 1.0, 0.2]  # HSV
+FLOURESCENT_SV = [0.5, 1.0]  # SV for fluorescent colors
 
 def check_plt_backend():
     # reset matplotlib backend for non-interactive plotting
@@ -74,10 +76,33 @@ def plot_agents(ax, agents, agent_colors={}):
 
 
 def plot_snapshots(data, plot_config):
-    '''
-        - agents (dict): with {time: agent_data}
-        - fields (dict): with {time: field_data}
-        - config (dict): the environment config for the simulation
+    '''Plot snapshots of the simulation over time
+
+    The snapshots depict the agents and environmental molecule
+    concentrations.
+
+    Arguments:
+        data (dict): A dictionary with the following keys:
+            * **agents** (:py:class:`dict`): A mapping from times to
+              dictionaries of agent data at that timepoint. Agent data
+              dictionaries should have the same form as the hierarchy
+              tree rooted at ``agents``.
+            * **fields** (:py:class:`dict`): A mapping from times to
+              dictionaries of environmental field data at that
+              timepoint.  Field data dictionaries should have the same
+              form as the hierarchy tree rooted at ``fields``.
+            * **config** (:py:class:`dict`): The environmental
+              configuration dictionary  with the following keys:
+                * **bounds** (:py:class:`tuple`): The dimensions of the
+                  environment.
+        plot_config (dict): Accepts the following configuration options.
+            Any options with a default is optional.
+            * **n_snapshots** (:py:class:`int`): Number of snapshots to
+              show per row (i.e. for each molecule). Defaults to 6.
+            * **out_dir** (:py:class:`str`): Output directory, which is
+              ``out`` by default.
+            * **filename** (:py:class:`str`): Base name of output file.
+              ``snapshots`` by default.
     '''
     check_plt_backend()
 
@@ -175,6 +200,147 @@ def plot_snapshots(data, plot_config):
             if agents:
                 agents_now = agents[time]
                 plot_agents(ax, agents_now, agent_colors)
+
+    fig_path = os.path.join(out_dir, filename)
+    plt.subplots_adjust(wspace=0.7, hspace=0.1)
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close(fig)
+
+def get_fluorescent_color(baseline_hsv, tag_color, intensity):
+    # move color towards bright fluoresence color when intensity = 1
+    new_hsv = baseline_hsv[:]
+    distance = [a - b for a, b in zip(tag_color, new_hsv)]
+
+    # if hue distance > 180 degrees, go around in the other direction
+    if distance[0] > 0.5:
+        distance[0] = 1 - distance[0]
+    elif distance[0] < -0.5:
+        distance[0] = 1 + distance[0]
+
+    new_hsv = [a + intensity * b for a, b in zip(new_hsv, distance)]
+    new_hsv[0] = new_hsv[0] % 1
+
+    return new_hsv
+
+def plot_tags(data, plot_config):
+    '''Plot snapshots of the simulation over time
+
+    The snapshots depict the agents and the levels of tagged molecules
+    in each agent by agent color intensity.
+
+    Arguments:
+        data (dict): A dictionary with the following keys:
+            * **agents** (:py:class:`dict`): A mapping from times to
+              dictionaries of agent data at that timepoint. Agent data
+              dictionaries should have the same form as the hierarchy
+              tree rooted at ``agents``.
+            * **config** (:py:class:`dict`): The environmental
+              configuration dictionary  with the following keys:
+                * **bounds** (:py:class:`tuple`): The dimensions of the
+                  environment.
+        plot_config (dict): Accepts the following configuration options.
+            Any options with a default is optional.
+            * **n_snapshots** (:py:class:`int`): Number of snapshots to
+              show per row (i.e. for each molecule). Defaults to 6.
+            * **out_dir** (:py:class:`str`): Output directory, which is
+              ``out`` by default.
+            * **filename** (:py:class:`str`): Base name of output file.
+              ``tags`` by default.
+            * **tagged_molecules** (:py:class:`Iterable`): The tagged
+              molecules whose concentrations will be indicated by agent
+              color. Each molecule should be specified as a
+              :py:class:`tuple` of the store in the agent's boundary
+              where the molecule's count can be found and the name of
+              the molecule's count variable.
+    '''
+    check_plt_backend()
+
+    n_snapshots = plot_config.get('n_snapshots', 6)
+    out_dir = plot_config.get('out_dir', 'out')
+    filename = plot_config.get('filename', 'tags')
+    tagged_molecules = plot_config['tagged_molecules']
+
+    if tagged_molecules == []:
+        raise ValueError('At least one molecule must be tagged.')
+
+    # get data
+    agents = data['agents']
+    config = data.get('config', {})
+    bounds = config['bounds']
+    edge_length_x, edge_length_y = bounds
+
+    # time steps that will be used
+    time_vec = list(agents.keys())
+    time_indices = np.round(
+        np.linspace(0, len(time_vec) - 1, n_snapshots)
+    ).astype(int)
+    snapshot_times = [time_vec[i] for i in time_indices]
+
+    # get tag ids and range
+    tag_ranges = {}
+    tag_colors = {}
+
+    for time, time_data in agents.items():
+        for agent_id, agent_data in time_data.items():
+            volume = agent_data['boundary']['volume']
+            for tag_id in tagged_molecules:
+                report_type, molecule = tag_id
+                count = agent_data['boundary'][report_type][molecule]
+                conc = count / volume
+                if tag_id in tag_ranges:
+                    tag_ranges[tag_id] = [
+                        min(tag_ranges[tag_id][0], conc),
+                        max(tag_ranges[tag_id][1], conc)]
+                else:
+                    # add new tag
+                    tag_ranges[tag_id] = [conc, conc]
+
+                    # select random initial hue
+                    hue = random.choice(HUES)
+                    tag_color = [hue] + FLOURESCENT_SV
+                    tag_colors[tag_id] = tag_color
+
+    # make the figure
+    n_rows = len(tagged_molecules)
+    n_cols = n_snapshots + 1  # one column for the colorbar
+    figsize = (12 * n_cols, 12 * n_rows)
+    max_dpi = min([2**16 // dim for dim in figsize]) - 1
+    fig = plt.figure(figsize=figsize, dpi=min(max_dpi, 100))
+    grid = plt.GridSpec(n_rows, n_cols, wspace=0.2, hspace=0.2)
+    plt.rcParams.update({'font.size': 36})
+
+    # plot tags
+    for col_idx, (time_idx, time) in enumerate(
+        zip(time_indices, snapshot_times)
+    ):
+        for row_idx, tag_id in enumerate(tag_ranges.keys()):
+            ax = init_axes(
+                fig, edge_length_x, edge_length_y, grid,
+                row_idx, col_idx, time
+            )
+            ax.set_facecolor('black')  # set background color
+
+            # update agent colors based on tag_level
+            agent_tag_colors = {}
+            for agent_id, agent_data in agents[time].items():
+                agent_color = BASELINE_TAG_COLOR
+
+                # get current tag concentration, and determine color
+                report_type, molecule = tag_id
+                counts = agent_data['boundary'][report_type][molecule]
+                volume = agent_data['boundary']['volume']
+                level = counts / volume
+                min_tag, max_tag = tag_ranges[tag_id]
+                if min_tag != max_tag:
+                    intensity = max((level - min_tag), 0)
+                    intensity = min(intensity / (max_tag - min_tag), 1)
+                    tag_color = tag_colors[tag_id]
+                    agent_color = get_fluorescent_color(
+                        BASELINE_TAG_COLOR, tag_color, intensity)
+
+                agent_tag_colors[agent_id] = agent_color
+
+            plot_agents(ax, agents[time], agent_tag_colors)
 
     fig_path = os.path.join(out_dir, filename)
     plt.subplots_adjust(wspace=0.7, hspace=0.1)
