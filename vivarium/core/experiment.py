@@ -1104,7 +1104,7 @@ class Experiment(object):
     def __init__(self, config):
         self.config = config
         self.experiment_id = config.get(
-            'experiment_id', datetime.datetime.now().isoformat())
+            'experiment_id', timestamp(datetime.datetime.utcnow()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
