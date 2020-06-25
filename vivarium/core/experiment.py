@@ -1135,7 +1135,7 @@ class Experiment(object):
         self.processes = config['processes']
         self.topology = config['topology']
         self.initial_state = config.get('initial_state', {})
-        self.emit_interval = config.get('emit_interval')
+        self.emit_step = config.get('emit_step')
 
         self.state = generate_state(
             self.processes,
@@ -1238,7 +1238,7 @@ class Experiment(object):
         """ Run each process for the given interval and update the related states. """
 
         time = 0
-        emit_time = self.emit_interval
+        emit_time = self.emit_step
 
         def empty_front(t):
             return {
@@ -1318,12 +1318,12 @@ class Experiment(object):
                 time = future
                 self.local_time += full_step
 
-                if self.emit_interval is None:
+                if self.emit_step is None:
                     self.emit_data()
                 elif emit_time <= time:
-                    while emit_time < time:
+                    while emit_time <= time:
                         self.emit_data()
-                        emit_time += self.emit_interval
+                        emit_time += self.emit_step
 
         for process_name, advance in front.items():
             assert advance['time'] == time == interval
