@@ -500,9 +500,9 @@ class Store(object):
                 divider = self.divider['divider']
                 topology = self.divider['topology']
                 state = self.outer.get_values(topology)
-                return divider(self.value, state)
+                return divider(self.get_value(), state)
             else:
-                return self.divider(self.value)
+                return self.divider(self.get_value())
         elif self.inner:
             daughters = [{}, {}]
             for key, child in self.inner.items():
@@ -763,6 +763,8 @@ class Store(object):
                         node = self.get_path(path)
                         for child, child_node in node.inner.items():
                             state[child] = child_node.schema_topology(subschema, {})
+                elif key == '_divider':
+                    pass
                 elif isinstance(path, dict):
                     node, path = self.outer_path(path)
                     state[key] = node.schema_topology(subschema, path)
@@ -1560,6 +1562,7 @@ def test_topology_ports():
                     '_updater': 'set',
                     '_default': self.radius},
                 'quarks': {
+                    '_divider': 'split_dict',
                     '*': {
                         'color': {
                             '_updater': 'set',
@@ -1683,6 +1686,7 @@ def test_topology_ports():
     experiment.update(10.0)
 
     log.debug(pf(experiment.state.get_config(True)))
+    log.debug(pf(experiment.state.divide_value()))
 
 
 def test_timescales():
