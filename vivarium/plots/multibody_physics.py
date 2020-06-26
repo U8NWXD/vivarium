@@ -286,7 +286,7 @@ def plot_tags(data, plot_config):
             for tag_id in tagged_molecules:
                 report_type, molecule = tag_id
                 count = agent_data['boundary'][report_type][molecule]
-                conc = count / volume
+                conc = count / volume if volume else 0
                 if tag_id in tag_ranges:
                     tag_ranges[tag_id] = [
                         min(tag_ranges[tag_id][0], conc),
@@ -329,7 +329,7 @@ def plot_tags(data, plot_config):
                 report_type, molecule = tag_id
                 counts = agent_data['boundary'][report_type][molecule]
                 volume = agent_data['boundary']['volume']
-                level = counts / volume
+                level = counts / volume if volume else 0
                 min_tag, max_tag = tag_ranges[tag_id]
                 if min_tag != max_tag:
                     intensity = max((level - min_tag), 0)
