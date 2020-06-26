@@ -9,7 +9,7 @@ Why Write Processes?
 --------------------
 
 Vivarium comes with a number of :term:`processes` ready for you to use,
-but combining processes to form :term:`composites` will only take you so
+but combining processes to form :term:`compartments` will only take you so
 far. For many models, the existing processes will be insufficient, so
 you will need to create your own.
 
@@ -28,7 +28,7 @@ glucose concentrations. Hexokinase catalyzes glucose phosphorylation,
 which we can describe by the following reaction:
 
 .. math::
-    
+
     GLC + ATP \rightleftarrows G6P + ADP
 
 In the reaction above and throughout this tutorial, we will use the
@@ -97,7 +97,7 @@ which will receive a store. When creating a process, you need to decide
 what ports to declare.
 
 When someone else uses your process, they will create a
-:term:`composite` of it and other processes. These processes will
+:term:`compartment` of it and other processes. These processes will
 interact by sharing stores. While any number of your process's ports may
 be linked to the same store, a port cannot be split between stores. This
 means that you should put in separate ports any :term:`variables` that a
@@ -150,7 +150,7 @@ process.
 
     class GlucosePhosphorylation(Process):
 
-        default_parameters = {
+        defaults = {
             'k_cat': 2e-3,
             'K_ATP': 5e-2,
             'K_GLC': 4e-2,
@@ -162,7 +162,7 @@ process.
                 'cytoplasm': ['GLC', 'G6P', 'HK'],
                 'global': ['mass'],
             }
-            parameters = GlucosePhosphorylation.default_parameters
+            parameters = GlucosePhosphorylation.defaults
             parameters.update(initial_parameters)
             super(GlucosePhosphorylation, self).__init__(
                 ports, parameters)
@@ -221,7 +221,7 @@ each port based on a provided model state and timestep.
             hk = cytoplasm['HK']
             glc = cytoplasm['GLC']
             atp = nucleoside_phosphates['ATP']
-            
+
             # Get kinetic parameters
             k_cat = self.parameters['k_cat']
             k_atp = self.parameters['K_ATP']
@@ -319,83 +319,83 @@ Let's see if our process models this reaction as we expect:
 
 Hooray! This is what we expected.
 
-Default Settings
-----------------
+Ports Schema and Derivers
+-------------------------
 
 Our process works, but we had to manually the state. We also haven't
 shown yet how to apply the update we generate to the model state.
 Luckily for us, these steps will be handled automatically by Vivarium.
-We just need to create a ``default_settings`` method that provides the
-following information:
-
-* A default state: Vivarium will use this to initialize the model state
-  for us.
-* A schema: the schema includes a specification of how each variable's
-  update should be applied. For example, should the update be added to
-  the existing value or replace it?
-* Emitter keys: this identifies which of the variables in the state
-  should be recorded when we run simulations.
-* Deriver settings: this configures :term:`derivers`, which perform
-  calculations for us that would be tedious to re-compute in many
-  processes. For example, calculating the mass of the cell's enzyme and
-  sugar contents, as we see in this example.
+We just need to create a ``ports_schema`` method that provides a
+:term:`schema`. A schema is a nested dictionary that describes each
+variable the process will interact with. Each variable is defined by a
+dictionary of :term:`schema keys` that specify its default value, how it
+should be updated, and other properties.
 
 For this example, our updates are expressed as deltas that should be
 added to the old value of the variable. This is the default, so the
-schema can be empty. Still, we'll specify one of the :term:`updaters`
-for demonstration.
+schema can leave out the updater specification. Still, we'll specify one
+of the :term:`updaters` for demonstration.
 
 .. code-block:: python
 
-    def default_settings(self):
-        default_state = {
-            'cytoplasm': {
-                'GLC': 1.0,
-                'G6P': 0.0,
-                'HK': 0.1,
-            },
-            'nucleoside_phosphates': {
-                'ATP': 2.0,
-                'ADP': 0.0,
-            },
-        }
-        schema = {
+    def ports_schema(self):
+        return {
             'cytoplasm': {
                 'GLC': {
                     # accumulate means to add the updates
-                    'updater': 'accumulate',
-                    'mass': 1.0,
+                    '_updater': 'accumulate',
+                    '_default': 1.0,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                    '_emit': True,
                 },
                 # accumulate is the default, so we don't need to specify
                 # updaters for the rest of the variables
                 'G6P': {
-                    'mass': 1.0,
+                    '_default': 0.0,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                    '_emit': True,
                 },
                 'HK': {
-                    'mass': 1.0,
+                    '_default': 0.1,
+                    '_properties': {
+                        'mw': 1.0 * units.g / units.mol,
+                    },
+                },
+            },
+            'nucleoside_phosphates': {
+                'ATP': {
+                    '_default': 2.0,
+                    '_emit': True,
+                },
+                'ADP': {
+                    '_default': 0.0,
+                    '_emit': True,
                 }
             },
-        }
-        emitter_keys = {
-            # We want to track the substrates and products, but not HK
-            'cytoplasm': ['GLC', 'G6P'],
-            'nucleoside_phosphates': ['ATP', 'ADP'],
-        }
-
-        deriver_setting = [
-            {
-                'type': 'mass',
-                'source_port': 'cytoplasm',
-                'derived_port': 'global',
-                'keys': ['GLC', 'G6P', 'HK']
+            'global': {
             },
-        ]
+        }
 
+We also can add :term:`derivers` with the ``derivers`` method. Derivers
+perform calculations for us that would be tedious to re-compute in many
+processes. For example, calculating the mass of the cell's enzyme and
+sugar contents, as we see in this example:
+
+.. code-block:: python
+
+    def derivers(self):
         return {
-            'state': default_state,
-            'emitter_keys': emitter_keys,
-            'schema': schema,
-            'deriver_setting': deriver_setting,
+            'my_deriver': {
+                'deriver': 'mass',
+                'port_mapping': {
+                    'global': 'global',
+                },
+                'config': {},
+            },
         }
 
 Now, we can run a simulation using Vivarium's
@@ -416,7 +416,7 @@ like this:
             'k_cat': 1.5,
         }
         my_process = GlucosePhosphorylation(parameters)
-        
+
         settings = {
             'total_time': 10,
         }
@@ -459,7 +459,7 @@ this:
     :width: 100%
 
 You can download the completed process file :download:`here
-</_static/glucose_phosphorylation.py>`.
+<../../vivarium/processes/glucose_phosphorylation.py>`.
 
 Great job; you've written a new process! Now consider writing one to
 model a mechanism you are familiar with.
