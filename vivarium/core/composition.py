@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import copy
 import csv
 import os
@@ -742,7 +744,7 @@ def _prepare_timeseries_for_comparison(
     shared_times = set(timeseries1['time']) & set(timeseries2['time'])
     frac_timepoints_checked = (
         len(shared_times)
-        / min(len(timeseries1), len(timeseries2))
+        / min(len(timeseries1['time']), len(timeseries2['time']))
     )
     if frac_timepoints_checked < required_frac_checked:
         raise AssertionError(
