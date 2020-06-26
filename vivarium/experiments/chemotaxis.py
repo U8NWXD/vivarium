@@ -25,7 +25,10 @@ from vivarium.core.composition import (
 from vivarium.compartments.static_lattice import StaticLattice
 from vivarium.compartments.chemotaxis_minimal import ChemotaxisMinimal
 from vivarium.compartments.chemotaxis_master import ChemotaxisMaster
-from vivarium.compartments.chemotaxis_variable_flagella import ChemotaxisVariableFlagella
+from vivarium.compartments.chemotaxis_flagella import (
+    ChemotaxisVariableFlagella,
+    ChemotaxisExpressionFlagella
+)
 
 # processes
 from vivarium.processes.Vladimirov2008_motor import MotorActivity
