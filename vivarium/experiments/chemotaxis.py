@@ -10,7 +10,8 @@ from vivarium.core.emitter import timeseries_from_data
 from vivarium.library.dict_utils import deep_merge
 from vivarium.core.experiment import (
     generate_state,
-    Experiment)
+    Experiment
+)
 from vivarium.core.composition import (
     agent_environment_experiment,
     make_agents,
@@ -37,12 +38,7 @@ from vivarium.plots.multibody_physics import (
 from vivarium.processes.static_field import make_field
 
 
-DEFAULT_BOUNDS = [1000, 5000]
-DEFAULT_AGENT_LOCATION = [0.5, 0.1]
-DEFAULT_LIGAND_ID = 'MeAsp'
-DEFAULT_INITIAL_LIGAND = 25.0
-DEFAULT_ENVIRONMENT_TYPE = StaticLattice
-
+# make an agent from a lone MotorActivity process
 MotorActivityAgent = process_in_compartment(
     MotorActivity,
     paths={
@@ -51,55 +47,11 @@ MotorActivityAgent = process_in_compartment(
     })
 
 
-def simulate_chemotaxis_experiment(
-    agents_config=None,
-    environment_config=None,
-    initial_state=None,
-    simulation_settings=None,
-    experiment_settings=None):
-    if not initial_state:
-        initial_state = {}
-    if not experiment_settings:
-        experiment_settings = {}
-
-    total_time = simulation_settings['total_time']
-    timestep = simulation_settings['timestep']
-
-    # agents ids
-    agent_ids = []
-    for config in agents_config:
-        number = config['number']
-        if 'name' in config:
-            name = config['name']
-            if number > 1:
-                new_agent_ids = [name + '_' + str(num) for num in range(number)]
-            else:
-                new_agent_ids = [name]
-        else:
-            new_agent_ids = [str(uuid.uuid1()) for num in range(number)]
-        config['ids'] = new_agent_ids
-        agent_ids.extend(new_agent_ids)
-    n_agents = len(agent_ids)
-
-    initial_agent_body = agent_body_config({
-        'bounds': DEFAULT_BOUNDS,
-        'agent_ids': agent_ids,
-        'location': DEFAULT_AGENT_LOCATION})
-    initial_state.update(initial_agent_body)
-
-    # make the experiment
-    experiment = agent_environment_experiment(
-        agents_config,
-        environment_config,
-        initial_state,
-        experiment_settings)
-
-    # simulate
-    settings = {
-        'total_time': total_time,
-        'timestep': timestep,
-        'return_raw_data': True}
-    return simulate_experiment(experiment, settings)
+DEFAULT_BOUNDS = [1000, 5000]
+DEFAULT_AGENT_LOCATION = [0.5, 0.1]
+DEFAULT_LIGAND_ID = 'MeAsp'
+DEFAULT_INITIAL_LIGAND = 25.0
+DEFAULT_ENVIRONMENT_TYPE = StaticLattice
 
 
 def get_environment_config():
@@ -130,73 +82,74 @@ def get_environment_config():
         'multibody': multibody_config,
         'field': field_config}
 
+DEFAULT_ENVIRONMENT_CONFIG = {
+    'type': DEFAULT_ENVIRONMENT_TYPE,
+    'config': get_environment_config()
+}
 
-def get_default_config():
-    total_time = 720
-    timestep = 0.1
-    compartment_config = {
-        'ligand_id': DEFAULT_LIGAND_ID,
-        'initial_ligand': DEFAULT_INITIAL_LIGAND,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
+DEFAULT_AGENT_CONFIG = {
+    'ligand_id': DEFAULT_LIGAND_ID,
+    'initial_ligand': DEFAULT_INITIAL_LIGAND,
+    'external_path': ('global',),
+    'agents_path': ('..', '..', 'agents')
+}
 
-    # configure
-    agents_config = [
-        {
-            'type': ChemotaxisMinimal,
-            'name': 'motor_receptor',
-            'number': 1,
-            'config': compartment_config
-        },
-    ]
 
-    environment_config = {
-        'type': DEFAULT_ENVIRONMENT_TYPE,
-        'config': get_environment_config()}
+# run the simulation
+def run_chemotaxis_experiment(
+    agents_config=None,
+    environment_config=None,
+    initial_state=None,
+    simulation_settings=None,
+    experiment_settings=None):
 
-    simulation_settings = {
+    if not initial_state:
+        initial_state = {}
+    if not experiment_settings:
+        experiment_settings = {}
+
+    total_time = simulation_settings['total_time']
+    timestep = simulation_settings['timestep']
+
+    # agents ids
+    agent_ids = []
+    for config in agents_config:
+        number = config['number']
+        if 'name' in config:
+            name = config['name']
+            if number > 1:
+                new_agent_ids = [name + '_' + str(num) for num in range(number)]
+            else:
+                new_agent_ids = [name]
+        else:
+            new_agent_ids = [str(uuid.uuid1()) for num in range(number)]
+        config['ids'] = new_agent_ids
+        agent_ids.extend(new_agent_ids)
+
+    initial_agent_body = agent_body_config({
+        'bounds': DEFAULT_BOUNDS,
+        'agent_ids': agent_ids,
+        'location': DEFAULT_AGENT_LOCATION})
+    initial_state.update(initial_agent_body)
+
+    # make the experiment
+    experiment = agent_environment_experiment(
+        agents_config,
+        environment_config,
+        initial_state,
+        experiment_settings)
+
+    # simulate
+    settings = {
         'total_time': total_time,
-        'timestep': timestep}
-
-    return {
-       'agents_config': agents_config,
-       'environment_config': environment_config,
-       'simulation_settings': simulation_settings}
-
-
-def run_chemotaxis_experiment(config=None):
-    if config is None:
-        config = {}
-    default_config = get_default_config()
-    default_config = deep_merge(default_config, config)
-
-
-    # TODO -- merge agent config lists.
-    import ipdb;
-    ipdb.set_trace()
-
-
-
-    agents_config = default_config['agents_config']
-    environment_config = default_config['environment_config']
-    simulation_settings = default_config['simulation_settings']
-
-    data = simulate_chemotaxis_experiment(
-            agents_config=agents_config,
-            environment_config=environment_config,
-            simulation_settings=simulation_settings)
-
-    return data
+        'timestep': timestep,
+        'return_raw_data': True}
+    return simulate_experiment(experiment, settings)
 
 
 def run_mixed(out_dir='out'):
     total_time = 720
     timestep = 0.1
-    compartment_config = {
-        'ligand_id': DEFAULT_LIGAND_ID,
-        'initial_ligand': DEFAULT_INITIAL_LIGAND,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
 
     # configure
     agents_config = [
@@ -204,26 +157,28 @@ def run_mixed(out_dir='out'):
             'type': ChemotaxisMinimal,
             'name': 'motor_receptor',
             'number': 1,
-            'config': compartment_config
+            'config': DEFAULT_AGENT_CONFIG
         },
         {
             'type': MotorActivityAgent,
             'name': 'motor',
             'number': 1,
-            'config': compartment_config
+            'config': DEFAULT_AGENT_CONFIG
         }
     ]
 
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
-        'config': get_environment_config()}
+        'config': get_environment_config()
+    }
 
     simulation_settings = {
         'total_time': total_time,
-        'timestep': timestep}
+        'timestep': timestep
+    }
 
     # simulate
-    data = simulate_chemotaxis_experiment(
+    data = run_chemotaxis_experiment(
         agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
@@ -235,36 +190,35 @@ def run_mixed(out_dir='out'):
 
 
 def run_variable(out_dir='out'):
-    agent_type = ChemotaxisVariableFlagella
-    total_time = 360
+    total_time = 720
     timestep = 0.1
-    compartment_config = {
-        'ligand_id': DEFAULT_LIGAND_ID,
-        'initial_ligand': DEFAULT_INITIAL_LIGAND,
-        # 'external_path': ('global',),
-        # 'agents_path': ('..', '..', 'agents')
+
+    flagella_numbers = [0, 3, 6, 9, 12]
+
+    baseline_agent_config = {
+        'number': 1,
+        'type': ChemotaxisVariableFlagella,
+        'config': DEFAULT_AGENT_CONFIG
     }
 
     # configure
-    agents_config = [
-            {
-                'number': 3,
-                'type': agent_type,
-                'config': compartment_config
-            }
-        ]
+    agents_config = []
+    for n_flagella in flagella_numbers:
+        agent_config = copy.deepcopy(baseline_agent_config)
+        agent_config['name'] = '{}_flagella'.format(n_flagella)
+        agent_config['config'].update({'n_flagella': n_flagella})
+        agents_config.append(agent_config)
 
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
         'config': get_environment_config()}
 
     simulation_settings = {
-        # 'n_agents': n_agents,
         'total_time': total_time,
         'timestep': timestep}
 
     # simulate
-    data = simulate_chemotaxis_experiment(
+    data = run_chemotaxis_experiment(
         agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
@@ -278,27 +232,29 @@ def run_variable(out_dir='out'):
 def run_minimal(out_dir='out'):
     total_time = 30
     timestep = 0.1
-    agent_type = ChemotaxisMinimal
 
-    data = run_chemotaxis_experiment({
-            'agents_config': [
-            {
-                'number': 6,
-                'type': agent_type,
-                # 'config': compartment_config
-            }
-        ],
-            # 'environment_config': {},
-            'simulation_settings': {
-                'total_time': total_time,
-                'timestep': timestep}
-    })
+    # configure
+    agents_config = [
+        {
+            'number': 6,
+            'name': 'minimal',
+            'type': ChemotaxisMinimal,
+            'config': DEFAULT_AGENT_CONFIG,
+        }
+    ]
 
-    import ipdb;
-    ipdb.set_trace()
+    simulation_settings = {
+        'total_time': total_time,
+        'timestep': timestep}
+
+    data = run_chemotaxis_experiment(
+        agents_config=agents_config,
+        environment_config=DEFAULT_ENVIRONMENT_CONFIG,
+        simulation_settings=simulation_settings
+    )
 
     # plot
-    field_config = environment_config['config']['field']
+    field_config = DEFAULT_ENVIRONMENT_CONFIG['config']['field']
     plot_chemotaxis_experiment(data, field_config, out_dir)
 
 
@@ -308,32 +264,29 @@ def run_master(out_dir='out'):
     agent_type = ChemotaxisMaster
     total_time = 30
     timestep = 0.1
-    compartment_config = {
-        'ligand_id': DEFAULT_LIGAND_ID,
-        'initial_ligand': DEFAULT_INITIAL_LIGAND,
-        'external_path': ('global',),
-        'agents_path': ('..', '..', 'agents')}
 
     # configure
     agents_config = [
-            {
-                'number': 1,
-                'type': agent_type,
-                'config': compartment_config
-            }
-        ]
+        {
+            'number': 1,
+            'name': 'master',
+            'type': agent_type,
+            'config': DEFAULT_AGENT_CONFIG
+        }
+    ]
 
     environment_config = {
         'type': DEFAULT_ENVIRONMENT_TYPE,
-        'config': get_environment_config()}
+        'config': get_environment_config(),
+    }
 
     simulation_settings = {
-        # 'n_agents': n_agents,
         'total_time': total_time,
-        'timestep': timestep}
+        'timestep': timestep,
+    }
 
     # simulate
-    data = simulate_chemotaxis_experiment(
+    data = run_chemotaxis_experiment(
         agents_config=agents_config,
         environment_config=environment_config,
         simulation_settings=simulation_settings,
@@ -344,8 +297,11 @@ def run_master(out_dir='out'):
     plot_chemotaxis_experiment(data, field_config, out_dir)
 
 
-def plot_chemotaxis_experiment(data, field_config, out_dir):
-    ## plots
+def plot_chemotaxis_experiment(
+        data,
+        field_config,
+        out_dir):
+
     # multigen agents plot
     plot_settings = {
         'agents_key': 'agents',
