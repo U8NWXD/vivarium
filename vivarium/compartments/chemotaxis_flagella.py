@@ -7,6 +7,7 @@ import random
 import argparse
 
 from vivarium.library.dict_utils import deep_merge
+from vivarium.library.units import units
 from vivarium.core.experiment import Compartment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
@@ -14,16 +15,20 @@ from vivarium.core.composition import (
     COMPARTMENT_OUT_DIR
 )
 
+# data
+from vivarium.data.amino_acids import amino_acids
+
 # processes
 from vivarium.processes.Endres2006_chemoreceptor import (
     ReceptorCluster,
     get_exponential_random_timeline
 )
 from vivarium.processes.Mears2014_flagella_activity import FlagellaActivity
-from vivarium.processes.transcription import Transcription
-from vivarium.processes.translation import Translation
+from vivarium.processes.transcription import Transcription, UNBOUND_RNAP_KEY
+from vivarium.processes.translation import Translation, UNBOUND_RIBOSOME_KEY
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
+from vivarium.processes.tree_mass import TreeMass
 from vivarium.compartments.flagella_expression import get_flagella_expression_config
 
 
@@ -90,6 +95,7 @@ class ChemotaxisExpressionFlagella(Compartment):
         'n_flagella': 5,
         'ligand_id': 'MeAsp',
         'initial_ligand': 0.1,
+        'initial_mass': 1339.0 * units.fg,
         'config': {
             'transcription': get_flagella_expression_config({})['transcription'],
             'translation': get_flagella_expression_config({})['translation'],
@@ -103,6 +109,10 @@ class ChemotaxisExpressionFlagella(Compartment):
             config = {}
         self.config = copy.deepcopy(self.defaults['config'])
         deep_merge(self.config, config)
+
+        self.initial_mass = config.get(
+            'initial_mass',
+            self.defaults['initial_mass'])
 
         n_flagella = config.get(
             'n_flagella',
@@ -131,6 +141,8 @@ class ChemotaxisExpressionFlagella(Compartment):
         translation = Translation(config['translation'])
         degradation = RnaDegradation(config['degradation'])
         complexation = Complexation(config['complexation'])
+        mass_deriver = TreeMass(config.get('mass_deriver', {
+            'initial_mass': config.get('initial_mass', self.initial_mass)}))
 
         return {
             'receptor': receptor,
@@ -139,6 +151,7 @@ class ChemotaxisExpressionFlagella(Compartment):
             'translation': translation,
             'degradation': degradation,
             'complexation': complexation,
+            'mass_deriver': mass_deriver,
         }
 
     def generate_topology(self, config):
@@ -183,6 +196,9 @@ class ChemotaxisExpressionFlagella(Compartment):
                 'monomers': ('proteins',),
                 'complexes': ('proteins',),
                 'global': boundary_path},
+
+            'mass_deriver': {
+                'global': boundary_path},
         }
 
 
@@ -196,7 +212,7 @@ def test_expression_chemotaxis(n_flagella=5, out_dir='out'):
     environment_port = 'external'
     ligand_id = 'MeAsp'
     initial_conc = 0
-    total_time = 60
+    total_time = 10
 
     # configure timeline
     exponential_random_config = {
@@ -218,12 +234,23 @@ def test_expression_chemotaxis(n_flagella=5, out_dir='out'):
 
     # run experiment
     experiment_settings = {
+        # 'total_time': 100,
         'timeline': {
-            'timeline': get_exponential_random_timeline(exponential_random_config),
+            'timeline': get_exponential_random_timeline(
+                exponential_random_config),
             'ports': {'external': ('boundary', 'external')}},
-        'timestep': 0.01,
-        'total_time': 100}
-    timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
+        'initial_state': {
+            ('proteins',): {
+                mol_id: 100
+                for mol_id in [
+                    UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
+            ('internal',): {
+                aa: 1000
+                for aa in amino_acids.values()}}
+    }
+    timeseries = simulate_compartment_in_experiment(
+        compartment,
+        experiment_settings)
 
     # plot settings for the simulations
     plot_settings = {

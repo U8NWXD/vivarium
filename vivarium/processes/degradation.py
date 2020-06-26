@@ -100,7 +100,8 @@ class RnaDegradation(Process):
                 '_emit': True}
 
         # global
-        schema['global']['mmol_to_counts'] = {'_default': 0.0}
+        schema['global']['mmol_to_counts'] = {
+            '_default': 1.0 * units.L / units.mmol}
 
         return schema
 
