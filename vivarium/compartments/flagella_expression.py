@@ -8,7 +8,8 @@ from vivarium.core.experiment import Experiment
 from vivarium.core.composition import (
     simulate_compartment_in_experiment,
     plot_compartment_topology,
-    plot_simulation_output
+    plot_simulation_output,
+    COMPARTMENT_OUT_DIR,
 )
 from vivarium.data.nucleotides import nucleotides
 from vivarium.data.amino_acids import amino_acids
@@ -19,14 +20,16 @@ from vivarium.processes.translation import UNBOUND_RIBOSOME_KEY
 from vivarium.compartments.gene_expression import (
     GeneExpression,
     plot_gene_expression_output,
-    gene_network_plot
+    gene_network_plot,
 )
 from vivarium.parameters.parameters import (
     parameter_scan,
     get_parameters_logspace,
-    plot_scan_results
+    plot_scan_results,
 )
 
+
+NAME = 'flagella_gene_expression'
 
 
 def get_flagella_expression_config(config):
@@ -34,13 +37,7 @@ def get_flagella_expression_config(config):
     chromosome_config = flagella_data.chromosome_config
     sequences = flagella_data.chromosome.product_sequences()
 
-    molecules = {}
-    for nucleotide in nucleotides.values():
-        molecules[nucleotide] = 5000000
-    for amino_acid in amino_acids.values():
-        molecules[amino_acid] = 1000000
-
-    config = {
+    return {
 
         'transcription': {
 
@@ -77,26 +74,47 @@ def get_flagella_expression_config(config):
             'complex_ids': flagella_data.complexation_complex_ids,
             'stoichiometry': flagella_data.complexation_stoichiometry,
             'rates': flagella_data.complexation_rates},
+    }
 
-        'initial_state': {
-            'molecules': molecules,
-            'transcripts': {
+
+def get_flagella_initial_state(ports={}):
+    flagella_data = FlagellaChromosome()
+    chromosome_config = flagella_data.chromosome_config
+
+    molecules = {}
+    for nucleotide in nucleotides.values():
+        molecules[nucleotide] = 5000000
+    for amino_acid in amino_acids.values():
+        molecules[amino_acid] = 1000000
+
+    return {
+        ports.get(
+            'molecules',
+            'molecules'): molecules,
+        ports.get(
+            'transcripts',
+            'transcripts'): {
                 gene: 0
-                for gene in chromosome_config['genes'].keys()},
-            'proteins': {
+                for gene in chromosome_config['genes'].keys()
+        },
+        ports.get(
+            'proteins',
+            'proteins'): {
                 'CpxR': 10,
                 'CRP': 10,
                 'Fnr': 10,
                 'endoRNAse': 1,
                 'flagellum': 8,
                 UNBOUND_RIBOSOME_KEY: 200,  # e. coli has ~ 20000 ribosomes
-                UNBOUND_RNAP_KEY: 200}}}
+                UNBOUND_RNAP_KEY: 200
+            }
+    }
 
-    return config
 
 def get_flagella_compartment(config):
     flagella_expression_config = get_flagella_expression_config(config)
     return GeneExpression(flagella_expression_config)
+
 
 def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
     ''' make a timeseries heatmap for each port specified in config['plot_ports'] '''
@@ -163,6 +181,7 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
         fig_path = os.path.join(out_dir, figname)
         plt.savefig(fig_path, bbox_inches='tight')
 
+
 def make_flagella_network(out_dir='out'):
     # load the compartment
     flagella_compartment = get_flagella_compartment({})
@@ -178,6 +197,7 @@ def make_flagella_network(out_dir='out'):
         'complexes': complexes}
     gene_network_plot(data, out_dir)
 
+
 def run_flagella_expression(out_dir='out'):
     # load the compartment
     flagella_data = FlagellaChromosome()
@@ -190,17 +210,12 @@ def run_flagella_expression(out_dir='out'):
         out_dir)
 
     # run simulation
+    initial_state = get_flagella_initial_state()
     settings = {
         'timestep': 1,
-        'total_time': 960,
+        'total_time': 30,  #960,
         'verbose': True,
-        'initial_state': {
-            'proteins': {
-                mol_id: 100
-                for mol_id in [UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
-            'molecules': {
-                aa: 1000
-                for aa in amino_acids.values()}}}
+        'initial_state': initial_state}
     timeseries = simulate_compartment_in_experiment(flagella_compartment, settings)
 
     plot_config = {
@@ -233,17 +248,12 @@ def run_flagella_expression(out_dir='out'):
     plot_settings = {
         'max_rows': 30,
         'remove_zeros': False,
-        'skip_ports': ['chromosome']}
-
+        'skip_ports': ['chromosome', 'ribosomes']}
     plot_simulation_output(
         timeseries,
         plot_settings,
         out_dir)
 
-def exponential_range(steps, base, factor):
-    return [
-        (base ** x) * factor
-        for x in range(steps)]
 
 def scan_flagella_expression_parameters():
     flagella_data = FlagellaChromosome()
@@ -280,7 +290,7 @@ def scan_flagella_expression_parameters():
 
 
 if __name__ == '__main__':
-    out_dir = os.path.join('out', 'tests', 'flagella_expression_composite')
+    out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

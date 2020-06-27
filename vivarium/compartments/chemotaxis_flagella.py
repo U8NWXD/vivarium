@@ -29,7 +29,11 @@ from vivarium.processes.translation import Translation, UNBOUND_RIBOSOME_KEY
 from vivarium.processes.degradation import RnaDegradation
 from vivarium.processes.complexation import Complexation
 from vivarium.processes.tree_mass import TreeMass
-from vivarium.compartments.flagella_expression import get_flagella_expression_config
+from vivarium.compartments.flagella_expression import (
+    get_flagella_expression_config,
+    get_flagella_initial_state,
+    plot_gene_expression_output,
+)
 
 
 
@@ -202,17 +206,13 @@ class ChemotaxisExpressionFlagella(Compartment):
         }
 
 
-
-
-
-
-
-
-def test_expression_chemotaxis(n_flagella=5, out_dir='out'):
+def test_expression_chemotaxis(
+        n_flagella=5,
+        total_time=10,
+        out_dir='out'):
     environment_port = 'external'
     ligand_id = 'MeAsp'
     initial_conc = 0
-    total_time = 10
 
     # configure timeline
     exponential_random_config = {
@@ -233,20 +233,15 @@ def test_expression_chemotaxis(n_flagella=5, out_dir='out'):
     compartment = ChemotaxisExpressionFlagella(config)
 
     # run experiment
+    initial_state = get_flagella_initial_state({
+        'molecules': 'internal'})
     experiment_settings = {
         # 'total_time': 100,
         'timeline': {
             'timeline': get_exponential_random_timeline(
                 exponential_random_config),
             'ports': {'external': ('boundary', 'external')}},
-        'initial_state': {
-            ('proteins',): {
-                mol_id: 100
-                for mol_id in [
-                    UNBOUND_RNAP_KEY, UNBOUND_RIBOSOME_KEY]},
-            ('internal',): {
-                aa: 1000
-                for aa in amino_acids.values()}}
+        'initial_state': initial_state
     }
     timeseries = simulate_compartment_in_experiment(
         compartment,
@@ -254,25 +249,37 @@ def test_expression_chemotaxis(n_flagella=5, out_dir='out'):
 
     # plot settings for the simulations
     plot_settings = {
-        'max_rows': 20,
+        'max_rows': 30,
         'remove_zeros': True,
-        'overlay': {
-            'reactions': 'flux'},
-        'skip_ports': ['prior_state', 'null', 'global']}
+        'skip_ports': ['chromosome', 'ribosomes']
+    }
     plot_simulation_output(
         timeseries,
         plot_settings,
         out_dir,
         'exponential_timeline')
 
+    # gene expression plot
+    plot_config = {
+        'ports': {
+            'transcripts': 'transcripts',
+            'proteins': 'proteins',
+            'molecules': 'internal'}}
+    plot_gene_expression_output(
+        timeseries,
+        plot_config,
+        out_dir)
 
 
 
-def test_variable_chemotaxis(n_flagella=5, out_dir='out'):
+def test_variable_chemotaxis(
+        n_flagella=5,
+        total_time=10,
+        out_dir='out'):
+
     environment_port = 'external'
     ligand_id = 'MeAsp'
     initial_conc = 0
-    total_time = 60
 
     # configure timeline
     exponential_random_config = {
@@ -305,9 +312,7 @@ def test_variable_chemotaxis(n_flagella=5, out_dir='out'):
     plot_settings = {
         'max_rows': 20,
         'remove_zeros': True,
-        'overlay': {
-            'reactions': 'flux'},
-        'skip_ports': ['prior_state', 'null', 'global']}
+    }
     plot_simulation_output(
         timeseries,
         plot_settings,
@@ -318,6 +323,7 @@ def test_variable_chemotaxis(n_flagella=5, out_dir='out'):
 def make_dir(out_dir):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+
 
 if __name__ == '__main__':
     out_dir = os.path.join(COMPARTMENT_OUT_DIR, NAME)
@@ -334,8 +340,14 @@ if __name__ == '__main__':
     if args.variable or no_args:
         variable_out_dir = os.path.join(out_dir, 'variable')
         make_dir(variable_out_dir)
-        test_variable_chemotaxis(args.flagella, variable_out_dir)
+        test_variable_chemotaxis(
+            n_flagella=args.flagella,
+            total_time=60,
+            out_dir=variable_out_dir)
     elif args.expression:
         expression_out_dir = os.path.join(out_dir, 'expression')
         make_dir(expression_out_dir)
-        test_expression_chemotaxis(args.flagella, expression_out_dir)
+        test_expression_chemotaxis(
+            n_flagella=args.flagella,
+            total_time=60,
+            out_dir=expression_out_dir)

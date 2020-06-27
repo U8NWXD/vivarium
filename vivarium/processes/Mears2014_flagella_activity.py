@@ -130,11 +130,12 @@ class FlagellaActivity(Process):
             '_emit': True}
 
         # flagella
-        schema['flagella']['*'] = {
-            '_default': 1,
-            '_updater': 'set',
-            '_emit': True}
-        schema['flagella']['_divider'] = 'split_dict'  # TODO -- get subschema to divide.
+        schema['flagella'] = {
+            # '_divider': 'split_dict',
+            '*': {
+                '_default': 1,
+                '_updater': 'set',
+                '_emit': True}}
 
         return schema
 
