@@ -148,7 +148,6 @@ class Store(object):
     schema_keys = set([
         '_default',
         '_updater',
-        '_divider',
         '_value',
         '_properties',
         '_emit',
@@ -245,6 +244,14 @@ class Store(object):
             self.merge_subtopology(config['_subtopology'])
             config = without(config, '_subtopology')
 
+        if '_divider' in config:
+            self.divider = config['_divider']
+            if isinstance(self.divider, str):
+                self.divider = divider_library[self.divider]
+            if isinstance(self.divider, dict) and isinstance(self.divider['divider'], str):
+                self.divider['divider'] = divider_library[self.divider['divider']]
+            config = without(config, '_divider')
+
         if self.schema_keys & set(config.keys()):
             if self.inner:
                 raise Exception('trying to assign leaf values to a branch at: {}'.format(self.path_for()))
@@ -270,11 +277,6 @@ class Store(object):
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):
                 self.updater = updater_library[self.updater]
-            self.divider = config.get('_divider', self.divider)
-            if isinstance(self.divider, str):
-                self.divider = divider_library[self.divider]
-            if isinstance(self.divider, dict) and isinstance(self.divider['divider'], str):
-                self.divider['divider'] = divider_library[self.divider['divider']]
 
             self.properties = deep_merge(
                 self.properties,
@@ -313,12 +315,16 @@ class Store(object):
         '''
 
         config = {}
+
         if self.properties:
             config['_properties'] = self.properties
         if self.subschema:
             config['_subschema'] = self.subschema
         if self.subtopology:
             config['_subtopology'] = self.subtopology
+        if self.divider:
+            config['_divider'] = self.divider
+
         if sources and self.sources:
             config['_sources'] = self.sources
 
@@ -327,14 +333,13 @@ class Store(object):
                 key: child.get_config(sources)
                 for key, child in self.inner.items()}
             config.update(child_config)
+
         else:
             config.update({
                 '_default': self.default,
                 '_value': self.value})
             if self.updater:
                 config['_updater'] = self.updater
-            if self.divider:
-                config['_divider'] = self.divider
             if self.units:
                 config['_units'] = self.units
             if self.emit:
@@ -495,9 +500,9 @@ class Store(object):
                 divider = self.divider['divider']
                 topology = self.divider['topology']
                 state = self.outer.get_values(topology)
-                return divider(self.value, state)
+                return divider(self.get_value(), state)
             else:
-                return self.divider(self.value)
+                return self.divider(self.get_value())
         elif self.inner:
             daughters = [{}, {}]
             for key, child in self.inner.items():
@@ -758,6 +763,8 @@ class Store(object):
                         node = self.get_path(path)
                         for child, child_node in node.inner.items():
                             state[child] = child_node.schema_topology(subschema, {})
+                elif key == '_divider':
+                    pass
                 elif isinstance(path, dict):
                     node, path = self.outer_path(path)
                     state[key] = node.schema_topology(subschema, path)
@@ -1555,6 +1562,7 @@ def test_topology_ports():
                     '_updater': 'set',
                     '_default': self.radius},
                 'quarks': {
+                    '_divider': 'split_dict',
                     '*': {
                         'color': {
                             '_updater': 'set',
@@ -1678,6 +1686,7 @@ def test_topology_ports():
     experiment.update(10.0)
 
     log.debug(pf(experiment.state.get_config(True)))
+    log.debug(pf(experiment.state.divide_value()))
 
 
 def test_timescales():
