@@ -346,5 +346,7 @@ if __name__ == '__main__':
         make_dir(expression_out_dir)
         test_expression_chemotaxis(
             n_flagella=args.flagella,
-            total_time=960,
+            # a cell cycle of 2520 sec is expected to express 8 flagella.
+            # 2 flagella expected in 630 seconds.
+            total_time=630,
             out_dir=expression_out_dir)

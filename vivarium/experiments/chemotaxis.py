@@ -112,7 +112,7 @@ def run_chemotaxis_experiment(
         experiment_settings = {}
 
     total_time = simulation_settings['total_time']
-    timestep = simulation_settings['timestep']
+    emit_step = simulation_settings['emit_step']
 
     # agents ids
     agent_ids = []
@@ -145,14 +145,14 @@ def run_chemotaxis_experiment(
     # simulate
     settings = {
         'total_time': total_time,
-        'timestep': timestep,
+        'emit_step': emit_step,
         'return_raw_data': True}
     return simulate_experiment(experiment, settings)
 
 
 def run_mixed(out_dir='out'):
     total_time = 720
-    timestep = 0.1
+    emit_step = 0.1
 
     # configure
     agents_config = [
@@ -177,7 +177,7 @@ def run_mixed(out_dir='out'):
 
     simulation_settings = {
         'total_time': total_time,
-        'timestep': timestep
+        'emit_step': emit_step
     }
 
     # simulate
@@ -194,7 +194,7 @@ def run_mixed(out_dir='out'):
 
 def run_variable(out_dir='out'):
     total_time = 720
-    timestep = 0.1
+    emit_step = 0.1
 
     flagella_numbers = [0, 3, 6, 9, 12]
 
@@ -218,7 +218,7 @@ def run_variable(out_dir='out'):
 
     simulation_settings = {
         'total_time': total_time,
-        'timestep': timestep}
+        'emit_step': emit_step}
 
     # simulate
     data = run_chemotaxis_experiment(
@@ -234,7 +234,7 @@ def run_variable(out_dir='out'):
 
 def run_minimal(out_dir='out'):
     total_time = 30
-    timestep = 0.1
+    emit_step = 0.1
 
     # configure
     agents_config = [
@@ -248,7 +248,7 @@ def run_minimal(out_dir='out'):
 
     simulation_settings = {
         'total_time': total_time,
-        'timestep': timestep}
+        'emit_step': emit_step}
 
     data = run_chemotaxis_experiment(
         agents_config=agents_config,
@@ -266,7 +266,7 @@ def run_master(out_dir='out'):
 
     agent_type = ChemotaxisMaster
     total_time = 30
-    timestep = 0.1
+    emit_step = 0.1
 
     # configure
     agents_config = [
@@ -285,7 +285,7 @@ def run_master(out_dir='out'):
 
     simulation_settings = {
         'total_time': total_time,
-        'timestep': timestep,
+        'emit_step': emit_step,
     }
 
     # simulate

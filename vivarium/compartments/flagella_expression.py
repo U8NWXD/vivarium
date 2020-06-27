@@ -182,6 +182,18 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
         plt.savefig(fig_path, bbox_inches='tight')
 
 
+def make_compartment_topology(out_dir='out'):
+    # load the compartment
+    flagella_data = FlagellaChromosome()
+    flagella_compartment = get_flagella_compartment({})
+
+    settings = {'show_ports': True}
+    plot_compartment_topology(
+        flagella_compartment,
+        settings,
+        out_dir)
+
+
 def make_flagella_network(out_dir='out'):
     # load the compartment
     flagella_compartment = get_flagella_compartment({})
@@ -203,17 +215,13 @@ def run_flagella_expression(out_dir='out'):
     flagella_data = FlagellaChromosome()
     flagella_compartment = get_flagella_compartment({})
 
-    settings = {'show_ports': True}
-    plot_compartment_topology(
-        flagella_compartment,
-        settings,
-        out_dir)
-
     # run simulation
     initial_state = get_flagella_initial_state()
     settings = {
         'timestep': 1,
-        'total_time': 960,
+        # a cell cycle of 2520 sec is expected to express 8 flagella.
+        # 2 flagella expected in ~630 seconds.
+        'total_time': 760,
         'verbose': True,
         'initial_state': initial_state}
     timeseries = simulate_compartment_in_experiment(flagella_compartment, settings)
@@ -297,7 +305,8 @@ if __name__ == '__main__':
     # run scan with python vivarium/compartments/flagella_expression.py --scan
     parser = argparse.ArgumentParser(description='flagella expression')
     parser.add_argument('--scan', '-s', action='store_true', default=False,)
-    parser.add_argument('--network', '-n', action='store_true', default=False, )
+    parser.add_argument('--network', '-n', action='store_true', default=False,)
+    parser.add_argument('--topology', '-t', action='store_true', default=False,)
     args = parser.parse_args()
 
     if args.scan:
@@ -305,7 +314,8 @@ if __name__ == '__main__':
         plot_scan_results(results, out_dir)
     elif args.network:
         make_flagella_network(out_dir)
+    elif args.topology:
+        make_compartment_topology(out_dir)
     else:
-        make_flagella_network(out_dir)
         run_flagella_expression(out_dir)
 
