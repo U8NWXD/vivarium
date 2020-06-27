@@ -199,6 +199,8 @@ def divide_split_dict(state):
             making any assumptions about which keys will be sent to
             which daughter cell.
     """
+    if state is None:
+        state = {}
     d1 = dict(list(state.items())[len(state) // 2:])
     d2 = dict(list(state.items())[:len(state) // 2])
     return [d1, d2]
