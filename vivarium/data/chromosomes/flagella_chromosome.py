@@ -381,7 +381,7 @@ class FlagellaChromosome(object):
 
         # transcript affinities are the affinities transcripts to bind a ribosome and translate to protein
         # transcript affinities are scaled relative to the requirements to build a single full flagellum.
-        self.min_tr_affinity = 1e-1
+        self.min_tr_affinity = parameters.get('min_tr_affinity', 1e-1)
         tr_affinity_scaling = {
             'fliL': 2,
             'fliM': 34,

@@ -184,7 +184,6 @@ def plot_timeseries_heatmaps(timeseries, config, out_dir='out'):
 
 def make_compartment_topology(out_dir='out'):
     # load the compartment
-    flagella_data = FlagellaChromosome()
     flagella_compartment = get_flagella_compartment({})
 
     settings = {'show_ports': True}
@@ -212,8 +211,10 @@ def make_flagella_network(out_dir='out'):
 
 def run_flagella_expression(out_dir='out'):
     # load the compartment
-    flagella_data = FlagellaChromosome()
     flagella_compartment = get_flagella_compartment({})
+
+    # get flagella data
+    flagella_data = FlagellaChromosome()
 
     # run simulation
     initial_state = get_flagella_initial_state()
@@ -264,9 +265,14 @@ def run_flagella_expression(out_dir='out'):
 
 
 def scan_flagella_expression_parameters():
+    compartment = get_flagella_compartment({})
     flagella_data = FlagellaChromosome()
-    scan_params = {}
 
+    # conditions
+    conditions = {}
+
+    # parameters
+    scan_params = {}
     # # add promoter affinities
     # for promoter in flagella_data.chromosome_config['promoters'].keys():
     #     scan_params[('promoter_affinities', promoter)] = get_parameters_logspace(1e-3, 1e0, 4)
@@ -278,20 +284,22 @@ def scan_flagella_expression_parameters():
     # for threshold in flagella_data.factor_thresholds.keys():
     #     scan_params[('thresholds', threshold)] = get_parameters_logspace(1e-7, 1e-4, 4)
 
+    # metrics
     metrics = [
         ('proteins', monomer)
         for monomer in flagella_data.complexation_monomer_ids] + [
         ('proteins', complex)
         for complex in flagella_data.complexation_complex_ids]
 
-    scan_config = {
-        'composite': generate_flagella_compartment,
-        'scan_parameters': scan_params,
-        'metrics': metrics,
-        'options': {'time': 480}}
-
     print('number of parameters: {}'.format(len(scan_params)))  # TODO -- get this down to 10
 
+    # run the scan
+    scan_config = {
+        'compartment': compartment,
+        'scan_parameters': scan_params,
+        'conditions': conditions,
+        'metrics': metrics,
+        'settings': {'total_time': 480}}
     results = parameter_scan(scan_config)
 
     return results
