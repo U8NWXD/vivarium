@@ -406,7 +406,7 @@ class FlagellaChromosome(object):
         self.complexation_complex_ids = [
             'flhDC',
             'flagellar motor switch',
-            'flagellum',
+            'flagella',
             'flagellar export apparatus',
             'flagellar motor']
 
@@ -446,7 +446,7 @@ class FlagellaChromosome(object):
                 'fliF': -1.0,
                 'fliE': -1.0},
             'flagellum reaction': {
-                'flagellum': 1.0,
+                'flagella': 1.0,
                 'flagellar export apparatus': -1.0,
                 'flagellar motor': -1.0,
                 'fliC': -1.0,

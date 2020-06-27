@@ -104,7 +104,7 @@ def get_flagella_initial_state(ports={}):
                 'CRP': 10,
                 'Fnr': 10,
                 'endoRNAse': 1,
-                'flagellum': 8,
+                'flagella': 8,
                 UNBOUND_RIBOSOME_KEY: 200,  # e. coli has ~ 20000 ribosomes
                 UNBOUND_RNAP_KEY: 200
             }
