@@ -210,6 +210,7 @@ def test_expression_chemotaxis(
         n_flagella=5,
         total_time=10,
         out_dir='out'):
+
     environment_port = 'external'
     ligand_id = 'MeAsp'
     initial_conc = 0
@@ -236,12 +237,11 @@ def test_expression_chemotaxis(
     initial_state = get_flagella_initial_state({
         'molecules': 'internal'})
     experiment_settings = {
-        # 'total_time': 100,
+        'initial_state': initial_state,
         'timeline': {
             'timeline': get_exponential_random_timeline(
                 exponential_random_config),
             'ports': {'external': ('boundary', 'external')}},
-        'initial_state': initial_state
     }
     timeseries = simulate_compartment_in_experiment(
         compartment,
@@ -256,8 +256,7 @@ def test_expression_chemotaxis(
     plot_simulation_output(
         timeseries,
         plot_settings,
-        out_dir,
-        'exponential_timeline')
+        out_dir)
 
     # gene expression plot
     plot_config = {
@@ -304,8 +303,7 @@ def test_variable_chemotaxis(
         'timeline': {
             'timeline': get_exponential_random_timeline(exponential_random_config),
             'ports': {'external': ('boundary', 'external')}},
-        'timestep': 0.01,
-        'total_time': 100}
+    }
     timeseries = simulate_compartment_in_experiment(compartment, experiment_settings)
 
     # plot settings for the simulations
@@ -316,8 +314,7 @@ def test_variable_chemotaxis(
     plot_simulation_output(
         timeseries,
         plot_settings,
-        out_dir,
-        'exponential_timeline')
+        out_dir)
 
 
 def make_dir(out_dir):
@@ -349,5 +346,5 @@ if __name__ == '__main__':
         make_dir(expression_out_dir)
         test_expression_chemotaxis(
             n_flagella=args.flagella,
-            total_time=60,
+            total_time=960,
             out_dir=expression_out_dir)

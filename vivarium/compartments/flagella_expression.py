@@ -213,7 +213,7 @@ def run_flagella_expression(out_dir='out'):
     initial_state = get_flagella_initial_state()
     settings = {
         'timestep': 1,
-        'total_time': 30,  #960,
+        'total_time': 960,
         'verbose': True,
         'initial_state': initial_state}
     timeseries = simulate_compartment_in_experiment(flagella_compartment, settings)
