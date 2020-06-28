@@ -131,7 +131,7 @@ class FlagellaActivity(Process):
 
         # flagella
         schema['flagella'] = {
-            # '_divider': 'split_dict',
+            '_divider': 'split_dict',
             '*': {
                 '_default': 1,
                 '_updater': 'set',

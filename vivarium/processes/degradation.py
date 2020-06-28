@@ -60,8 +60,6 @@ class RnaDegradation(Process):
         self.derive_defaults('catalysis_rates', 'protein_order', keys_list)
 
         self.sequences = self.parameters['sequences']
-
-        # TODO catalysis rates is k_cat, degradation rates is km???
         self.catalysis_rates = self.parameters['catalysis_rates']
         self.degradation_rates = self.parameters['degradation_rates']
         self.transcript_order = self.parameters['transcript_order']
