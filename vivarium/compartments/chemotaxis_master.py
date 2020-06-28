@@ -54,7 +54,7 @@ class ChemotaxisMaster(Compartment):
             'degradation': get_flagella_expression_config({})['degradation'],
             'complexation': get_flagella_expression_config({})['complexation'],
             'receptor': {'ligand': 'MeAsp'},
-            'flagella': {'flagella': 5},
+            'flagella': {'n_flagella': 5},
             'PMF': {},
             'division': {},
         }
