@@ -55,12 +55,8 @@ class Injector(Process):
             initial_parameters = {}
 
         self.substrate_rate_map = initial_parameters['substrate_rate_map']
-        ports = {
-            'internal': [
-                substrate for substrate in self.substrate_rate_map
-            ]
-        }
-        super(Injector, self).__init__(ports, initial_parameters)
+
+        super(Injector, self).__init__(initial_parameters)
 
     def ports_schema(self):
         return {
@@ -97,7 +93,7 @@ def run_injector():
 def test_injector():
     timeseries = run_injector()
     # Expect [0, 1, ..., 10] because 0 at start
-    expected = [i + 1 for i in range(10)]
+    expected = [i for i in range(11)]
     assert expected == timeseries['internal']['toy']
 
 

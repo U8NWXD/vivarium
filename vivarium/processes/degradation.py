@@ -27,26 +27,39 @@ def kinetics(E, S, kcat, km):
 
 DEFAULT_TRANSCRIPT_DEGRADATION_KM = 1e-23
 
+TOY_CONFIG = {
+    'sequences': {
+        'oA': 'GCC',
+        'oAZ': 'GCCGUGCAC',
+        'oB': 'AGUUGA',
+        'oBY': 'AGUUGACGG'
+    },
+    'catalysis_rates': {
+        'endoRNAse': 0.1
+    },
+    'degradation_rates': {
+        'transcripts': {
+            'endoRNAse': {
+                'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+            }
+        }
+    }
+}
+
+
 class RnaDegradation(Process):
     defaults = {
-        'sequences': {
-            # 'oA': 'GCC',
-            # 'oAZ': 'GCCGUGCAC',
-            # 'oB': 'AGUUGA',
-            # 'oBY': 'AGUUGACGG'
-        },
-
+        'sequences': {},
         'catalysis_rates': {
             'endoRNAse': 0.1},
-
         'degradation_rates': {
             'transcripts': {
-                'endoRNAse': {
-                    # 'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    # 'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    # 'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    # 'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM
-                }}},
+                'endoRNAse': {}
+            }
+        },
         'global_deriver_key': 'global_deriver',
     }
 
@@ -162,26 +175,21 @@ class RnaDegradation(Process):
             'molecules': delta_molecules}
 
 
-def test_rna_degradation(end_time=100):
-    parameters = {
-        'catalysis_rates': {
-            'endoRNAse': 0.1}}
-    rna_degradation = RnaDegradation(parameters)
+def test_rna_degradation(end_time=10):
+    rna_degradation = RnaDegradation(TOY_CONFIG)
 
+    # initial state
     proteins = {
         protein: 10
         for protein in rna_degradation.protein_order}
-
     molecules = {
         molecule: 10
         for molecule in rna_degradation.molecule_order}
-
     transcripts = {
         transcript: 10
         for transcript in rna_degradation.transcript_order}
 
     settings = {
-        'timestep': 1,
         'total_time': end_time,
         'initial_state': {
             'molecules': molecules,
@@ -197,5 +205,5 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
 
     plot_settings = {}
-    timeseries = test_rna_degradation()
+    timeseries = test_rna_degradation(100)
     plot_simulation_output(timeseries, plot_settings, out_dir)
