@@ -30,10 +30,11 @@ DEFAULT_TRANSCRIPT_DEGRADATION_KM = 1e-23
 class RnaDegradation(Process):
     defaults = {
         'sequences': {
-            'oA': 'GCC',
-            'oAZ': 'GCCGUGCAC',
-            'oB': 'AGUUGA',
-            'oBY': 'AGUUGACGG'},
+            # 'oA': 'GCC',
+            # 'oAZ': 'GCCGUGCAC',
+            # 'oB': 'AGUUGA',
+            # 'oBY': 'AGUUGACGG'
+        },
 
         'catalysis_rates': {
             'endoRNAse': 0.1},
@@ -41,10 +42,11 @@ class RnaDegradation(Process):
         'degradation_rates': {
             'transcripts': {
                 'endoRNAse': {
-                    'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
-                    'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM}}},
+                    # 'oA': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    # 'oAZ': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    # 'oB': DEFAULT_TRANSCRIPT_DEGRADATION_KM,
+                    # 'oBY': DEFAULT_TRANSCRIPT_DEGRADATION_KM
+                }}},
         'global_deriver_key': 'global_deriver',
     }
 
@@ -58,6 +60,8 @@ class RnaDegradation(Process):
         self.derive_defaults('catalysis_rates', 'protein_order', keys_list)
 
         self.sequences = self.parameters['sequences']
+
+        # TODO catalysis rates is k_cat, degradation rates is km???
         self.catalysis_rates = self.parameters['catalysis_rates']
         self.degradation_rates = self.parameters['degradation_rates']
         self.transcript_order = self.parameters['transcript_order']
