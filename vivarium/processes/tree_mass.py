@@ -46,6 +46,7 @@ class TreeMass(Deriver):
                     '_updater': 'set',
                     '_divider': 'split'},
                 'mass': {
+                    '_default': self.initial_mass,
                     '_emit': True,
                     '_updater': 'set'}}}
 

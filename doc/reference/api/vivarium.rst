@@ -8,14 +8,15 @@ Subpackages
 
    vivarium.actor
    vivarium.analysis
-   vivarium.compartment
-   vivarium.composites
+   vivarium.compartments
+   vivarium.core
    vivarium.data
-   vivarium.environment
+   vivarium.experiments
+   vivarium.library
    vivarium.parameters
+   vivarium.plots
    vivarium.processes
    vivarium.states
-   vivarium.utils
 
 Module contents
 ---------------

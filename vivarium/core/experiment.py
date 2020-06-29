@@ -1,3 +1,10 @@
+"""
+==========================================
+Experiment, Compartment, and Store Classes
+==========================================
+"""
+
+
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -116,10 +123,31 @@ def identity(y):
 
 
 class Store(object):
+    """Holds a subset of the overall model state
+
+    The total state of the model can be broken down into :term:`stores`,
+    each of which is represented by an instance of this `Store` class.
+    The store's state is a set of :term:`variables`, each of which is
+    defined by a set of :term:`schema key-value pairs`. The valid schema
+    keys are listed in :py:attr:`schema_keys`, and they are:
+
+    * **_default** (Type should match the variable value): The default
+      value of the variable.
+    * **_updater** (:py:class:`str`): The name of the :term:`updater` to
+      use. By default this is ``accumulate``.
+    * **_divider** (:py:class:`str`): The name of the :term:`divider` to
+      use.
+    * **_value** (Type should match the variable value): The current
+      value of the variable. This is ``None`` by default.
+    * **_properties** (:py:class:`dict`): Extra properties of the
+      variable that don't have a specific schema key. This is an empty
+      dictionary by default.
+    * **_emit** (:py:class:`bool`): Whether to emit the variable to the
+      :term:`emitter`. This is ``False`` by default.
+    """
     schema_keys = set([
         '_default',
         '_updater',
-        '_divider',
         '_value',
         '_properties',
         '_emit',
@@ -216,6 +244,14 @@ class Store(object):
             self.merge_subtopology(config['_subtopology'])
             config = without(config, '_subtopology')
 
+        if '_divider' in config:
+            self.divider = config['_divider']
+            if isinstance(self.divider, str):
+                self.divider = divider_library[self.divider]
+            if isinstance(self.divider, dict) and isinstance(self.divider['divider'], str):
+                self.divider['divider'] = divider_library[self.divider['divider']]
+            config = without(config, '_divider')
+
         if self.schema_keys & set(config.keys()):
             if self.inner:
                 raise Exception('trying to assign leaf values to a branch at: {}'.format(self.path_for()))
@@ -241,11 +277,6 @@ class Store(object):
             self.updater = config.get('_updater', self.updater or 'accumulate')
             if isinstance(self.updater, str):
                 self.updater = updater_library[self.updater]
-            self.divider = config.get('_divider', self.divider)
-            if isinstance(self.divider, str):
-                self.divider = divider_library[self.divider]
-            if isinstance(self.divider, dict) and isinstance(self.divider['divider'], str):
-                self.divider['divider'] = divider_library[self.divider['divider']]
 
             self.properties = deep_merge(
                 self.properties,
@@ -284,12 +315,16 @@ class Store(object):
         '''
 
         config = {}
+
         if self.properties:
             config['_properties'] = self.properties
         if self.subschema:
             config['_subschema'] = self.subschema
         if self.subtopology:
             config['_subtopology'] = self.subtopology
+        if self.divider:
+            config['_divider'] = self.divider
+
         if sources and self.sources:
             config['_sources'] = self.sources
 
@@ -298,14 +333,13 @@ class Store(object):
                 key: child.get_config(sources)
                 for key, child in self.inner.items()}
             config.update(child_config)
+
         else:
             config.update({
                 '_default': self.default,
                 '_value': self.value})
             if self.updater:
                 config['_updater'] = self.updater
-            if self.divider:
-                config['_divider'] = self.divider
             if self.units:
                 config['_units'] = self.units
             if self.emit:
@@ -466,9 +500,9 @@ class Store(object):
                 divider = self.divider['divider']
                 topology = self.divider['topology']
                 state = self.outer.get_values(topology)
-                return divider(self.value, state)
+                return divider(self.get_value(), state)
             else:
-                return self.divider(self.value)
+                return self.divider(self.get_value())
         elif self.inner:
             daughters = [{}, {}]
             for key, child in self.inner.items():
@@ -521,7 +555,6 @@ class Store(object):
         '''
         If value is None, set to default.
         '''
-
         if self.inner:
             for child in self.inner.values():
                 child.apply_defaults()
@@ -730,6 +763,8 @@ class Store(object):
                         node = self.get_path(path)
                         for child, child_node in node.inner.items():
                             state[child] = child_node.schema_topology(subschema, {})
+                elif key == '_divider':
+                    pass
                 elif isinstance(path, dict):
                     node, path = self.outer_path(path)
                     state[key] = node.schema_topology(subschema, path)
@@ -876,11 +911,13 @@ class Store(object):
 
         source = source or self.path_for()
 
-        if schema.keys() & self.schema_keys:
+        if set(schema.keys()) & self.schema_keys:
             self.get_path(topology).apply_config(schema)
         else:
-            mismatch_topology = topology.keys() - schema.keys()
-            mismatch_schema = schema.keys() - topology.keys()
+            mismatch_topology = (
+                set(topology.keys()) - set(schema.keys()))
+            mismatch_schema = (
+                set(schema.keys()) - set(topology.keys()))
             if mismatch_topology:
                 raise Exception(
                     'topology at path {} and source {} has keys that are not in the schema: {}'.format(
@@ -1051,21 +1088,61 @@ def generate_derivers(processes, topology):
 
 
 class Compartment(object):
+    """Compartment parent class
+
+    All :term:`compartment` classes must inherit from this class.
+    """
     def __init__(self, config):
         self.config = config
 
     def generate_processes(self, config):
+        """Generate processes dictionary
+
+        Every subclass must override this method.
+
+        Arguments:
+            config (dict): A dictionary of configuration options. All
+                subclass implementation must accept this parameter, but
+                some may ignore it.
+
+        Returns:
+            dict: Subclass implementations must return a dictionary
+            mapping process names to instantiated and configured process
+            objects.
+        """
         return {}
 
     def generate_topology(self, config):
+        """Generate topology dictionary
+
+        Every subclass must override this method.
+
+        Arguments:
+            config (dict): A dictionary of configuration options. All
+                subclass implementation must accept this parameter, but
+                some may ignore it.
+
+        Returns:
+            dict: Subclass implementations must return a :term:`topology`
+            dictionary.
+        """
         return {}
 
     def generate(self, config=None, path=tuple()):
-        '''
-        Generate processes and topology for the compartment
-        :param config: (dict) updates values in the configuration declared in the constructor
-        :param path: (tuple) with ('path', 'to', 'level') associates the processes and topology at this level
-        :return: (dict) with entries for 'processes' and 'topology'
+        '''Generate processes and topology dictionaries for the compartment
+
+        Arguments:
+            config (dict): Updates values in the configuration declared
+                in the constructor
+            path (tuple): Tuple with ('path', 'to', 'level') associates
+                the processes and topology at this level
+
+        Returns:
+            dict: Dictionary with two keys: ``processes``, which has a
+            value of a processes dictionary, and ``topology``, which has
+            a value of a topology dictionary. Both are suitable to be
+            passed to the constructor for
+            :py:class:`vivarium.core.experiment.Experiment`.
         '''
 
         # merge config with self.config
@@ -1128,9 +1205,46 @@ def timestamp(dt=None):
 
 class Experiment(object):
     def __init__(self, config):
+        """Defines simulations
+
+        Arguments:
+            config (dict): A dictionary of configuration options. The
+                required options are:
+
+                * **processes** (:py:class:`dict`): A dictionary that
+                    maps :term:`process` names to process objects. You
+                    will usually get this from the ``processes``
+                    attribute of the dictionary from
+                    :py:meth:`vivarium.core.experiment.Compartment.generate`.
+                * **topology** (:py:class:`dict`): A dictionary that
+                    maps process names to sub-dictionaries. These
+                    sub-dictionaries map the process's port names to
+                    tuples that specify a path through the :term:`tree`
+                    from the :term:`compartment` root to the
+                    :term:`store` that will be passed to the process for
+                    that port.
+
+                The following options are optional:
+
+                * **experiment_id** (:py:class:`uuid.UUID` or
+                    :py:class:`str`): A unique identifier for the
+                    experiment. A UUID will be generated if none is
+                    provided.
+                * **description** (:py:class:`str`): A description of
+                    the experiment. A blank string by default.
+                * **initial_state** (:py:class:`dict`): By default an
+                    empty dictionary, this is the initial state of the
+                    simulation.
+                * **emitter** (:py:class:`dict`): An emitter
+                    configuration which must conform to the
+                    specification in the documentation for
+                    :py:func:`vivarium.core.emitter.get_emitter`. The
+                    experiment ID will be added to the dictionary you
+                    provide as the value for the key ``experiment_id``.
+        """
         self.config = config
         self.experiment_id = config.get(
-            'experiment_id', datetime.datetime.now().isoformat())
+            'experiment_id', timestamp(datetime.datetime.utcnow()))
         self.description = config.get('description', '')
         self.processes = config['processes']
         self.topology = config['topology']
@@ -1448,6 +1562,7 @@ def test_topology_ports():
                     '_updater': 'set',
                     '_default': self.radius},
                 'quarks': {
+                    '_divider': 'split_dict',
                     '*': {
                         'color': {
                             '_updater': 'set',
@@ -1571,6 +1686,7 @@ def test_topology_ports():
     experiment.update(10.0)
 
     log.debug(pf(experiment.state.get_config(True)))
+    log.debug(pf(experiment.state.divide_value()))
 
 
 def test_timescales():

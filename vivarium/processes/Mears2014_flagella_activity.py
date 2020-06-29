@@ -61,7 +61,7 @@ class FlagellaActivity(Process):
     '''
 
     defaults = {
-        'flagella': 5,
+        'n_flagella': 5,
         'parameters': DEFAULT_PARAMETERS,
         'initial_internal_state': {
             'CheY': 2.59,
@@ -82,7 +82,7 @@ class FlagellaActivity(Process):
             initial_parameters = {}
 
         self.n_flagella = self.or_default(
-            initial_parameters, 'flagella')
+            initial_parameters, 'n_flagella')
         self.flagellum_thrust = self.or_default(
             initial_parameters, 'flagellum_thrust')
         self.tumble_jitter = self.or_default(
@@ -130,11 +130,12 @@ class FlagellaActivity(Process):
             '_emit': True}
 
         # flagella
-        schema['flagella']['*'] = {
-            '_default': 1,
-            '_updater': 'set',
-            '_emit': True}
-        schema['flagella']['_divider'] = 'split_dict'  # TODO -- get subschema to divide.
+        schema['flagella'] = {
+            '_divider': 'split_dict',
+            '*': {
+                '_default': 1,
+                '_updater': 'set',
+                '_emit': True}}
 
         return schema
 
@@ -269,7 +270,7 @@ class FlagellaActivity(Process):
 
 
 # testing functions
-default_params = {'flagella': 5}
+default_params = {'n_flagella': 5}
 default_timeline = [(10, {})]
 def test_activity(parameters=default_params, timeline=default_timeline):
     motor = FlagellaActivity(parameters)
@@ -315,7 +316,7 @@ def test_motor_PMF():
 
 def run_variable_flagella(out_dir):
     # variable flagella
-    init_params = {'flagella': 5}
+    init_params = {'n_flagella': 5}
     timeline = [
         (0, {}),
         (60, {('internal_counts', 'flagella'): 6}),
@@ -339,12 +340,12 @@ if __name__ == '__main__':
     if args.variable:
         run_variable_flagella(out_dir)
     elif args.zero:
-        zero_flagella = {'flagella': 0}
+        zero_flagella = {'n_flagella': 0}
         timeline = [(10, {})]
         output1 = test_activity(zero_flagella, timeline)
         plot_activity(output1, out_dir, 'motor_control_zero_flagella')
     else:
-        five_flagella = {'flagella': 5}
+        five_flagella = {'n_flagella': 5}
         timeline = [(60, {})]
         output2 = test_activity(five_flagella, timeline)
         plot_activity(output2, out_dir, 'motor_control')

@@ -5,7 +5,6 @@ import random
 
 import numpy as np
 import matplotlib
-matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 
 from vivarium.core.process import Process
@@ -16,6 +15,10 @@ from vivarium.core.composition import simulate_process
 class CellularPotts(Process):
     """
     Cellular Potts model
+
+    To run with animation on set animate: True, and use the TKAgg matplotlib backend:
+    > MPLBACKEND=TKAgg python vivarium/processes/cellular_potts.py
+
     """
 
     defaults = {

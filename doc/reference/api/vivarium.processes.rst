@@ -19,21 +19,27 @@ Submodules
    vivarium.processes.derive_concentrations
    vivarium.processes.derive_counts
    vivarium.processes.derive_globals
-   vivarium.processes.derive_mass
    vivarium.processes.diffusion_field
    vivarium.processes.diffusion_network
-   vivarium.processes.division
+   vivarium.processes.division_volume
+   vivarium.processes.glucose_phosphorylation
    vivarium.processes.growth
+   vivarium.processes.growth_protein
+   vivarium.processes.injector
    vivarium.processes.membrane_potential
+   vivarium.processes.meta_division
    vivarium.processes.metabolism
    vivarium.processes.minimal_expression
    vivarium.processes.multibody_physics
    vivarium.processes.ode_expression
+   vivarium.processes.one_dim_environment
    vivarium.processes.template_process
+   vivarium.processes.timeline
    vivarium.processes.toxin-antitoxin
    vivarium.processes.transcription
    vivarium.processes.translation
    vivarium.processes.transport_lookup
+   vivarium.processes.tree_mass
 
 Module contents
 ---------------

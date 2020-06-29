@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import copy
 import csv
 import os
@@ -547,6 +549,7 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
     max_rows = settings.get('max_rows', 25)
     skip_paths = settings.get('skip_paths', [])
     title_size = settings.get('title_size', 16)
+    tick_label_size = settings.get('tick_label_size', 12)
     time_vec = list(data.keys())
     timeseries = path_timeseries_from_data(data)
 
@@ -605,6 +608,12 @@ def plot_agents_multigen(data, settings={}, out_dir='out', filename='agents'):
 
             # make the subplot axis
             ax = fig.add_subplot(grid[row_idx, col_idx])
+            for tick_type in ('major', 'minor'):
+                ax.tick_params(
+                    axis='both',
+                    which=tick_type,
+                    labelsize=tick_label_size,
+                )
             ax.title.set_text(path)
             ax.title.set_fontsize(title_size)
             ax.set_xlim([time_vec[0], time_vec[-1]])
@@ -735,7 +744,7 @@ def _prepare_timeseries_for_comparison(
     shared_times = set(timeseries1['time']) & set(timeseries2['time'])
     frac_timepoints_checked = (
         len(shared_times)
-        / min(len(timeseries1), len(timeseries2))
+        / min(len(timeseries1['time']), len(timeseries2['time']))
     )
     if frac_timepoints_checked < required_frac_checked:
         raise AssertionError(

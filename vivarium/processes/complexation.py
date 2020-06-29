@@ -4,10 +4,12 @@ import copy
 import numpy as np
 from arrow import StochasticSystem
 
-from vivarium.data.molecular_weight import molecular_weight
+from vivarium.core.composition import simulate_process_in_experiment
 from vivarium.library.dict_utils import keys_list
-from vivarium.core.process import Process
+from vivarium.data.molecular_weight import molecular_weight
 from vivarium.data.chromosomes.flagella_chromosome import FlagellaChromosome
+from vivarium.core.process import Process
+
 
 chromosome = FlagellaChromosome()
 
@@ -139,9 +141,14 @@ def test_complexation():
             complex: 0
             for complex in complexation.complex_ids}}
 
-    update = complexation.next_update(1.0, state)
-    print('initial state: {}'.format(state))
-    print('complexation update: {}'.format(update))
+    settings = {
+        'total_time': 10,
+        'initial_state': state,
+    }
+    data = simulate_process_in_experiment(complexation, settings)
+
+    print(data)
+
 
 if __name__ == '__main__':
     test_complexation()

@@ -533,7 +533,8 @@ class Translation(Process):
             key: count * -1
             for key, count in elongation.monomers.items()}
 
-        completed_ribosomes = original_ribosome_keys - ribosomes.keys()
+        completed_ribosomes = (
+            set(original_ribosome_keys) - set(ribosomes.keys()))
         ribosome_updates = {
             id: ribosome
             for id, ribosome in ribosomes.items()

@@ -10,7 +10,6 @@ import math
 import numpy as np
 
 import matplotlib
-matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -86,6 +85,9 @@ def daughter_locations(parent_location, parent_values):
 class Multibody(Process):
     """
     A multi-body physics process using pymunk
+
+    To run with animation on set animate: True, and use the TKAgg matplotlib backend:
+    > MPLBACKEND=TKAgg python vivarium/processes/multibody_physics.py
 
     Notes:
     - rotational diffusion in liquid medium with viscosity = 1 mPa.s: Dr = 3.5+/-0.3 rad^2/s

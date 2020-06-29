@@ -61,7 +61,7 @@ molecular_weight = {
     'flagellar export apparatus': 808657.0,  # from stoichiometry
     'flagellar motor switch': 2257897.0,   # from stoichiometry
     'flagellar motor': 2575900.0,  # from stoichiometry
-    'flagellum': 8815743.0,  # from stoichiometry
+    'flagella': 8815743.0,  # from stoichiometry
 }
 
 molecular_weight = {

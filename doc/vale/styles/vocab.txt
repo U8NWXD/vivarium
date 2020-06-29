@@ -1,3 +1,4 @@
+config
 deriver
 derivers
 timestep
@@ -9,6 +10,7 @@ multiscale
 discretize
 pseudocode
 docstrings
+fg
 hexokinase
 adenosine
 triphosphate
@@ -21,6 +23,7 @@ unarchive
 numpy
 scipy
 https
+wirable
 www
 discretization
 discretizing
