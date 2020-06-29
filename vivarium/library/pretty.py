@@ -12,7 +12,7 @@ def _json_serialize(elem):
     if isinstance(elem, np.int64):
         return int(elem)
     if inspect.isfunction(elem):
-        return f'<function {elem.__name__}>'
+        return '<function {}>'.format(elem.__name__)
     if inspect.isclass(elem):
         return str(elem)
     if isinstance(elem, (Compartment, Process)):
